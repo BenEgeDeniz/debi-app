@@ -84,9 +84,16 @@ function render_event_card(array $event, array $currentUser, array $managedAtten
             <div class="event-participation">
                 <strong><?= $isCreator ? 'Etkinliği siz oluşturuyorsunuz; katılımınız otomatik kaydedildi.' : ($event['attendee_status'] === 'attended' ? 'Yoklamada katıldığınız işaretlendi.' : ($event['ended'] ? 'Yoklamada yok yazıldınız.' : 'Katılımınız kayıtlı, yoklama bekleniyor.')) ?></strong>
                 <?php if ($needsPhoto): ?>
+                    <div class="event-form-heading">
+                        <span>Katılım fotoğrafı</span>
+                        <small>Fotoğrafın doğrulanırsa etkinlik puanın hesabına eklenir.</small>
+                    </div>
                     <form method="post" enctype="multipart/form-data" class="event-photo-form">
                         <?= csrf_field() ?><input type="hidden" name="action" value="upload_event_photo"><input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>">
-                        <input type="file" name="event_photo" accept="image/jpeg,image/png,image/webp" required>
+                        <label class="event-file-input">
+                            <span>Fotoğraf seç</span>
+                            <input type="file" name="event_photo" accept="image/jpeg,image/png,image/webp" required>
+                        </label>
                         <button class="btn btn-outline btn-sm">Fotoğraf yükle ve doğrula</button>
                     </form>
                 <?php elseif ($event['attendee_status'] === 'attended' && !$event['ended']): ?>
@@ -104,11 +111,15 @@ function render_event_card(array $event, array $currentUser, array $managedAtten
             </form>
             <form method="post" class="event-attendance">
                 <?= csrf_field() ?><input type="hidden" name="action" value="mark_attendance"><input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>">
-                <h3>Yoklama</h3>
-                <p class="form-help">Etkinlik başladı; yalnızca gerçekten gelenleri işaretleyin.</p>
-                <?php foreach ($managedAttendees[(int) $event['id']] ?? [] as $attendee): ?>
-                    <label><input type="checkbox" name="attendee_ids[]" value="<?= (int) $attendee['user_id'] ?>" <?= $attendee['user_id'] == $currentUser['id'] || $attendee['status'] === 'attended' ? 'checked' : '' ?> <?= $attendee['user_id'] == $currentUser['id'] ? 'disabled' : '' ?>> <?= e($attendee['full_name']) ?><?= $attendee['user_id'] == $currentUser['id'] ? ' (oluşturan)' : '' ?></label>
-                <?php endforeach; ?>
+                <div class="event-form-heading">
+                    <h3>Yoklama</h3>
+                    <small>Etkinliğe gerçekten gelen kişileri işaretleyin.</small>
+                </div>
+                <div class="event-attendee-list">
+                    <?php foreach ($managedAttendees[(int) $event['id']] ?? [] as $attendee): ?>
+                        <label class="event-attendee-option"><input type="checkbox" name="attendee_ids[]" value="<?= (int) $attendee['user_id'] ?>" <?= $attendee['user_id'] == $currentUser['id'] || $attendee['status'] === 'attended' ? 'checked' : '' ?> <?= $attendee['user_id'] == $currentUser['id'] ? 'disabled' : '' ?>> <span><?= e($attendee['full_name']) ?><?= $attendee['user_id'] == $currentUser['id'] ? ' (oluşturan)' : '' ?></span></label>
+                    <?php endforeach; ?>
+                </div>
                 <button class="btn btn-outline btn-sm">Yoklamayı kaydet</button>
             </form>
         <?php endif; ?>
