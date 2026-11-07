@@ -305,6 +305,20 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
 
         $pdo->beginTransaction();
         $keptRefs = [];
+        $existingLogsStmt = $pdo->prepare("
+            SELECT id, ref_key, points
+            FROM point_logs
+            WHERE household_id = :hid AND action_code = 'bill_drops_earned'
+        ");
+        $existingLogsStmt->execute([':hid' => $householdId]);
+        $existingLogs = [];
+        foreach ($existingLogsStmt->fetchAll() as $existingLog) {
+            $existingLogs[(string) $existingLog['ref_key']] = [
+                'id'     => (int) $existingLog['id'],
+                'points' => (int) $existingLog['points'],
+            ];
+        }
+        $pointDelta = 0;
         $existingLogStmt = $pdo->prepare("
             SELECT id
             FROM point_logs
@@ -337,8 +351,10 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
                 ':description' => $pointRow['label'],
             ];
             if ($existingLogId) {
+                $pointDelta += $pointRow['points'] - ($existingLogs[$refKey]['points'] ?? 0);
                 $updateLogStmt->execute($logParams + [':id' => (int) $existingLogId]);
             } else {
+                $pointDelta += $pointRow['points'];
                 $insertLogStmt->execute($logParams + [
                     ':hid'     => $householdId,
                     ':ref_key' => $refKey,
@@ -353,6 +369,11 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
                 $staleKeys[] = $param;
                 $staleParams[$param] = $refKey;
             }
+            foreach ($existingLogs as $refKey => $existingLog) {
+                if (!in_array($refKey, $keptRefs, true)) {
+                    $pointDelta -= $existingLog['points'];
+                }
+            }
             $pdo->prepare("
                 DELETE FROM point_logs
                 WHERE household_id = :hid
@@ -364,17 +385,18 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
                 DELETE FROM point_logs
                 WHERE household_id = :hid AND action_code = 'bill_drops_earned'
             ")->execute([':hid' => $householdId]);
+            foreach ($existingLogs as $existingLog) {
+                $pointDelta -= $existingLog['points'];
+            }
         }
         $pdo->prepare("
             UPDATE households
-            SET total_points = COALESCE((
-                SELECT SUM(pl.points)
-                FROM point_logs pl
-                WHERE pl.household_id = households.id
-                  AND pl.action_code = 'bill_drops_earned'
-            ), 0)
+            SET total_points = GREATEST(0, total_points + :point_delta)
             WHERE id = :hid
-        ")->execute([':hid' => $householdId]);
+        ")->execute([
+            ':point_delta' => $pointDelta,
+            ':hid'         => $householdId,
+        ]);
 
         // Daire Bazlı Gölet (household_ponds) tablosunu güncelle
         $pondUpd = $pdo->prepare("
