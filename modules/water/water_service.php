@@ -46,10 +46,6 @@ function save_water_log(array $user, array $input): array
     $dailyLitersPerPerson = round(($consumptionM3 * 1000) / ($readingDays * $residentCount), 1);
     $aiVerified           = !empty($input['ai_verified']) ? 1 : 0;
 
-    if (function_exists('ensure_gamification_schema')) {
-        ensure_gamification_schema();
-    }
-
     $pdo = db();
 
     $stmt = $pdo->prepare("
@@ -169,10 +165,6 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
     }
 
     try {
-        if (function_exists('ensure_gamification_schema')) {
-            ensure_gamification_schema();
-        }
-
         $pdo = db();
         $typeStmt = $pdo->prepare("SELECT housing_type FROM households WHERE id = :hid LIMIT 1");
         $typeStmt->execute([':hid' => $householdId]);
@@ -527,10 +519,6 @@ function toggle_household_habit(int $householdId, int $habitId, int $userId = 0)
  */
 function get_household_pond_state(int $householdId): array
 {
-    if (function_exists('ensure_gamification_schema')) {
-        ensure_gamification_schema();
-    }
-
     $defaultState = [
         'household_id'       => $householdId,
         'total_drops'        => 0,

@@ -4,191 +4,6 @@
  */
 
 /**
- * Tabloların varlığını kontrol eder, henüz 005 veya 006 SQL yüklenmemişse hata vermemesi için güvenli kurulum yapar.
- */
-function ensure_gamification_schema(): void
-{
-    static $checked = false;
-    if ($checked) {
-        return;
-    }
-    $checked = true;
-
-    try {
-        $pdo = db();
-
-        // 1. 005_post_images_and_alerts.sql kontrolü (neighborhood_alerts tablosu ve posts.image_path sütunu)
-        $hasAlerts = (bool) $pdo->query("SHOW TABLES LIKE 'neighborhood_alerts'")->fetchColumn();
-        if (!$hasAlerts) {
-            $sql005 = __DIR__ . '/../../sql-dum/005_post_images_and_alerts.sql';
-            if (file_exists($sql005)) {
-                run_sql_migration_file($pdo, $sql005);
-            }
-        }
-
-        // 2. 006_gamification_points.sql kontrolü (point_logs tablosu ve hane puanı)
-        $hasPointLogs  = (bool) $pdo->query("SHOW TABLES LIKE 'point_logs'")->fetchColumn();
-        $hasHouseholdPoints = (bool) $pdo->query("SHOW COLUMNS FROM `households` LIKE 'total_points'")->fetchColumn();
-
-        if (!$hasPointLogs || !$hasHouseholdPoints) {
-            $sql006 = __DIR__ . '/../../sql-dum/006_gamification_points.sql';
-            if (file_exists($sql006)) {
-                run_sql_migration_file($pdo, $sql006);
-            }
-        }
-
-        // 3. 007_bill_images.sql kontrolü (water_logs.bill_image_path sütunu)
-        $hasBillImage = (bool) $pdo->query("SHOW COLUMNS FROM `water_logs` LIKE 'bill_image_path'")->fetchColumn();
-        if (!$hasBillImage) {
-            $sql007 = __DIR__ . '/../../sql-dum/007_bill_images.sql';
-            if (file_exists($sql007)) {
-                run_sql_migration_file($pdo, $sql007);
-            }
-        }
-
-        // 4. 008_friendships_and_timeline.sql kontrolü (friendships tablosu ve posts.visibility ENUM güncellemesi)
-        $hasFriendships = (bool) $pdo->query("SHOW TABLES LIKE 'friendships'")->fetchColumn();
-        if (!$hasFriendships) {
-            $sql008 = __DIR__ . '/../../sql-dum/008_friendships_and_timeline.sql';
-            if (file_exists($sql008)) {
-                run_sql_migration_file($pdo, $sql008);
-            }
-        }
-
-        // 5. 009_profile_and_cover_photos.sql kontrolü (users.avatar_photo ve users.cover_photo sütunları)
-        $hasAvatarPhoto = (bool) $pdo->query("SHOW COLUMNS FROM `users` LIKE 'avatar_photo'")->fetchColumn();
-        if (!$hasAvatarPhoto) {
-            $sql009 = __DIR__ . '/../../sql-dum/009_profile_and_cover_photos.sql';
-            if (file_exists($sql009)) {
-                run_sql_migration_file($pdo, $sql009);
-            }
-        }
-
-        // 6. 010_household_unit_manager_and_residents.sql kontrolü (households.owner_user_id ve unit_invite_code)
-        $hasUnitInvite = (bool) $pdo->query("SHOW COLUMNS FROM `households` LIKE 'unit_invite_code'")->fetchColumn();
-        if (!$hasUnitInvite) {
-            $sql010 = __DIR__ . '/../../sql-dum/010_household_unit_manager_and_residents.sql';
-            if (file_exists($sql010)) {
-                run_sql_migration_file($pdo, $sql010);
-            }
-        }
-
-        // 7. 101_collective_pond_and_bill_points.sql içindeki fatura alanlarını kur
-        $hasSavedM3Column  = (bool) $pdo->query("SHOW COLUMNS FROM `water_logs` LIKE 'saved_m3'")->fetchColumn();
-        if (!$hasSavedM3Column) {
-            $sql101 = __DIR__ . '/../../sql-dum/101_collective_pond_and_bill_points.sql';
-            if (file_exists($sql101)) {
-                run_sql_migration_file($pdo, $sql101);
-            }
-        }
-
-        $hasRetiredGamificationTable = (bool) $pdo->query("
-            SELECT 1 FROM information_schema.tables
-            WHERE table_schema = DATABASE() AND table_name = 'debi_schema_versions'
-        ")->fetchColumn() && (bool) $pdo->query("
-            SELECT 1 FROM debi_schema_versions
-            WHERE version = '105_remove_retired_gamification_tables'
-        ")->fetchColumn();
-
-        // 8. 102_household_pond_and_ai_drops.sql içindeki fatura doğrulama alanını kur
-        $hasAiVerifiedCol = (bool) $pdo->query("SHOW COLUMNS FROM `water_logs` LIKE 'ai_verified'")->fetchColumn();
-        if (!$hasRetiredGamificationTable && !$hasAiVerifiedCol) {
-            $sql102 = __DIR__ . '/../../sql-dum/102_household_pond_and_ai_drops.sql';
-            if (file_exists($sql102)) {
-                run_sql_migration_file($pdo, $sql102);
-            }
-        }
-
-        // 9. Eski kullanıcı/kolektif puanlarını ortak hane sistemine dönüştür
-        $hasPointCleanup = (bool) $pdo->query("
-            SELECT 1
-            FROM information_schema.tables
-            WHERE table_schema = DATABASE() AND table_name = 'debi_schema_versions'
-        ")->fetchColumn();
-        $cleanupDone = $hasPointCleanup && (bool) $pdo->query("
-            SELECT 1 FROM debi_schema_versions WHERE version = '103_household_only_points'
-        ")->fetchColumn();
-        if (!$cleanupDone) {
-            $sql103 = __DIR__ . '/../../sql-dum/103_household_only_points.sql';
-            if (file_exists($sql103)) {
-                run_sql_migration_file($pdo, $sql103);
-            }
-        }
-
-        $pointsPolicyDone = $hasPointCleanup && (bool) $pdo->query("
-            SELECT 1 FROM debi_schema_versions WHERE version = '104_invoice_only_points'
-        ")->fetchColumn();
-        if (!$pointsPolicyDone) {
-            $sql104 = __DIR__ . '/../../sql-dum/104_invoice_only_points.sql';
-            if (file_exists($sql104)) {
-                run_sql_migration_file($pdo, $sql104);
-            }
-        }
-
-        $retiredGamificationDone = $hasPointCleanup && (bool) $pdo->query("
-            SELECT 1 FROM debi_schema_versions
-            WHERE version = '105_remove_retired_gamification_tables'
-        ")->fetchColumn();
-        if (!$retiredGamificationDone) {
-            $sql105 = __DIR__ . '/../../sql-dum/105_remove_retired_gamification_tables.sql';
-            if (file_exists($sql105)) {
-                run_sql_migration_file($pdo, $sql105);
-            }
-        }
-
-        // Mevcut hanelerde owner_user_id veya unit_invite_code eksikse otomatik tamamla
-        $pdo->exec("
-            UPDATE households h
-            SET h.owner_user_id = (
-                SELECT MIN(u.id) FROM users u WHERE u.household_id = h.id
-            )
-            WHERE h.owner_user_id IS NULL
-        ");
-
-        $missingCodes = $pdo->query("SELECT id FROM households WHERE unit_invite_code IS NULL OR unit_invite_code = ''")->fetchAll();
-        if (!empty($missingCodes)) {
-            $updCode = $pdo->prepare("UPDATE households SET unit_invite_code = :code WHERE id = :id");
-            foreach ($missingCodes as $row) {
-                $updCode->execute([
-                    ':code' => generate_invite_code('DAIRE'),
-                    ':id'   => (int) $row['id'],
-                ]);
-            }
-        }
-    } catch (Throwable $e) {
-        // Sessizce geç
-    }
-}
-
-/**
- * SQL dosyasındaki ifadeleri güvenli şekilde tek tek çalıştırır
- */
-function run_sql_migration_file(PDO $pdo, string $sqlFile): void
-{
-    $sql   = file_get_contents($sqlFile);
-    $lines = explode("\n", (string) $sql);
-    $clean = [];
-    foreach ($lines as $line) {
-        $trimmed = trim($line);
-        if ($trimmed === '' || strpos($trimmed, '--') === 0) {
-            continue;
-        }
-        $clean[] = $line;
-    }
-    $statements = explode(';', implode("\n", $clean));
-    foreach ($statements as $st) {
-        $st = trim($st);
-        if ($st !== '') {
-            try {
-                $pdo->exec($st);
-            } catch (Throwable $ignore) {
-                // Sütun/tablo zaten varsa devam et
-            }
-        }
-    }
-}
-
-/**
  * Puan değerine göre Seviye (Level), Unvan ve İlerleme Yüzdesi döndürür.
  */
 function get_level_info(int $points): array
@@ -243,7 +58,6 @@ function award_points(
     string $description,
     ?string $refKey = null
 ): int {
-    ensure_gamification_schema();
     if ($points <= 0 || $userId <= 0 || $householdId <= 0) {
         return 0;
     }
@@ -295,7 +109,6 @@ function award_points(
  */
 function check_and_award_badges(int $userId, int $householdId): array
 {
-    ensure_gamification_schema();
     $pdo = db();
     $newlyEarned = [];
 
@@ -390,7 +203,6 @@ function check_and_award_badges(int $userId, int $householdId): array
  */
 function get_daily_quests_for_user(int $userId): array
 {
-    ensure_gamification_schema();
     $today = date('Y-m-d');
 
     try {
@@ -426,7 +238,6 @@ function complete_daily_quest(array $user, int $questId): array
  */
 function get_user_badges_with_catalog(int $userId): array
 {
-    ensure_gamification_schema();
     try {
         $stmt = db()->prepare("
             SELECT
@@ -449,7 +260,6 @@ function get_user_badges_with_catalog(int $userId): array
  */
 function get_user_point_history(int $userId, int $limit = 10): array
 {
-    ensure_gamification_schema();
     try {
         $stmt = db()->prepare("
             SELECT *
@@ -472,7 +282,6 @@ function get_user_point_history(int $userId, int $limit = 10): array
  */
 function get_neighborhood_points_leaderboard(int $neighborhoodId, int $limit = 8): array
 {
-    ensure_gamification_schema();
     try {
         $stmt = db()->prepare("
             SELECT

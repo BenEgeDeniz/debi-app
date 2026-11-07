@@ -14,8 +14,6 @@ require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/../modules/gamification/gamification_service.php';
 require_once __DIR__ . '/../modules/friends/friendship_service.php';
 
-ensure_gamification_schema();
-
 $currentUser = null;
 
 if (!empty($_SESSION['user_id'])) {
@@ -62,4 +60,3 @@ function require_login(): array
     }
     return $currentUser;
 }
-
