@@ -14,19 +14,7 @@ require_once __DIR__ . '/../../includes/functions.php';
 function run_database_migrations(PDO $pdo): array
 {
     $migrationDir = __DIR__ . '/../../sql-dum';
-    $files = [
-        '005_post_images_and_alerts.sql',
-        '006_gamification_points.sql',
-        '007_bill_images.sql',
-        '008_friendships_and_timeline.sql',
-        '009_profile_and_cover_photos.sql',
-        '010_household_unit_manager_and_residents.sql',
-        '101_collective_pond_and_bill_points.sql',
-        '102_household_pond_and_ai_drops.sql',
-        '103_household_only_points.sql',
-        '104_invoice_only_points.sql',
-        '105_remove_retired_gamification_tables.sql',
-    ];
+    $files = ['001_initial_schema.sql'];
 
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS debi_schema_versions (
@@ -90,33 +78,52 @@ function run_database_migrations(PDO $pdo): array
 }
 
 /**
- * Eski otomatik bootstrap sürüm kaydı bırakmadığı için mevcut şemayı tanır.
+ * Live dump daha önce tarihsel migration kayıtlarıyla kurulmuş veritabanını tanır.
  */
 function migration_schema_is_present(PDO $pdo, string $version): bool
 {
-    $checks = [
-        '005_post_images_and_alerts' => "SHOW COLUMNS FROM posts LIKE 'image_path'",
-        '007_bill_images' => "SHOW COLUMNS FROM water_logs LIKE 'bill_image_path'",
-        '008_friendships_and_timeline' => "SHOW TABLES LIKE 'friendships'",
-        '009_profile_and_cover_photos' => "SHOW COLUMNS FROM users LIKE 'avatar_photo'",
-        '010_household_unit_manager_and_residents' => "SHOW COLUMNS FROM households LIKE 'unit_invite_code'",
-        '101_collective_pond_and_bill_points' => "SHOW COLUMNS FROM water_logs LIKE 'saved_m3'",
-        '102_household_pond_and_ai_drops' => "SHOW COLUMNS FROM water_logs LIKE 'ai_verified'",
-    ];
-
-    if (!isset($checks[$version])) {
-        if ($version !== '006_gamification_points') {
-            return false;
-        }
-
-        $hasPointLogs = (bool) $pdo->query("SHOW TABLES LIKE 'point_logs'")->fetchColumn();
-        $hasHouseholdPoints = (bool) $pdo->query(
-            "SHOW COLUMNS FROM households LIKE 'total_points'"
-        )->fetchColumn();
-        return $hasPointLogs && $hasHouseholdPoints;
+    if ($version !== '001_initial_schema') {
+        return false;
     }
 
-    return (bool) $pdo->query($checks[$version])->fetchColumn();
+    $requiredTables = [
+        'apartments',
+        'comments',
+        'friendships',
+        'households',
+        'invitations',
+        'neighborhoods',
+        'neighborhood_alerts',
+        'point_logs',
+        'posts',
+        'post_reactions',
+        'saving_habits',
+        'users',
+        'water_logs',
+    ];
+
+    $tableCheck = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE() AND table_name = :table_name
+    ");
+    $existingTables = 0;
+    foreach ($requiredTables as $table) {
+        $tableCheck->execute([':table_name' => $table]);
+        $existingTables += (int) $tableCheck->fetchColumn();
+    }
+
+    if ($existingTables !== 0 && $existingTables !== count($requiredTables)) {
+        throw new RuntimeException(
+            '001_initial_schema için veritabanı kısmen kurulu. Eksik tabloları elle inceleyin; otomatik tekrar çalıştırılmadı.'
+        );
+    }
+    if ($existingTables === 0) {
+        return false;
+    }
+
+    return (bool) $pdo->query("SHOW COLUMNS FROM water_logs LIKE 'ai_verified'")->fetchColumn()
+        && (bool) $pdo->query("SHOW COLUMNS FROM households LIKE 'total_points'")->fetchColumn();
 }
 
 /**
