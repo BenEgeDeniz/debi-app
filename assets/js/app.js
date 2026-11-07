@@ -393,11 +393,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (analyticsCfg && svgChart && pondImg) {
         const baseMonthly = JSON.parse(JSON.stringify(analyticsCfg.series || []));
-        const baseYearly = JSON.parse(JSON.stringify(analyticsCfg.yearlySeries || analyticsCfg.series || []));
+        const baseYearly = JSON.parse(JSON.stringify(analyticsCfg.yearlySeries || []));
         let currentMode = 'monthly';
         let liveSeries = JSON.parse(JSON.stringify(baseMonthly));
         let currentStageKey = '';
-        let autoPlayTimer = null;
 
         const kpiPrevLabel = document.getElementById('kpiPrevLabel');
         const kpiCurrLabel = document.getElementById('kpiCurrLabel');
@@ -418,9 +417,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const pondMeterFill = document.getElementById('pondMeterFill');
         const pondTotalPointsVal = document.getElementById('pondTotalPointsVal');
 
-        const btnAutoPlay = document.getElementById('btnAutoPlayStages');
-        const btnResetReal = document.getElementById('btnResetRealData');
-
         const basePond = analyticsCfg.collectivePond || {
             golet_mevcut_su_m3: 0,
             golet_mevcut_litre: 0,
@@ -428,8 +424,6 @@ document.addEventListener('DOMContentLoaded', function () {
             golet_hedef_m3: 500,
             doluluk_yuzdesi: 0
         };
-        const baseSavedM3 = Number(analyticsCfg.savedM3 || 0);
-        const baseEarnedPts = Number(analyticsCfg.earnedPoints || 0);
         const baseWalletPts = Number(analyticsCfg.walletPoints || 0);
 
         function formatTR(num, decimals) {
@@ -477,16 +471,24 @@ document.addEventListener('DOMContentLoaded', function () {
             const padB = 58;
             const plotW = W - padL - padR;
             const plotH = H - padT - padB;
+            const n = Array.isArray(dataPoints) ? dataPoints.length : 0;
+
+            if (n === 0) {
+                svgChart.innerHTML =
+                    '<rect x="' + padL + '" y="' + padT + '" width="' + plotW + '" height="' + plotH + '" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-dasharray="6 6" stroke-width="1.5"/>' +
+                    '<text x="' + (W / 2) + '" y="' + (H / 2 - 8) + '" text-anchor="middle" fill="#334155" font-size="14" font-weight="800">Henüz yüklenmiş su faturası verisi bulunmuyor.</text>' +
+                    '<text x="' + (W / 2) + '" y="' + (H / 2 + 16) + '" text-anchor="middle" fill="#64748b" font-size="12.5" font-weight="600">Su Faturalarım sayfasından faturanızı yüklediğinizde grafik otomatik çizilir.</text>';
+                return;
+            }
 
             let maxM3 = 10;
-            let minM3 = 0;
+            const minM3 = 0;
             dataPoints.forEach(function (pt) {
                 if (pt.consumption_m3 > maxM3) maxM3 = pt.consumption_m3;
             });
             maxM3 = Math.ceil(maxM3 * 1.2);
             if (maxM3 % 2 !== 0) maxM3 += 1;
 
-            const n = dataPoints.length;
             const coords = dataPoints.map(function (pt, idx) {
                 const x = n > 1 ? padL + (idx / (n - 1)) * plotW : padL + plotW / 2;
                 const y = padT + plotH - ((pt.consumption_m3 - minM3) / Math.max(1, maxM3 - minM3)) * plotH;
@@ -508,6 +510,13 @@ document.addEventListener('DOMContentLoaded', function () {
             const modeLabel = currentMode === 'yearly' ? 'Yıllık' : 'Aylık';
             svgHtml += '<text x="12" y="' + (padT + plotH / 2) + '" transform="rotate(-90 12 ' + (padT + plotH / 2) + ')" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">Kullanılan Su (m³)</text>';
             svgHtml += '<text x="' + (padL + plotW / 2) + '" y="' + (H - 8) + '" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">Zaman (' + modeLabel + ')</text>';
+
+            // Tek veri noktası varsa yatay referans çizgisi ve bilgi notu göster
+            if (coords.length === 1) {
+                const c0 = coords[0];
+                svgHtml += '<line x1="' + padL + '" y1="' + c0.y.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + c0.y.toFixed(1) + '" stroke="#0ea5e9" stroke-dasharray="6 6" stroke-width="2" opacity="0.65"/>';
+                svgHtml += '<text x="' + (padL + plotW / 2) + '" y="' + (padT + 14) + '" text-anchor="middle" fill="#64748b" font-size="11.5" font-weight="700">Tek dönem kaydı mevcut (' + c0.pt.period_label + ') — Karşılaştırma çizgisi için 2. dönem faturası bekleniyor</text>';
+            }
 
             // Area under line
             if (coords.length > 1) {
@@ -535,17 +544,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 const dotColor = isLast ? '#16a34a' : (isPrev ? '#0284c7' : '#0ea5e9');
 
                 // X-axis label (xlab)
-                svgHtml += '<text x="' + c.x.toFixed(1) + '" y="' + (padT + plotH + 24) + '" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="800">' + c.pt.xlab + '</text>';
+                svgHtml += '<text x="' + c.x.toFixed(1) + '" y="' + (padT + plotH + 24) + '" text-anchor="middle" fill="#0f172a" font-size="12" font-weight="800">' + c.pt.xlab + '</text>';
 
                 // Data circle
                 svgHtml += '<circle cx="' + c.x.toFixed(1) + '" cy="' + c.y.toFixed(1) + '" r="6.5" fill="#ffffff" stroke="' + dotColor + '" stroke-width="3.5"/>';
 
                 // Value pill above point
                 const valText = formatTR(c.pt.consumption_m3, 1) + ' m³';
-                const boxW = 64;
+                const boxW = 68;
                 const boxH = 22;
                 const bx = c.x - boxW / 2;
-                const by = c.y - 32;
+                const by = Math.max(6, c.y - 32);
                 svgHtml += '<rect x="' + bx.toFixed(1) + '" y="' + by.toFixed(1) + '" width="' + boxW + '" height="' + boxH + '" rx="6" fill="#0f172a"/>';
                 svgHtml += '<text x="' + c.x.toFixed(1) + '" y="' + (by + 15).toFixed(1) + '" text-anchor="middle" fill="#ffffff" font-size="11.5" font-weight="800">' + valText + '</text>';
             });
@@ -554,41 +563,69 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         function updateAnalyticsAndPond(withDrops) {
-            const n = liveSeries.length;
-            const prevPt = liveSeries[n - 2];
-            const currPt = liveSeries[n - 1];
-            const prevM3 = Number(prevPt.consumption_m3 || 0);
-            const currM3 = Number(currPt.consumption_m3 || 0);
+            const n = Array.isArray(liveSeries) ? liveSeries.length : 0;
+            let tasarrufM3 = 0;
+            let kurtarilanLitre = 0;
+            let tasarrufYuzdesi = 0;
+            let kazanilanPuan = 0;
 
-            // 1. Puanlama Yöntemi (Fatura Farkı -> Puan ve Gölet Birikimi)
-            const diffM3 = +(prevM3 - currM3).toFixed(2);
-            const tasarrufM3 = diffM3 > 0 ? diffM3 : 0;
-            const kurtarilanLitre = Math.round(tasarrufM3 * 1000);
-            const tasarrufYuzdesi = (tasarrufM3 > 0 && prevM3 > 0)
-                ? +((tasarrufM3 / prevM3) * 100).toFixed(2)
-                : 0;
-            const kazanilanPuan = tasarrufYuzdesi >= 10.0 ? 10 : 0;
+            if (n >= 2) {
+                const prevPt = liveSeries[n - 2];
+                const currPt = liveSeries[n - 1];
+                const prevM3 = Number(prevPt.consumption_m3 || 0);
+                const currM3 = Number(currPt.consumption_m3 || 0);
+                const diffM3 = +(prevM3 - currM3).toFixed(2);
 
-            if (kpiPrevLabel) {
-                kpiPrevLabel.textContent = prevPt.xlab + (currentMode === 'yearly' ? ' Tüketimi' : ' Tüketimi (Geçen Ay)');
-            }
-            if (kpiCurrLabel) {
-                kpiCurrLabel.textContent = currPt.xlab + (currentMode === 'yearly' ? ' Tüketimi' : ' Tüketimi (Bu Ay)');
-            }
-            if (kpiDiffLabel) {
-                kpiDiffLabel.textContent = (currentMode === 'yearly' ? 'Yıllık' : 'Tasarruf') + ' Farkı & Oranı';
-            }
-            if (kpiPrevM3) kpiPrevM3.textContent = formatTR(prevM3, 1) + ' m³';
-            if (kpiCurrM3) kpiCurrM3.textContent = formatTR(currM3, 1) + ' m³';
-            if (kpiDiffM3) {
-                if (tasarrufM3 > 0) {
-                    kpiDiffM3.textContent = formatTR(tasarrufM3, 1) + ' m³ (' + formatTR(kurtarilanLitre, 0) + ' L · %' + formatTR(tasarrufYuzdesi, 1) + ')';
-                    kpiDiffM3.style.color = 'var(--brand-green-dark)';
-                } else {
-                    kpiDiffM3.textContent = '0,0 m³ (0 L · %0,0)';
-                    kpiDiffM3.style.color = diffM3 < 0 ? 'var(--brand-danger-dark)' : 'var(--text-main)';
+                tasarrufM3 = diffM3 > 0 ? diffM3 : 0;
+                kurtarilanLitre = Math.round(tasarrufM3 * 1000);
+                tasarrufYuzdesi = (tasarrufM3 > 0 && prevM3 > 0)
+                    ? +((tasarrufM3 / prevM3) * 100).toFixed(1)
+                    : 0;
+                kazanilanPuan = tasarrufYuzdesi >= 10.0 ? 10 : 0;
+
+                if (kpiPrevLabel) kpiPrevLabel.textContent = (prevPt.period_label || prevPt.xlab) + ' Tüketimi';
+                if (kpiCurrLabel) kpiCurrLabel.textContent = (currPt.period_label || currPt.xlab) + ' Tüketimi';
+                if (kpiDiffLabel) kpiDiffLabel.textContent = (currentMode === 'yearly' ? 'Yıllık' : 'Tasarruf') + ' Farkı & Oranı';
+                if (kpiPrevM3) kpiPrevM3.textContent = formatTR(prevM3, 1) + ' m³';
+                if (kpiCurrM3) kpiCurrM3.textContent = formatTR(currM3, 1) + ' m³';
+
+                if (kpiDiffM3) {
+                    if (tasarrufM3 > 0) {
+                        kpiDiffM3.textContent = formatTR(tasarrufM3, 1) + ' m³ (' + formatTR(kurtarilanLitre, 0) + ' L · %' + formatTR(tasarrufYuzdesi, 1) + ')';
+                        kpiDiffM3.style.color = 'var(--brand-green-dark)';
+                    } else if (diffM3 < 0) {
+                        kpiDiffM3.textContent = '+' + formatTR(Math.abs(diffM3), 1) + ' m³ artış (Tasarruf yok)';
+                        kpiDiffM3.style.color = 'var(--brand-danger-dark)';
+                    } else {
+                        kpiDiffM3.textContent = '0,0 m³ (Değişim yok)';
+                        kpiDiffM3.style.color = 'var(--text-main)';
+                    }
+                }
+            } else if (n === 1) {
+                const onlyPt = liveSeries[0];
+                const onlyM3 = Number(onlyPt.consumption_m3 || 0);
+
+                if (kpiPrevLabel) kpiPrevLabel.textContent = currentMode === 'yearly' ? 'Önceki Yıl Tüketimi' : 'Önceki Dönem Faturası';
+                if (kpiCurrLabel) kpiCurrLabel.textContent = (onlyPt.period_label || onlyPt.xlab) + ' Tüketimi';
+                if (kpiDiffLabel) kpiDiffLabel.textContent = (currentMode === 'yearly' ? 'Yıllık' : 'Tasarruf') + ' Farkı & Oranı';
+                if (kpiPrevM3) kpiPrevM3.textContent = 'Veri Yok';
+                if (kpiCurrM3) kpiCurrM3.textContent = formatTR(onlyM3, 1) + ' m³';
+                if (kpiDiffM3) {
+                    kpiDiffM3.textContent = currentMode === 'yearly' ? 'En az 2 yıl verisi gerekli' : 'En az 2 fatura gerekli';
+                    kpiDiffM3.style.color = 'var(--text-muted)';
+                }
+            } else {
+                if (kpiPrevLabel) kpiPrevLabel.textContent = 'Önceki Dönem Faturası';
+                if (kpiCurrLabel) kpiCurrLabel.textContent = 'Son Dönem Faturası';
+                if (kpiDiffLabel) kpiDiffLabel.textContent = 'Tasarruf Farkı & Oranı';
+                if (kpiPrevM3) kpiPrevM3.textContent = 'Veri Yok';
+                if (kpiCurrM3) kpiCurrM3.textContent = 'Veri Yok';
+                if (kpiDiffM3) {
+                    kpiDiffM3.textContent = 'Henüz fatura yüklenmedi';
+                    kpiDiffM3.style.color = 'var(--text-muted)';
                 }
             }
+
             if (kpiEarnedPoints) {
                 kpiEarnedPoints.textContent = kazanilanPuan > 0
                     ? '+' + kazanilanPuan + ' Puan 💧'
@@ -596,16 +633,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 kpiEarnedPoints.style.color = kazanilanPuan > 0 ? 'var(--brand-green-dark)' : 'var(--text-main)';
             }
 
-            // Ortak Gölet (Kolektif Havuz) Simülasyon & Gerçek Değer Hesabı
+            // Ortak Gölet (Kolektif Havuz) Gerçek Veritabanı Değerleri
             const targetPondM3 = Math.max(1, Number(basePond.golet_hedef_m3 || 500));
-            const baseOtherM3 = Math.max(0, Number(basePond.golet_mevcut_su_m3 || 0) - baseSavedM3);
-            const baseOtherPts = Math.max(0, Number(basePond.golet_toplam_puan || 0) - baseEarnedPts);
-            const baseOtherWallet = Math.max(0, baseWalletPts - baseEarnedPts);
-
-            const livePondM3 = +(baseOtherM3 + tasarrufM3).toFixed(2);
-            const livePondLiters = Math.round(livePondM3 * 1000);
-            const livePondPts = baseOtherPts + kazanilanPuan;
-            const liveWalletPts = baseOtherWallet + kazanilanPuan;
+            const livePondM3 = +(Number(basePond.golet_mevcut_su_m3 || 0)).toFixed(2);
+            const livePondLiters = Math.round(Number(basePond.golet_mevcut_litre || 0));
+            const livePondPts = Math.round(Number(basePond.golet_toplam_puan || 0));
             const dolulukYuzdesi = Math.min(100, +((livePondM3 / targetPondM3) * 100).toFixed(1));
 
             if (pondCurrentM3Text) pondCurrentM3Text.textContent = formatTR(livePondM3, 2) + ' m³';
@@ -614,13 +646,13 @@ document.addEventListener('DOMContentLoaded', function () {
             if (pondFillPctText) pondFillPctText.textContent = '%' + formatTR(dolulukYuzdesi, 1) + ' Doluluk';
             if (pondMeterFill) pondMeterFill.style.width = Math.min(100, Math.max(2, dolulukYuzdesi)) + '%';
             if (pondTotalPointsVal) pondTotalPointsVal.textContent = formatTR(livePondPts, 0) + ' Puan';
-            if (userWalletPointsText) userWalletPointsText.textContent = formatTR(liveWalletPts, 0) + ' Debi Puanı';
+            if (userWalletPointsText) userWalletPointsText.textContent = formatTR(baseWalletPts, 0) + ' Debi Puanı';
 
             renderLineChart(liveSeries);
 
             // Gölet görsel aşaması (Kurumuş -> Yarı Dolu -> Tam Dolu)
             let stageKey = 'dry';
-            if (dolulukYuzdesi >= 60 || kurtarilanLitre >= 3000) {
+            if (dolulukYuzdesi >= 66 || kurtarilanLitre >= 3000) {
                 stageKey = 'full';
             } else if (dolulukYuzdesi >= 20 || kurtarilanLitre >= 1000) {
                 stageKey = 'half';
@@ -645,10 +677,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 btn.addEventListener('click', function () {
                     const targetMode = btn.getAttribute('data-chart-mode') || 'monthly';
                     if (targetMode === currentMode) return;
-                    if (autoPlayTimer) {
-                        clearInterval(autoPlayTimer);
-                        autoPlayTimer = null;
-                    }
                     currentMode = targetMode;
                     modeBtns.forEach(function (b) {
                         const isAct = (b.getAttribute('data-chart-mode') === currentMode);
@@ -657,51 +685,13 @@ document.addEventListener('DOMContentLoaded', function () {
                         b.classList.toggle('btn-outline', !isAct);
                     });
                     liveSeries = JSON.parse(JSON.stringify(currentMode === 'yearly' ? baseYearly : baseMonthly));
-                    updateAnalyticsAndPond(true);
+                    updateAnalyticsAndPond(false);
                 });
             });
         }
 
-        if (btnAutoPlay) {
-            btnAutoPlay.addEventListener('click', function () {
-                if (autoPlayTimer) {
-                    clearInterval(autoPlayTimer);
-                    autoPlayTimer = null;
-                }
-                const n = liveSeries.length;
-                const basePrev = Math.max(12, liveSeries[n - 2].consumption_m3);
-                liveSeries[n - 2].consumption_m3 = basePrev;
-                liveSeries[n - 1].consumption_m3 = basePrev;
-                updateAnalyticsAndPond(false);
-
-                let steps = 0;
-                autoPlayTimer = setInterval(function () {
-                    steps++;
-                    liveSeries[n - 1].consumption_m3 = Math.max(4, +(liveSeries[n - 1].consumption_m3 - 0.5).toFixed(2));
-                    updateAnalyticsAndPond(true);
-                    if (steps >= 7) {
-                        clearInterval(autoPlayTimer);
-                        autoPlayTimer = null;
-                    }
-                }, 650);
-            });
-        }
-
-        if (btnResetReal) {
-            btnResetReal.addEventListener('click', function () {
-                if (autoPlayTimer) {
-                    clearInterval(autoPlayTimer);
-                    autoPlayTimer = null;
-                }
-                liveSeries = JSON.parse(JSON.stringify(currentMode === 'yearly' ? baseYearly : baseMonthly));
-                const n = liveSeries.length;
-                liveSeries[n - 1].consumption_m3 = liveSeries[n - 2].consumption_m3;
-                updateAnalyticsAndPond(false);
-            });
-        }
-
         // İlk açılışta o ayın (Aylık) çizgi tablosunu ve göleti başlat
-        const initSaved = Math.max(0, liveSeries[liveSeries.length - 2].consumption_m3 - liveSeries[liveSeries.length - 1].consumption_m3);
+        const initSaved = Number(analyticsCfg.savedM3 || 0);
         updateAnalyticsAndPond(initSaved > 0);
     }
 });

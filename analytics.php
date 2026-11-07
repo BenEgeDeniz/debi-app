@@ -8,14 +8,17 @@ require_once __DIR__ . '/modules/water/water_service.php';
 $currentUser = require_login();
 $analytics   = get_household_water_analytics($currentUser);
 
-$series         = $analytics['series'];
-$sCount         = count($series);
-$prevMonthName  = $series[$sCount - 2]['xlab'] ?? 'Geçen Ay';
-$currMonthName  = $series[$sCount - 1]['xlab'] ?? 'Bu Ay';
-$prevM3         = (float) $analytics['prev_m3'];
-$currM3         = (float) $analytics['curr_m3'];
-$savedM3        = (float) ($analytics['saved_m3'] ?? max(0.0, $prevM3 - $currM3));
-$savedLiters    = (int) $analytics['saved_liters'];
+$series         = $analytics['series'] ?? [];
+$yearlySeries   = $analytics['yearly_series'] ?? [];
+$billCount      = (int) ($analytics['bill_count'] ?? count($series));
+$hasComparison  = !empty($analytics['has_comparison']);
+$prevLabel      = $analytics['prev_label'] ?? 'Önceki Dönem Faturası';
+$currLabel      = $analytics['curr_label'] ?? 'Son Dönem Faturası';
+$prevM3         = $analytics['prev_m3'];
+$currM3         = $analytics['curr_m3'];
+$diffM3         = (float) ($analytics['diff_m3'] ?? 0.0);
+$savedM3        = (float) ($analytics['saved_m3'] ?? 0.0);
+$savedLiters    = (int) ($analytics['saved_liters'] ?? 0);
 $savingPct      = (float) ($analytics['saving_pct'] ?? 0.0);
 $earnedPoints   = (int) ($analytics['earned_points'] ?? 0);
 $walletPoints   = (int) ($analytics['user_wallet_points'] ?? 0);
@@ -64,30 +67,43 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </div>
 
-            <?php if ($analytics['is_sample']): ?>
+            <?php if ($billCount === 0): ?>
+                <div class="bill-ai-notice notice-warn" style="margin-bottom: 14px;">
+                    <strong>Henüz Fatura Verisi Yok:</strong>
+                    Hanenize ait yüklenmiş su faturası bulunmuyor. <a href="water.php" style="font-weight: 800; text-decoration: underline;">Su Faturalarım</a> sayfasından faturanızı yüklediğinizde aylık/yıllık tüketim grafiğiniz burada oluşacaktır.
+                </div>
+            <?php elseif ($billCount === 1): ?>
                 <div class="bill-ai-notice notice-ok" style="margin-bottom: 14px;">
-                    <strong>Bilgi:</strong>
-                    <?= $analytics['has_real_logs']
-                        ? 'Tek dönemlik faturanız bulunduğu için referans karşılaştırma gösteriliyor.'
-                        : 'Fatura verileriniz eklendikçe grafik ve Debi Puan Göleti otomatik güncellenir.' ?>
+                    <strong>Tek Dönem Verisi Mevcut:</strong>
+                    Hanenize ait yalnızca <strong><?= e($series[0]['period_label'] ?? '') ?></strong> faturası yüklü. Aylar arası su tasarrufu farkı ve Debi Puanı hesabı için en az 2 farklı döneme ait fatura kaydı gereklidir.
                 </div>
             <?php endif; ?>
 
             <div class="analytics-kpi-grid">
                 <div class="analytics-kpi-box">
-                    <span class="analytics-kpi-label" id="kpiPrevLabel"><?= e($prevMonthName) ?> Tüketimi (Geçen Ay)</span>
-                    <strong class="analytics-kpi-val" id="kpiPrevM3"><?= number_format($prevM3, 1, ',', '.') ?> m³</strong>
+                    <span class="analytics-kpi-label" id="kpiPrevLabel"><?= e($prevLabel) ?></span>
+                    <strong class="analytics-kpi-val" id="kpiPrevM3">
+                        <?= $prevM3 !== null ? number_format((float) $prevM3, 1, ',', '.') . ' m³' : 'Veri Yok' ?>
+                    </strong>
                 </div>
                 <div class="analytics-kpi-box">
-                    <span class="analytics-kpi-label" id="kpiCurrLabel"><?= e($currMonthName) ?> Tüketimi (Bu Ay)</span>
-                    <strong class="analytics-kpi-val" id="kpiCurrM3"><?= number_format($currM3, 1, ',', '.') ?> m³</strong>
+                    <span class="analytics-kpi-label" id="kpiCurrLabel"><?= e($currLabel) ?></span>
+                    <strong class="analytics-kpi-val" id="kpiCurrM3">
+                        <?= $currM3 !== null ? number_format((float) $currM3, 1, ',', '.') . ' m³' : 'Veri Yok' ?>
+                    </strong>
                 </div>
                 <div class="analytics-kpi-box">
                     <span class="analytics-kpi-label" id="kpiDiffLabel">Tasarruf Farkı &amp; Oranı</span>
                     <strong class="analytics-kpi-val" id="kpiDiffM3">
-                        <?= $savedM3 > 0
-                            ? number_format($savedM3, 1, ',', '.') . ' m³ (' . number_format($savedLiters, 0, ',', '.') . ' L · %' . number_format($savingPct, 1, ',', '.') . ')'
-                            : '0,0 m³ (0 L · %0,0)' ?>
+                        <?php if (!$hasComparison): ?>
+                            En az 2 fatura gerekli
+                        <?php elseif ($savedM3 > 0): ?>
+                            <?= number_format($savedM3, 1, ',', '.') . ' m³ (' . number_format($savedLiters, 0, ',', '.') . ' L · %' . number_format($savingPct, 1, ',', '.') . ')' ?>
+                        <?php elseif ($diffM3 < 0): ?>
+                            <?= '+' . number_format(abs($diffM3), 1, ',', '.') . ' m³ artış (Tasarruf yok)' ?>
+                        <?php else: ?>
+                            0,0 m³ (Değişim yok)
+                        <?php endif; ?>
                     </strong>
                 </div>
                 <div class="analytics-kpi-box analytics-kpi-highlight">
@@ -132,7 +148,7 @@ require_once __DIR__ . '/includes/header.php';
             </div>
 
             <p class="panel-desc">
-                Geçen aya göre su tüketiminiz (<strong>m³</strong>) azaldığında kurtarılan su (<strong>1 m³ = 1.000 L</strong>) ve <strong>%10 tasarruf barajını</strong> geçtiğinizde kazandığınız <strong>+10 Debi Puanı</strong> doğrudan ortak <strong>Debi Puan Göleti</strong> sayacına eklenir.
+                Önceki faturanıza göre su tüketiminiz (<strong>m³</strong>) azaldığında kurtarılan su (<strong>1 m³ = 1.000 L</strong>) ve <strong>%10 tasarruf barajını</strong> geçtiğinizde kazandığınız <strong>+10 Debi Puanı</strong> doğrudan ortak <strong>Debi Puan Göleti</strong> sayacına eklenir.
             </p>
 
             <!-- Ortak Gölet Kapasite ve Doluluk Sayacı (Hedef: 500 m³) -->
@@ -165,16 +181,6 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="pond-ripple-ring" id="pondRippleRing"></div>
                 </div>
             </div>
-
-            <!-- Önizleme ve Veri Temizleme Butonları -->
-            <div class="pond-action-buttons" style="margin-top: 14px;">
-                <button type="button" class="btn btn-primary btn-sm" id="btnAutoPlayStages">
-                    ▶ Aşamaları Göster (Önizleme)
-                </button>
-                <button type="button" class="btn btn-outline btn-sm" id="btnResetRealData">
-                    Verileri Temizle / Sıfırla
-                </button>
-            </div>
         </section>
     </main>
 </div>
@@ -182,7 +188,10 @@ require_once __DIR__ . '/includes/header.php';
 <script>
 window.DEBI_ANALYTICS_DATA = <?= json_encode([
     'series'         => $series,
-    'yearlySeries'   => $analytics['yearly_series'] ?? [],
+    'yearlySeries'   => $yearlySeries,
+    'hasComparison'  => $hasComparison,
+    'prevLabel'      => $prevLabel,
+    'currLabel'      => $currLabel,
     'prevM3'         => $prevM3,
     'currM3'         => $currM3,
     'savedM3'        => $savedM3,

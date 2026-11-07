@@ -152,21 +152,13 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         </div>
 
-                        <div class="form-grid-2">
+                        <div class="form-grid-3">
                             <div class="form-group">
-                                <label for="previous_consumption_m3">Geçen Ayki Tüketim (m³)</label>
-                                <input type="number" step="0.01" min="0" max="500" id="previous_consumption_m3" name="previous_consumption_m3"
-                                       value="<?= e((string) $defaultPrevM3) ?>" placeholder="Örn: 13.5 (Tasarruf &amp; Debi Puanı hesabı için)">
-                            </div>
-
-                            <div class="form-group">
-                                <label for="consumption_m3">Bu Ayki Tüketim Miktarı (m³)</label>
+                                <label for="consumption_m3">Tüketim Miktarı (m³)</label>
                                 <input type="number" step="0.01" min="0.5" max="500" id="consumption_m3" name="consumption_m3"
                                        required value="<?= e((string) $ext['consumption_m3']) ?>" placeholder="Örn: 11">
                             </div>
-                        </div>
 
-                        <div class="form-grid-2">
                             <div class="form-group">
                                 <label for="reading_days">Okuma Gün Sayısı</label>
                                 <input type="number" min="1" max="90" id="reading_days" name="reading_days"
