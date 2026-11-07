@@ -45,14 +45,21 @@ function get_events_for_user(array $user): array
         FROM events e
         INNER JOIN users u ON u.id = e.creator_id
         LEFT JOIN event_attendees ea ON ea.event_id = e.id AND ea.user_id = :uid
-        LEFT JOIN event_photos ep ON ep.event_id = e.id AND ep.user_id = :uid
+        LEFT JOIN event_photos ep ON ep.event_id = e.id AND ep.user_id = :photo_uid
         WHERE e.scope = 'public' OR e.neighborhood_id = :nid
         ORDER BY e.event_date ASC, e.start_time ASC
         ");
-        $stmt->execute([':uid' => (int) $user['id'], ':nid' => (int) $user['neighborhood_id']]);
+        $stmt->execute([
+            ':uid' => (int) $user['id'],
+            ':photo_uid' => (int) $user['id'],
+            ':nid' => (int) $user['neighborhood_id'],
+        ]);
         return $stmt->fetchAll();
     } catch (PDOException $e) {
-        throw new RuntimeException('Etkinlik tabloları hazır değil. Önce 003_events.sql migrationunu çalıştırın.', 0, $e);
+        $message = stripos($e->getMessage(), 'table') !== false
+            ? 'Etkinlik tabloları bulunamadı. Migration durumu applied görünüyorsa uygulamanın bağlı olduğu veritabanını kontrol edin.'
+            : 'Etkinlikler yüklenirken veritabanı hatası oluştu.';
+        throw new RuntimeException($message, 0, $e);
     }
 }
 
