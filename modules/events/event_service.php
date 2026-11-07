@@ -110,8 +110,12 @@ function mark_event_attendance(array $user, int $eventId, array $attendeeIds): a
     $stmt->execute([':eid' => $eventId, ':uid' => (int) $user['id']]);
     $event = $stmt->fetch();
     if (!$event) return ['ok' => false, 'error' => 'Bu etkinlik için yoklama yetkiniz yok.'];
-    if (!get_event_time_state($event)['started']) {
+    $state = get_event_time_state($event);
+    if (!$state['started']) {
         return ['ok' => false, 'error' => 'Yoklama etkinliğin başlama saatinde açılır.'];
+    }
+    if ($state['ended']) {
+        return ['ok' => false, 'error' => 'Etkinlik bitirildiği için yoklama artık değiştirilemez.'];
     }
     db()->prepare("UPDATE event_attendees SET status = 'absent', marked_at = NOW() WHERE event_id = :eid AND user_id <> :creator_id")
         ->execute([':eid' => $eventId, ':creator_id' => (int) $user['id']]);

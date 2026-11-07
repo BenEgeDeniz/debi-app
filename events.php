@@ -69,7 +69,7 @@ $pageTitle = 'Etkinlikler — Debi';
 $activeNav = 'events';
 require_once __DIR__ . '/includes/header.php';
 ?>
-<div class="app-shell">
+<div class="app-shell app-shell-2col">
     <?php require_once __DIR__ . '/includes/sidebar_left.php'; ?>
     <main class="main-column">
         <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
@@ -125,11 +125,13 @@ require_once __DIR__ . '/includes/header.php';
                         <p><?= e($event['points_reason']) ?></p>
                     </details>
 
-                    <?php if (!$isCreator && !$isAttendee): ?>
+                    <?php if (!$isCreator && !$isAttendee && !$event['ended']): ?>
                         <form method="post" class="event-action-row"><input type="hidden" name="action" value="join_event"><input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>"><?= csrf_field() ?><button class="btn btn-primary btn-sm">Katılacağım</button></form>
+                    <?php elseif (!$isCreator && !$isAttendee && $event['ended']): ?>
+                        <div class="event-attendance-locked">Etkinlik sona erdi; artık katılım kaydı alınamıyor.</div>
                     <?php elseif ($isAttendee): ?>
                         <div class="event-participation">
-                            <strong><?= $isCreator ? 'Etkinliği siz oluşturuyorsunuz; katılımınız otomatik kaydedildi.' : ($event['attendee_status'] === 'attended' ? 'Yoklamada katıldığınız işaretlendi.' : 'Katılımınız kayıtlı, yoklama bekleniyor.') ?></strong>
+                            <strong><?= $isCreator ? 'Etkinliği siz oluşturuyorsunuz; katılımınız otomatik kaydedildi.' : ($event['attendee_status'] === 'attended' ? 'Yoklamada katıldığınız işaretlendi.' : ($event['ended'] ? 'Etkinlik sona erdi; yoklamada katılımınız işaretlenmedi.' : 'Katılımınız kayıtlı, yoklama bekleniyor.')) ?></strong>
                             <?php if ($event['attendee_status'] === 'attended' && $event['photo_status'] !== 'approved' && $event['ended']): ?>
                                 <form method="post" enctype="multipart/form-data" class="event-photo-form"><input type="hidden" name="action" value="upload_event_photo"><input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>"><?= csrf_field() ?><input type="file" name="event_photo" accept="image/jpeg,image/png,image/webp" required><button class="btn btn-outline btn-sm">Fotoğraf yükle ve doğrula</button></form>
                             <?php elseif ($event['attendee_status'] === 'attended' && !$event['ended']): ?>
@@ -145,7 +147,7 @@ require_once __DIR__ . '/includes/header.php';
                         <?php endif; ?>
                         <?php if ($event['started'] && !$event['ended']): ?>
                             <form method="post" class="event-attendance"><input type="hidden" name="action" value="mark_attendance"><input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>"><?= csrf_field() ?><h3>Yoklama</h3><p class="form-help">Etkinlik başladı; yalnızca gerçekten gelenleri işaretleyin.</p><?php foreach ($managedAttendees[(int) $event['id']] as $attendee): ?><label><input type="checkbox" name="attendee_ids[]" value="<?= (int) $attendee['user_id'] ?>" <?= $attendee['user_id'] == $currentUser['id'] || $attendee['status'] === 'attended' ? 'checked' : '' ?> <?= $attendee['user_id'] == $currentUser['id'] ? 'disabled' : '' ?>> <?= e($attendee['full_name']) ?><?= $attendee['user_id'] == $currentUser['id'] ? ' (oluşturan)' : '' ?></label><?php endforeach; ?><button class="btn btn-outline btn-sm">Yoklamayı kaydet</button></form>
-                        <?php else: ?>
+                        <?php elseif (!$event['ended']): ?>
                             <div class="event-attendance-locked">Yoklama, etkinliğin başlama saatinde açılacak.</div>
                         <?php endif; ?>
                     <?php endif; ?>
