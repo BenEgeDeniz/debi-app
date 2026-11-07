@@ -2946,6 +2946,44 @@ a.timeline-meta-item:hover {
     gap: 10px;
 }
 
+.chart-period-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sidebar-pond-card {
+    display: block;
+    text-decoration: none !important;
+    color: var(--text-main);
+    transition: border-color 0.18s ease, transform 0.18s ease;
+    cursor: pointer;
+}
+
+.sidebar-pond-card:hover {
+    border-color: var(--brand-primary);
+    transform: translateY(-1px);
+    text-decoration: none !important;
+}
+
+.sidebar-pond-visual {
+    margin-top: 6px;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(180deg, #f0f9ff 0%, #f8fafc 100%);
+    border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar-pond-img {
+    width: 100%;
+    max-width: 220px;
+    height: auto;
+    object-fit: contain;
+}
+
 @media (max-width: 768px) {
     .analytics-kpi-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));

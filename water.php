@@ -32,7 +32,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'confirm_bill') {
         $res = save_water_log($currentUser, $_POST);
         if ($res['ok']) {
-            set_flash('success', 'Faturanız kaydedildi. Kişi başı günlük ortalamanız: ' . number_format($res['daily_liters'], 1, ',', '.') . ' L');
+            $msg = 'Faturanız kaydedildi. Kişi başı günlük ortalamanız: ' . number_format($res['daily_liters'], 1, ',', '.') . ' L.';
+            if (!empty($res['saved_liters']) && $res['saved_liters'] > 0) {
+                $msg .= ' Önceki aya göre ' . number_format((int) $res['saved_liters'], 0, ',', '.') . ' L (%' . number_format((float) $res['saving_pct'], 1, ',', '.') . ') su kurtarıldı ve Debi Puan Göleti\'ne eklendi!';
+                if (!empty($res['points_awarded']) && $res['points_awarded'] > 0) {
+                    $msg .= ' (%10 barajı geçildiği için +' . (int) $res['points_awarded'] . ' Debi Puanı kazandınız!)';
+                }
+            }
+            set_flash('success', $msg);
             redirect('water.php');
         } else {
             set_flash('error', $res['error']);
@@ -73,6 +80,7 @@ require_once __DIR__ . '/includes/header.php';
             $initDays     = max(1, (int) ($ext['reading_days'] ?: 30));
             $previewDaily = $initM3 > 0 ? round(($initM3 * 1000) / ($initDays * $residentCnt), 1) : 0;
             $selectedFeed = $_POST['feed_scope'] ?? (!empty($currentUser['apartment_id']) ? 'apartment' : 'friends');
+            $defaultPrevM3 = $_POST['previous_consumption_m3'] ?? (!empty($history[0]['consumption_m3']) ? (string) $history[0]['consumption_m3'] : '');
             ?>
             <!-- ADIM 2: "BU BİLGİLER DOĞRU MU?" ONAY KARTI -->
             <section class="panel-card bill-confirm-card">
@@ -144,13 +152,21 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         </div>
 
-                        <div class="form-grid-3">
+                        <div class="form-grid-2">
                             <div class="form-group">
-                                <label for="consumption_m3">Tüketim Miktarı (m³)</label>
+                                <label for="previous_consumption_m3">Geçen Ayki Tüketim (m³)</label>
+                                <input type="number" step="0.01" min="0" max="500" id="previous_consumption_m3" name="previous_consumption_m3"
+                                       value="<?= e((string) $defaultPrevM3) ?>" placeholder="Örn: 13.5 (Tasarruf &amp; Debi Puanı hesabı için)">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="consumption_m3">Bu Ayki Tüketim Miktarı (m³)</label>
                                 <input type="number" step="0.01" min="0.5" max="500" id="consumption_m3" name="consumption_m3"
                                        required value="<?= e((string) $ext['consumption_m3']) ?>" placeholder="Örn: 11">
                             </div>
+                        </div>
 
+                        <div class="form-grid-2">
                             <div class="form-group">
                                 <label for="reading_days">Okuma Gün Sayısı</label>
                                 <input type="number" min="1" max="90" id="reading_days" name="reading_days"

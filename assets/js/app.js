@@ -291,8 +291,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 7. Fatura Onay Ekranında Canlı Kişi Başı Günlük Litre Hesabı
+    // 7. Fatura Onay Ekranında Canlı Kişi Başı Günlük Litre & 1. Puanlama Yöntemi Hesabı
     const billConfirmForm = document.getElementById('billConfirmForm');
+    const prevM3Input = document.getElementById('previous_consumption_m3');
     const m3Input = document.getElementById('consumption_m3');
     const daysInput = document.getElementById('reading_days');
     const liveDailyEl = document.getElementById('liveDailyLiters');
@@ -300,17 +301,32 @@ document.addEventListener('DOMContentLoaded', function () {
     if (billConfirmForm && m3Input && daysInput && liveDailyEl) {
         const residents = Math.max(1, parseInt(billConfirmForm.getAttribute('data-residents') || '2', 10));
         function updateLiveDaily() {
+            const prevM3 = prevM3Input ? parseFloat((prevM3Input.value || '0').replace(',', '.')) : 0;
             const m3 = parseFloat((m3Input.value || '0').replace(',', '.'));
             const days = Math.max(1, parseInt(daysInput.value || '30', 10));
             if (m3 > 0) {
                 const daily = ((m3 * 1000) / (days * residents)).toFixed(1).replace('.', ',');
-                liveDailyEl.textContent = daily + ' L / gün';
+                let suffix = '';
+                if (prevM3 > 0) {
+                    const diffM3 = prevM3 - m3;
+                    if (diffM3 > 0) {
+                        const savedL = Math.round(diffM3 * 1000).toLocaleString('tr-TR');
+                        const pct = ((diffM3 / prevM3) * 100);
+                        const pts = pct >= 10 ? ' · +10 Debi Puanı 💧' : ' · Baraj Altı (0 Puan)';
+                        suffix = ' (' + savedL + ' L Tasarruf · %' + pct.toFixed(1).replace('.', ',') + pts + ')';
+                    } else {
+                        suffix = ' (0 L Tasarruf · 0 Puan)';
+                    }
+                }
+                liveDailyEl.textContent = daily + ' L / gün' + suffix;
             } else {
                 liveDailyEl.textContent = '—';
             }
         }
+        if (prevM3Input) prevM3Input.addEventListener('input', updateLiveDaily);
         m3Input.addEventListener('input', updateLiveDaily);
         daysInput.addEventListener('input', updateLiveDaily);
+        updateLiveDaily();
     }
 
     // 8. Zaman Tünelinde "Profili Düzenle" Kutusunu Aç/Kapat ve Canlı Görsel Önizleme
@@ -376,33 +392,45 @@ document.addEventListener('DOMContentLoaded', function () {
     const pondImg = document.getElementById('pondStageImg');
 
     if (analyticsCfg && svgChart && pondImg) {
-        const baseSeries = JSON.parse(JSON.stringify(analyticsCfg.series || []));
-        let liveSeries = JSON.parse(JSON.stringify(baseSeries));
+        const baseMonthly = JSON.parse(JSON.stringify(analyticsCfg.series || []));
+        const baseYearly = JSON.parse(JSON.stringify(analyticsCfg.yearlySeries || analyticsCfg.series || []));
+        let currentMode = 'monthly';
+        let liveSeries = JSON.parse(JSON.stringify(baseMonthly));
         let currentStageKey = '';
         let autoPlayTimer = null;
 
+        const kpiPrevLabel = document.getElementById('kpiPrevLabel');
+        const kpiCurrLabel = document.getElementById('kpiCurrLabel');
+        const kpiDiffLabel = document.getElementById('kpiDiffLabel');
         const kpiPrevM3 = document.getElementById('kpiPrevM3');
         const kpiCurrM3 = document.getElementById('kpiCurrM3');
         const kpiDiffM3 = document.getElementById('kpiDiffM3');
-        const kpiSavedLiters = document.getElementById('kpiSavedLiters');
+        const kpiEarnedPoints = document.getElementById('kpiEarnedPoints');
+        const userWalletPointsText = document.getElementById('userWalletPointsText');
+        const modeBtns = document.querySelectorAll('.js-chart-mode');
 
-        const pondStageBadge = document.getElementById('pondStageBadge');
         const pondDropLayer = document.getElementById('pondDropLayer');
         const pondRippleRing = document.getElementById('pondRippleRing');
-        const pondMascotImg = document.getElementById('pondMascotImg');
-        const pondMascotTitle = document.getElementById('pondMascotTitle');
-        const pondMascotDesc = document.getElementById('pondMascotDesc');
-        const pondMeterLitersText = document.getElementById('pondMeterLitersText');
+        const pondCurrentM3Text = document.getElementById('pondCurrentM3Text');
+        const pondCurrentLitersText = document.getElementById('pondCurrentLitersText');
+        const pondTargetM3Text = document.getElementById('pondTargetM3Text');
+        const pondFillPctText = document.getElementById('pondFillPctText');
         const pondMeterFill = document.getElementById('pondMeterFill');
-        const stageSteps = document.querySelectorAll('[data-stage-step]');
+        const pondTotalPointsVal = document.getElementById('pondTotalPointsVal');
 
-        const simPrevInput = document.getElementById('simPrevM3Input');
-        const simCurrInput = document.getElementById('simCurrM3Input');
-        const simPrevLabel = document.getElementById('simPrevM3Label');
-        const simCurrLabel = document.getElementById('simCurrM3Label');
-        const btnDropWater = document.getElementById('btnDropWater');
         const btnAutoPlay = document.getElementById('btnAutoPlayStages');
         const btnResetReal = document.getElementById('btnResetRealData');
+
+        const basePond = analyticsCfg.collectivePond || {
+            golet_mevcut_su_m3: 0,
+            golet_mevcut_litre: 0,
+            golet_toplam_puan: 0,
+            golet_hedef_m3: 500,
+            doluluk_yuzdesi: 0
+        };
+        const baseSavedM3 = Number(analyticsCfg.savedM3 || 0);
+        const baseEarnedPts = Number(analyticsCfg.earnedPoints || 0);
+        const baseWalletPts = Number(analyticsCfg.walletPoints || 0);
 
         function formatTR(num, decimals) {
             return Number(num).toLocaleString('tr-TR', {
@@ -477,8 +505,9 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             // Axis Titles (ylab & xlab)
+            const modeLabel = currentMode === 'yearly' ? 'Yıllık' : 'Aylık';
             svgHtml += '<text x="12" y="' + (padT + plotH / 2) + '" transform="rotate(-90 12 ' + (padT + plotH / 2) + ')" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">Kullanılan Su (m³)</text>';
-            svgHtml += '<text x="' + (padL + plotW / 2) + '" y="' + (H - 8) + '" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">Zaman</text>';
+            svgHtml += '<text x="' + (padL + plotW / 2) + '" y="' + (H - 8) + '" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">Zaman (' + modeLabel + ')</text>';
 
             // Area under line
             if (coords.length > 1) {
@@ -526,54 +555,79 @@ document.addEventListener('DOMContentLoaded', function () {
 
         function updateAnalyticsAndPond(withDrops) {
             const n = liveSeries.length;
-            const prevM3 = liveSeries[n - 2].consumption_m3;
-            const currM3 = liveSeries[n - 1].consumption_m3;
-            const diffM3 = prevM3 - currM3;
-            const savedM3 = Math.max(0, diffM3);
-            const savedLiters = Math.round(savedM3 * 1000);
+            const prevPt = liveSeries[n - 2];
+            const currPt = liveSeries[n - 1];
+            const prevM3 = Number(prevPt.consumption_m3 || 0);
+            const currM3 = Number(currPt.consumption_m3 || 0);
 
+            // 1. Puanlama Yöntemi (Fatura Farkı -> Puan ve Gölet Birikimi)
+            const diffM3 = +(prevM3 - currM3).toFixed(2);
+            const tasarrufM3 = diffM3 > 0 ? diffM3 : 0;
+            const kurtarilanLitre = Math.round(tasarrufM3 * 1000);
+            const tasarrufYuzdesi = (tasarrufM3 > 0 && prevM3 > 0)
+                ? +((tasarrufM3 / prevM3) * 100).toFixed(2)
+                : 0;
+            const kazanilanPuan = tasarrufYuzdesi >= 10.0 ? 10 : 0;
+
+            if (kpiPrevLabel) {
+                kpiPrevLabel.textContent = prevPt.xlab + (currentMode === 'yearly' ? ' Tüketimi' : ' Tüketimi (Geçen Ay)');
+            }
+            if (kpiCurrLabel) {
+                kpiCurrLabel.textContent = currPt.xlab + (currentMode === 'yearly' ? ' Tüketimi' : ' Tüketimi (Bu Ay)');
+            }
+            if (kpiDiffLabel) {
+                kpiDiffLabel.textContent = (currentMode === 'yearly' ? 'Yıllık' : 'Tasarruf') + ' Farkı & Oranı';
+            }
             if (kpiPrevM3) kpiPrevM3.textContent = formatTR(prevM3, 1) + ' m³';
             if (kpiCurrM3) kpiCurrM3.textContent = formatTR(currM3, 1) + ' m³';
             if (kpiDiffM3) {
-                kpiDiffM3.textContent = diffM3 >= 0
-                    ? '-' + formatTR(diffM3, 1) + ' m³ (Tasarruf)'
-                    : '+' + formatTR(Math.abs(diffM3), 1) + ' m³ (Artış)';
-                kpiDiffM3.style.color = diffM3 > 0 ? 'var(--brand-green-dark)' : (diffM3 < 0 ? 'var(--brand-danger-dark)' : 'var(--text-main)');
+                if (tasarrufM3 > 0) {
+                    kpiDiffM3.textContent = formatTR(tasarrufM3, 1) + ' m³ (' + formatTR(kurtarilanLitre, 0) + ' L · %' + formatTR(tasarrufYuzdesi, 1) + ')';
+                    kpiDiffM3.style.color = 'var(--brand-green-dark)';
+                } else {
+                    kpiDiffM3.textContent = '0,0 m³ (0 L · %0,0)';
+                    kpiDiffM3.style.color = diffM3 < 0 ? 'var(--brand-danger-dark)' : 'var(--text-main)';
+                }
             }
-            if (kpiSavedLiters) kpiSavedLiters.textContent = formatTR(savedLiters, 0) + ' L';
+            if (kpiEarnedPoints) {
+                kpiEarnedPoints.textContent = kazanilanPuan > 0
+                    ? '+' + kazanilanPuan + ' Puan 💧'
+                    : '0 Puan';
+                kpiEarnedPoints.style.color = kazanilanPuan > 0 ? 'var(--brand-green-dark)' : 'var(--text-main)';
+            }
 
-            if (simPrevLabel) simPrevLabel.textContent = formatTR(prevM3, 1) + ' m³';
-            if (simCurrLabel) simCurrLabel.textContent = formatTR(currM3, 1) + ' m³';
+            // Ortak Gölet (Kolektif Havuz) Simülasyon & Gerçek Değer Hesabı
+            const targetPondM3 = Math.max(1, Number(basePond.golet_hedef_m3 || 500));
+            const baseOtherM3 = Math.max(0, Number(basePond.golet_mevcut_su_m3 || 0) - baseSavedM3);
+            const baseOtherPts = Math.max(0, Number(basePond.golet_toplam_puan || 0) - baseEarnedPts);
+            const baseOtherWallet = Math.max(0, baseWalletPts - baseEarnedPts);
+
+            const livePondM3 = +(baseOtherM3 + tasarrufM3).toFixed(2);
+            const livePondLiters = Math.round(livePondM3 * 1000);
+            const livePondPts = baseOtherPts + kazanilanPuan;
+            const liveWalletPts = baseOtherWallet + kazanilanPuan;
+            const dolulukYuzdesi = Math.min(100, +((livePondM3 / targetPondM3) * 100).toFixed(1));
+
+            if (pondCurrentM3Text) pondCurrentM3Text.textContent = formatTR(livePondM3, 2) + ' m³';
+            if (pondCurrentLitersText) pondCurrentLitersText.textContent = formatTR(livePondLiters, 0) + ' L';
+            if (pondTargetM3Text) pondTargetM3Text.textContent = formatTR(targetPondM3, 0) + ' m³';
+            if (pondFillPctText) pondFillPctText.textContent = '%' + formatTR(dolulukYuzdesi, 1) + ' Doluluk';
+            if (pondMeterFill) pondMeterFill.style.width = Math.min(100, Math.max(2, dolulukYuzdesi)) + '%';
+            if (pondTotalPointsVal) pondTotalPointsVal.textContent = formatTR(livePondPts, 0) + ' Puan';
+            if (userWalletPointsText) userWalletPointsText.textContent = formatTR(liveWalletPts, 0) + ' Debi Puanı';
 
             renderLineChart(liveSeries);
 
-            // Stage Determination:
-            // dry: 0 - 999 L | half: 1000 - 2999 L | full: 3000+ L
+            // Gölet görsel aşaması (Kurumuş -> Yarı Dolu -> Tam Dolu)
             let stageKey = 'dry';
-            let stageTitle = 'Aşama 1: Kurumuş Göl';
-            let mascotTitle = 'Gölet Su Bekliyor';
-            let mascotDesc = 'Bu ayki su tüketiminizi (m³) geçen aya göre düşürdükçe üstten damlalar düşer ve gölet canlanmaya başlar.';
-            let badgeClass = 'stage-dry';
-
-            if (savedLiters >= 3000) {
+            if (dolulukYuzdesi >= 60 || kurtarilanLitre >= 3000) {
                 stageKey = 'full';
-                stageTitle = 'Aşama 3: Tam Dolu & Yeşeren Göl';
-                mascotTitle = 'Harika! Gölet Tamamen Doldu ve Yeşerdi!';
-                mascotDesc = 'Geçen aya göre ' + formatTR(savedM3, 1) + ' m³ (' + formatTR(savedLiters, 0) + ' Litre) su kurtardınız. Gölet tam kapasiteye ulaştı!';
-                badgeClass = 'stage-full';
-            } else if (savedLiters >= 1000) {
+            } else if (dolulukYuzdesi >= 20 || kurtarilanLitre >= 1000) {
                 stageKey = 'half';
-                stageTitle = 'Aşama 2: Yarı Dolu Göl';
-                mascotTitle = 'Gölet Yükseliyor ve Çevresi Yeşeriyor!';
-                mascotDesc = formatTR(savedLiters, 0) + ' Litre su kurtardınız! Tam dolu ve yemyeşil gölet aşamasına ' + formatTR(3000 - savedLiters, 0) + ' L kaldı.';
-                badgeClass = 'stage-half';
-            } else if (savedLiters > 0) {
-                mascotTitle = 'İlk Damlalar Gölete Ulaştı!';
-                mascotDesc = formatTR(savedLiters, 0) + ' Litre su kurtardınız. Yarı dolu gölet aşamasına geçmek için ' + formatTR(1000 - savedLiters, 0) + ' L daha tasarruf edin.';
             }
 
-            if (withDrops) {
-                spawnFallingDrops(savedLiters >= 3000 ? 2 : 1);
+            if (withDrops && tasarrufM3 > 0) {
+                spawnFallingDrops(stageKey === 'full' ? 2 : 1);
             }
 
             if (stageKey !== currentStageKey) {
@@ -583,32 +637,28 @@ document.addEventListener('DOMContentLoaded', function () {
                     pondImg.src = analyticsCfg.images[stageKey] || analyticsCfg.images.dry;
                     pondImg.classList.remove('pond-stage-switching');
                 }, 140);
-
-                if (pondMascotImg && analyticsCfg.mascots) {
-                    pondMascotImg.src = analyticsCfg.mascots[stageKey] || analyticsCfg.mascots.dry;
-                }
             }
+        }
 
-            if (pondStageBadge) {
-                pondStageBadge.textContent = stageTitle;
-                pondStageBadge.className = 'pond-stage-pill ' + badgeClass;
-            }
-            if (pondMascotTitle) pondMascotTitle.textContent = mascotTitle;
-            if (pondMascotDesc) pondMascotDesc.textContent = mascotDesc;
-
-            const pct = Math.min(100, Math.round((savedLiters / 3200) * 100));
-            if (pondMeterFill) pondMeterFill.style.width = pct + '%';
-            if (pondMeterLitersText) {
-                pondMeterLitersText.textContent = formatTR(savedLiters, 0) + ' / 3.000+ L Kurtarılan Su';
-            }
-
-            stageSteps.forEach(function (el) {
-                const st = el.getAttribute('data-stage-step');
-                const isActive = (st === stageKey) ||
-                    (stageKey === 'half' && st === 'dry') ||
-                    (stageKey === 'full' && (st === 'dry' || st === 'half'));
-                el.classList.toggle('active', isActive);
-                el.classList.toggle('current', st === stageKey);
+        if (modeBtns.length > 0) {
+            modeBtns.forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    const targetMode = btn.getAttribute('data-chart-mode') || 'monthly';
+                    if (targetMode === currentMode) return;
+                    if (autoPlayTimer) {
+                        clearInterval(autoPlayTimer);
+                        autoPlayTimer = null;
+                    }
+                    currentMode = targetMode;
+                    modeBtns.forEach(function (b) {
+                        const isAct = (b.getAttribute('data-chart-mode') === currentMode);
+                        b.classList.toggle('active', isAct);
+                        b.classList.toggle('btn-primary', isAct);
+                        b.classList.toggle('btn-outline', !isAct);
+                    });
+                    liveSeries = JSON.parse(JSON.stringify(currentMode === 'yearly' ? baseYearly : baseMonthly));
+                    updateAnalyticsAndPond(true);
+                });
             });
         }
 
@@ -643,14 +693,14 @@ document.addEventListener('DOMContentLoaded', function () {
                     clearInterval(autoPlayTimer);
                     autoPlayTimer = null;
                 }
-                liveSeries = JSON.parse(JSON.stringify(baseSeries));
+                liveSeries = JSON.parse(JSON.stringify(currentMode === 'yearly' ? baseYearly : baseMonthly));
                 const n = liveSeries.length;
                 liveSeries[n - 1].consumption_m3 = liveSeries[n - 2].consumption_m3;
                 updateAnalyticsAndPond(false);
             });
         }
 
-        // İlk açılışta çizgi tablosunu ve göleti başlat
+        // İlk açılışta o ayın (Aylık) çizgi tablosunu ve göleti başlat
         const initSaved = Math.max(0, liveSeries[liveSeries.length - 2].consumption_m3 - liveSeries[liveSeries.length - 1].consumption_m3);
         updateAnalyticsAndPond(initSaved > 0);
     }

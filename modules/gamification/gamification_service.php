@@ -73,6 +73,16 @@ function ensure_gamification_schema(): void
             }
         }
 
+        // 7. 101_collective_pond_and_bill_points.sql kontrolü (collective_pond tablosu ve water_logs.saved_m3 sütunu)
+        $hasCollectivePond = (bool) $pdo->query("SHOW TABLES LIKE 'collective_pond'")->fetchColumn();
+        $hasSavedM3Column  = (bool) $pdo->query("SHOW COLUMNS FROM `water_logs` LIKE 'saved_m3'")->fetchColumn();
+        if (!$hasCollectivePond || !$hasSavedM3Column) {
+            $sql101 = __DIR__ . '/../../sql-dum/101_collective_pond_and_bill_points.sql';
+            if (file_exists($sql101)) {
+                run_sql_migration_file($pdo, $sql101);
+            }
+        }
+
         // Mevcut hanelerde owner_user_id veya unit_invite_code eksikse otomatik tamamla
         $pdo->exec("
             UPDATE households h

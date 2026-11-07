@@ -4,9 +4,10 @@
  */
 require_once __DIR__ . '/../modules/water/water_service.php';
 
-$quickWater   = $currentUser ? get_quick_water_summary($currentUser) : null;
-$leaders      = $currentUser ? get_friends_and_apartment_leaderboard($currentUser, 6) : [];
-$incomingReqs = $currentUser ? get_incoming_friend_requests((int) $currentUser['id']) : [];
+$quickWater    = $currentUser ? get_quick_water_summary($currentUser) : null;
+$pondAnalytics = $currentUser ? get_household_water_analytics($currentUser) : null;
+$leaders       = $currentUser ? get_friends_and_apartment_leaderboard($currentUser, 6) : [];
+$incomingReqs  = $currentUser ? get_incoming_friend_requests((int) $currentUser['id']) : [];
 ?>
 <aside class="sidebar-right">
     <?php if ($currentUser && $quickWater): ?>
@@ -19,6 +20,38 @@ $incomingReqs = $currentUser ? get_incoming_friend_requests((int) $currentUser['
                 <p class="panel-desc">Size arkadaşlık isteği gönderen kullanıcılar var.</p>
                 <a href="friends.php" class="btn btn-primary btn-sm btn-block">İstekleri Görüntüle</a>
             </div>
+        <?php endif; ?>
+
+        <!-- 0. Debi Puan Göleti (Tıklandığında Analiz Sayfası Açılır) -->
+        <?php if ($pondAnalytics): ?>
+            <?php
+            $sidePondStage = $pondAnalytics['pond_stage'] ?? 'dry';
+            $sidePondImg   = brand_asset_path('pond_' . $sidePondStage);
+            $sidePondData  = $pondAnalytics['collective_pond'] ?? [
+                'golet_mevcut_su_m3' => 0,
+                'golet_hedef_m3'     => 500,
+                'golet_toplam_puan'  => 0,
+                'doluluk_yuzdesi'    => 0,
+            ];
+            ?>
+            <a href="analytics.php" class="panel-card sidebar-pond-card" title="Su Analizi ve Debi Puan Göleti sayfasını aç">
+                <div class="panel-card-header">
+                    <span class="panel-title">Debi Puan Göleti</span>
+                    <span class="panel-period">+<?= number_format((int) $sidePondData['golet_toplam_puan'], 0, ',', '.') ?> Debi Puanı</span>
+                </div>
+                <div class="sidebar-pond-visual">
+                    <img src="<?= e($sidePondImg) ?>" alt="Debi Puan Göleti" class="sidebar-pond-img">
+                </div>
+                <div class="sidebar-pond-footer">
+                    <div class="comp-row" style="margin-top: 8px; margin-bottom: 4px;">
+                        <span>Ortak Havuz Doluluğu (%<?= number_format((float) $sidePondData['doluluk_yuzdesi'], 1, ',', '.') ?>)</span>
+                        <strong><?= number_format((float) $sidePondData['golet_mevcut_su_m3'], 1, ',', '.') ?> / <?= number_format((float) $sidePondData['golet_hedef_m3'], 0, ',', '.') ?> m³</strong>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill fill-green" style="width: <?= min(100, max(2, (float) $sidePondData['doluluk_yuzdesi'])) ?>%;"></div>
+                    </div>
+                </div>
+            </a>
         <?php endif; ?>
 
         <!-- 1. Bu Ayki Fatura & Debi Özeti -->
@@ -73,7 +106,7 @@ $incomingReqs = $currentUser ? get_incoming_friend_requests((int) $currentUser['
             <?php endif; ?>
 
             <a href="analytics.php" class="btn btn-outline btn-sm btn-block" style="margin-top: 10px;">
-                Su Analizi &amp; Debi Göleti &rarr;
+                Su Analizi &amp; Debi Puan Göleti &rarr;
             </a>
         </div>
 
