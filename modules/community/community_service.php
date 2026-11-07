@@ -441,14 +441,14 @@ function get_friends_drops_leaderboard(array $currentUser, int $limit = 6): arra
                 h.unit_label,
                 h.housing_type,
                 a.name AS apartment_name,
-                COALESCE(hp.total_drops, 0) AS total_drops
+                h.total_points AS total_drops
             FROM users u
             INNER JOIN households h ON h.id = u.household_id
             LEFT JOIN household_ponds hp ON hp.household_id = h.id
             LEFT JOIN apartments a ON a.id = h.apartment_id
             WHERE u.id IN ({$placeholders})
               AND h.housing_type IN ('apartment_unit', 'detached_house')
-            ORDER BY total_drops DESC, u.full_name ASC
+            ORDER BY h.total_points DESC, u.full_name ASC
             LIMIT " . (int) $limit;
 
         $stmt = $pdo->prepare($sql);
@@ -481,12 +481,12 @@ function get_apartment_drops_leaderboard(array $currentUser, int $limit = 6): ar
                 u.id AS user_id,
                 u.avatar_color,
                 u.avatar_photo,
-                COALESCE(hp.total_drops, 0) AS total_drops
+                h.total_points AS total_drops
             FROM households h
             LEFT JOIN users u ON u.id = h.owner_user_id
             LEFT JOIN household_ponds hp ON hp.household_id = h.id
             WHERE h.apartment_id = :aid
-            ORDER BY total_drops DESC, h.unit_label ASC
+            ORDER BY h.total_points DESC, h.unit_label ASC
             LIMIT " . (int) $limit;
 
         $stmt = $pdo->prepare($sql);
@@ -511,7 +511,7 @@ function get_general_apartments_drops_leaderboard(int $limit = 6): array
                 n.district,
                 n.city,
                 COUNT(DISTINCT h.id) AS daire_count,
-                COALESCE(SUM(hp.total_drops), 0) AS total_drops
+                COALESCE(SUM(h.total_points), 0) AS total_drops
             FROM apartments a
             INNER JOIN neighborhoods n ON n.id = a.neighborhood_id
             LEFT JOIN households h ON h.apartment_id = a.id

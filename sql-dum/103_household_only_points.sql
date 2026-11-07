@@ -1,6 +1,7 @@
 -- ==========================================================
 -- DEBI - 103: Yalnızca ortak daire/müstakil ev puanı
--- Kullanıcı cüzdanlarını, kolektif göleti ve bireysel hane puanlarını kaldırır.
+-- Tek bakiye households.total_points sütunudur.
+-- Kullanıcı cüzdanını, kolektif göleti ve bireysel hane puanlarını kaldırır.
 -- ==========================================================
 
 SET NAMES utf8mb4;
@@ -34,6 +35,10 @@ WHERE h.housing_type = 'individual_unit';
 UPDATE `households`
 SET `total_points` = 0
 WHERE `housing_type` = 'individual_unit';
+
+ALTER TABLE `household_ponds`
+    DROP COLUMN `total_drops`,
+    DROP COLUMN `target_drops`;
 
 INSERT IGNORE INTO `debi_schema_versions` (`version`)
 VALUES ('103_household_only_points');

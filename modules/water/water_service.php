@@ -308,20 +308,16 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
         $habStmt->execute([':hid' => $householdId]);
         $habitDrops = ((int) $habStmt->fetchColumn()) * 5;
 
-        $totalHouseholdDrops = $sumBillDrops + $habitDrops;
-
         // Daire Bazlı Gölet (household_ponds) tablosunu güncelle
         $pondUpd = $pdo->prepare("
-            INSERT INTO household_ponds (household_id, total_drops, saved_m3, saved_liters, target_drops)
-            VALUES (:hid, :drops, :sm3, :slit, 100)
+            INSERT INTO household_ponds (household_id, saved_m3, saved_liters)
+            VALUES (:hid, :sm3, :slit)
             ON DUPLICATE KEY UPDATE
-                total_drops  = VALUES(total_drops),
                 saved_m3     = VALUES(saved_m3),
                 saved_liters = VALUES(saved_liters)
         ");
         $pondUpd->execute([
             ':hid'   => $householdId,
-            ':drops' => $totalHouseholdDrops,
             ':sm3'   => round($sumSavedM3, 2),
             ':slit'  => $sumSavedLiters,
         ]);
@@ -511,8 +507,10 @@ function get_household_pond_state(int $householdId): array
         $stmt->execute([':hid' => $householdId]);
         $row = $stmt->fetch();
 
-        $totalDrops  = (int) ($row['total_drops'] ?? 0);
-        $targetDrops = max(10, (int) ($row['target_drops'] ?? 100));
+        $pointsStmt = $pdo->prepare("SELECT total_points FROM households WHERE id = :hid LIMIT 1");
+        $pointsStmt->execute([':hid' => $householdId]);
+        $totalDrops  = (int) $pointsStmt->fetchColumn();
+        $targetDrops = 100;
         $savedM3     = round((float) ($row['saved_m3'] ?? 0.0), 2);
         $savedLiters = (int) ($row['saved_liters'] ?? 0);
         $dolulukPct  = min(100.0, round(($totalDrops / $targetDrops) * 100, 1));
