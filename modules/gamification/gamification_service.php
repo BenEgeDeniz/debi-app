@@ -26,11 +26,11 @@ function ensure_gamification_schema(): void
             }
         }
 
-        // 2. 006_gamification_points.sql kontrolü (point_logs tablosu ve users.total_points sütunu)
+        // 2. 006_gamification_points.sql kontrolü (point_logs tablosu ve hane puanı)
         $hasPointLogs  = (bool) $pdo->query("SHOW TABLES LIKE 'point_logs'")->fetchColumn();
-        $hasUserPoints = (bool) $pdo->query("SHOW COLUMNS FROM `users` LIKE 'total_points'")->fetchColumn();
+        $hasHouseholdPoints = (bool) $pdo->query("SHOW COLUMNS FROM `households` LIKE 'total_points'")->fetchColumn();
 
-        if (!$hasPointLogs || !$hasUserPoints) {
+        if (!$hasPointLogs || !$hasHouseholdPoints) {
             $sql006 = __DIR__ . '/../../sql-dum/006_gamification_points.sql';
             if (file_exists($sql006)) {
                 run_sql_migration_file($pdo, $sql006);
@@ -73,10 +73,9 @@ function ensure_gamification_schema(): void
             }
         }
 
-        // 7. 101_collective_pond_and_bill_points.sql kontrolü (collective_pond tablosu ve water_logs.saved_m3 sütunu)
-        $hasCollectivePond = (bool) $pdo->query("SHOW TABLES LIKE 'collective_pond'")->fetchColumn();
+        // 7. 101_collective_pond_and_bill_points.sql içindeki fatura alanlarını kur
         $hasSavedM3Column  = (bool) $pdo->query("SHOW COLUMNS FROM `water_logs` LIKE 'saved_m3'")->fetchColumn();
-        if (!$hasCollectivePond || !$hasSavedM3Column) {
+        if (!$hasSavedM3Column) {
             $sql101 = __DIR__ . '/../../sql-dum/101_collective_pond_and_bill_points.sql';
             if (file_exists($sql101)) {
                 run_sql_migration_file($pdo, $sql101);
@@ -90,6 +89,22 @@ function ensure_gamification_schema(): void
             $sql102 = __DIR__ . '/../../sql-dum/102_household_pond_and_ai_drops.sql';
             if (file_exists($sql102)) {
                 run_sql_migration_file($pdo, $sql102);
+            }
+        }
+
+        // 9. Eski kullanıcı/kolektif puanlarını ortak hane sistemine dönüştür
+        $hasPointCleanup = (bool) $pdo->query("
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = DATABASE() AND table_name = 'debi_schema_versions'
+        ")->fetchColumn();
+        $cleanupDone = $hasPointCleanup && (bool) $pdo->query("
+            SELECT 1 FROM debi_schema_versions WHERE version = '103_household_only_points'
+        ")->fetchColumn();
+        if (!$cleanupDone) {
+            $sql103 = __DIR__ . '/../../sql-dum/103_household_only_points.sql';
+            if (file_exists($sql103)) {
+                run_sql_migration_file($pdo, $sql103);
             }
         }
 
@@ -208,9 +223,15 @@ function award_points(
     $pdo = db();
 
     try {
+        $typeStmt = $pdo->prepare("SELECT housing_type FROM households WHERE id = :hid LIMIT 1");
+        $typeStmt->execute([':hid' => $householdId]);
+        if (!in_array($typeStmt->fetchColumn(), ['apartment_unit', 'detached_house'], true)) {
+            return 0;
+        }
+
         if ($refKey !== null) {
-            $chk = $pdo->prepare("SELECT id FROM point_logs WHERE user_id = :uid AND ref_key = :rkey LIMIT 1");
-            $chk->execute([':uid' => $userId, ':rkey' => $refKey]);
+            $chk = $pdo->prepare("SELECT id FROM point_logs WHERE household_id = :hid AND ref_key = :rkey LIMIT 1");
+            $chk->execute([':hid' => $householdId, ':rkey' => $refKey]);
             if ($chk->fetchColumn()) {
                 return 0; // Bu tekil aksiyondan daha önce puan kazanılmış
             }
@@ -228,9 +249,6 @@ function award_points(
             ':desc' => $description,
             ':rkey' => $refKey,
         ]);
-
-        $pdo->prepare("UPDATE users SET total_points = total_points + :pts WHERE id = :uid")
-            ->execute([':pts' => $points, ':uid' => $userId]);
 
         $pdo->prepare("UPDATE households SET total_points = total_points + :pts WHERE id = :hid")
             ->execute([':pts' => $points, ':hid' => $householdId]);
@@ -341,8 +359,6 @@ function check_and_award_badges(int $userId, int $householdId): array
                         ':desc' => $badge['emoji'] . ' "' . $badge['title'] . '" rozeti kazanıldı!',
                         ':rkey' => 'badge_' . $badge['code'],
                     ]);
-                    $pdo->prepare("UPDATE users SET total_points = total_points + :pts WHERE id = :uid")
-                        ->execute([':pts' => $bonus, ':uid' => $userId]);
                     $pdo->prepare("UPDATE households SET total_points = total_points + :pts WHERE id = :hid")
                         ->execute([':pts' => $bonus, ':hid' => $householdId]);
                 }
@@ -505,15 +521,19 @@ function get_neighborhood_points_leaderboard(int $neighborhoodId, int $limit = 8
                 u.id AS user_id,
                 u.full_name,
                 u.avatar_color,
-                u.total_points,
+                h.total_points,
                 h.unit_label,
                 h.housing_type,
                 a.name AS apartment_name
-            FROM users u
-            INNER JOIN households h ON h.id = u.household_id
+            FROM households h
+            INNER JOIN users u ON u.id = COALESCE(
+                NULLIF(h.owner_user_id, 0),
+                (SELECT MIN(hu.id) FROM users hu WHERE hu.household_id = h.id)
+            )
             LEFT JOIN apartments a ON a.id = u.apartment_id
-            WHERE u.neighborhood_id = :nid
-            ORDER BY u.total_points DESC, u.id ASC
+            WHERE h.neighborhood_id = :nid
+              AND h.housing_type IN ('apartment_unit', 'detached_house')
+            ORDER BY h.total_points DESC, h.id ASC
             LIMIT :lim
         ");
         $stmt->bindValue(':nid', $neighborhoodId, PDO::PARAM_INT);

@@ -191,7 +191,7 @@ function fetch_posts_with_comments(PDO $pdo, string $whereSql, array $params): a
             u.role AS user_role,
             u.avatar_color,
             u.avatar_photo,
-            u.total_points AS user_points,
+            h.total_points AS user_points,
             h.housing_type,
             h.unit_label,
             n.city AS post_city,
@@ -367,4 +367,3 @@ function delete_post(int $postId, array $user): bool
     $del->execute([':id' => $postId]);
     return true;
 }
-

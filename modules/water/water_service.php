@@ -175,6 +175,17 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
         }
 
         $pdo = db();
+        $typeStmt = $pdo->prepare("SELECT housing_type FROM households WHERE id = :hid LIMIT 1");
+        $typeStmt->execute([':hid' => $householdId]);
+        $housingType = (string) $typeStmt->fetchColumn();
+        if (!in_array($housingType, ['apartment_unit', 'detached_house'], true)) {
+            $pdo->prepare("UPDATE water_logs SET earned_points = 0 WHERE household_id = :hid")
+                ->execute([':hid' => $householdId]);
+            $pdo->prepare("DELETE FROM household_ponds WHERE household_id = :hid")
+                ->execute([':hid' => $householdId]);
+            return $emptyResult;
+        }
+
         $stmt = $pdo->prepare("
             SELECT id, user_id, period_year, period_month, consumption_m3,
                    previous_consumption_m3, saved_m3, saved_liters, saving_pct, earned_points, ai_verified
@@ -486,6 +497,12 @@ function get_household_pond_state(int $householdId): array
     }
 
     try {
+        $typeStmt = db()->prepare("SELECT housing_type FROM households WHERE id = :hid LIMIT 1");
+        $typeStmt->execute([':hid' => $householdId]);
+        if (!in_array($typeStmt->fetchColumn(), ['apartment_unit', 'detached_house'], true)) {
+            return $defaultState;
+        }
+
         // Önce hanenin gerçek fatura ve alışkanlık damlalarını senkronize et
         recalculate_household_water_savings($householdId);
 
@@ -644,9 +661,6 @@ function get_household_water_analytics(array $user): array
         'earned_points'      => $earnedPoints,
         'user_wallet_points' => (int) $pondState['total_drops'],
         'household_pond'     => $pondState,
-        'collective_pond'    => $pondState,
         'pond_stage'         => $pondState['stage'],
     ];
 }
-
-

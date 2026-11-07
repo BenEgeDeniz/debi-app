@@ -447,6 +447,7 @@ function get_friends_drops_leaderboard(array $currentUser, int $limit = 6): arra
             LEFT JOIN household_ponds hp ON hp.household_id = h.id
             LEFT JOIN apartments a ON a.id = h.apartment_id
             WHERE u.id IN ({$placeholders})
+              AND h.housing_type IN ('apartment_unit', 'detached_house')
             ORDER BY total_drops DESC, u.full_name ASC
             LIMIT " . (int) $limit;
 
@@ -526,4 +527,3 @@ function get_general_apartments_drops_leaderboard(int $limit = 6): array
         return [];
     }
 }
-
