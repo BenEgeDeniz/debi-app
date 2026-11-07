@@ -208,7 +208,6 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
         $matchedResult    = null;
         $latestResult     = $emptyResult;
         $totalRows        = count($rows);
-        $sumBillDrops     = 0;
         $invoicePointRows = [];
         $previousApprovedM3 = null;
 
@@ -253,7 +252,6 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
                 $dropReasons[] = '⏳ Fatura değerleri admin incelemesi bekliyor; henüz puan verilmedi.';
             }
 
-            $sumBillDrops   += $earnedPoints;
             $oldPrev = $cur['previous_consumption_m3'] !== null ? round((float) $cur['previous_consumption_m3'], 2) : null;
             if (
                 $oldPrev !== $prevM3 ||
@@ -304,6 +302,8 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
         }
 
         $pdo->beginTransaction();
+        // point_logs yalnızca audit/idempotency kaydıdır. Bakiye kaynağı
+        // households.total_points'tir; mevcut kayıtlar asla geri alınmaz.
         $existingLogsStmt = $pdo->prepare("
             SELECT ref_key
             FROM point_logs
