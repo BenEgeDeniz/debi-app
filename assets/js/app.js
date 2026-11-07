@@ -794,7 +794,47 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 13. Oturum açılmış kullanıcı formlarında progressive AJAX gönderimi
+    // 13. Puan Kullanım & Mağaza Sayfası Yan Yana 2 Seçenek Sekme Geçişi + Kupon Kopyalama (Delegation)
+    document.addEventListener('click', function (ev) {
+        const tabBtn = ev.target.closest('.js-store-tab-btn');
+        if (tabBtn) {
+            const targetTab = tabBtn.getAttribute('data-store-tab') || 'brands';
+            document.querySelectorAll('.js-store-tab-btn').forEach(function (btn) {
+                const isAct = (btn.getAttribute('data-store-tab') === targetTab);
+                btn.classList.toggle('active', isAct);
+                btn.setAttribute('aria-selected', isAct ? 'true' : 'false');
+            });
+
+            const paneBrands = document.getElementById('storeTabBrands');
+            const paneCampaigns = document.getElementById('storeTabCampaigns');
+            if (paneBrands && paneCampaigns) {
+                paneBrands.hidden = (targetTab !== 'brands');
+                paneCampaigns.hidden = (targetTab !== 'campaigns');
+            }
+
+            const nextUrl = new URL(window.location.href);
+            nextUrl.searchParams.set('tab', targetTab);
+            window.history.replaceState({}, '', nextUrl.href);
+            return;
+        }
+
+        const copyBtn = ev.target.closest('.btn-copy[data-copy]');
+        if (copyBtn) {
+            const text = copyBtn.getAttribute('data-copy');
+            if (!text) return;
+            const originalLabel = copyBtn.textContent;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function () {
+                    copyBtn.textContent = 'Kopyalandı';
+                    setTimeout(function () {
+                        copyBtn.textContent = originalLabel;
+                    }, 1600);
+                });
+            }
+        }
+    });
+
+    // 14. Oturum açılmış kullanıcı formlarında progressive AJAX gönderimi
     // Sunucu normal HTML redirect döndürmeye devam eder; yalnızca ana içerik yenilenir.
     document.addEventListener('submit', function (event) {
         const form = event.target;
