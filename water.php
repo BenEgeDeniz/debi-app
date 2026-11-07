@@ -18,7 +18,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'save_water_log') {
         $res = save_water_log($currentUser, $_POST);
         if ($res['ok']) {
-            set_flash('success', 'Su tüketim kaydınız güncellendi. Kişi başı günlük ortalamanız: ' . number_format($res['daily_liters'], 1, ',', '.') . ' L');
+            $ptsTxt = !empty($res['points_awarded']) ? ' (+' . (int) $res['points_awarded'] . ' DP kazandın!)' : '';
+            set_flash('success', 'Sayaç kaydın güncellendi! Kişi başı günlük ortalaman: ' . number_format($res['daily_liters'], 1, ',', '.') . ' L' . $ptsTxt);
         } else {
             set_flash('error', $res['error']);
         }
@@ -28,8 +29,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'toggle_habit') {
         $habitId = (int) ($_POST['habit_id'] ?? 0);
         if ($habitId > 0) {
-            toggle_household_habit((int) $currentUser['household_id'], $habitId);
-            set_flash('success', 'Hane tasarruf alışkanlığınız güncellendi.');
+            $pts = toggle_household_habit((int) $currentUser['household_id'], $habitId, (int) $currentUser['id']);
+            if ($pts > 0) {
+                set_flash('success', 'Yeni tasarruf alışkanlığın eklendi! 🛠️ +' . $pts . ' Damla Puanı (DP) kazandın!');
+            } else {
+                set_flash('success', 'Hane tasarruf alışkanlığın güncellendi.');
+            }
         }
         redirect('water.php#habits');
     }
@@ -118,7 +123,7 @@ require_once __DIR__ . '/includes/header.php';
                         <span>Bu kaydı mahalle akışında başarı olarak paylaş</span>
                     </label>
 
-                    <button type="submit" class="btn btn-primary">Kaydet ve Hesapla</button>
+                    <button type="submit" class="btn btn-primary">💧 Kaydet ve +100 DP Kazan</button>
                 </div>
             </form>
         </section>
@@ -235,7 +240,7 @@ require_once __DIR__ . '/includes/header.php';
                             <input type="hidden" name="action" value="toggle_habit">
                             <input type="hidden" name="habit_id" value="<?= (int) $habit['id'] ?>">
                             <button type="submit" class="btn <?= $active ? 'btn-primary' : 'btn-outline' ?> btn-sm">
-                                <?= $active ? 'Uygulanıyor ✓' : 'Uygula' ?>
+                                <?= $active ? '✓ Uygulanıyor' : '+ Uygula (+40 DP)' ?>
                             </button>
                         </form>
                     </div>

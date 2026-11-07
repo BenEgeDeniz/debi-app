@@ -87,7 +87,20 @@ function create_post(array $user, array $input, ?array $file = null): array
         ':pinned'  => $isPinned,
     ]);
 
-    return ['ok' => true, 'post_id' => (int) db()->lastInsertId()];
+    $postId = (int) db()->lastInsertId();
+    $pts = 0;
+    if (function_exists('award_points')) {
+        $pts = award_points(
+            (int) $user['id'],
+            (int) $user['household_id'],
+            'post_create',
+            25,
+            '📣 Akışta yeni bir su tasarrufu paylaşımı yaptın!',
+            'post_' . $postId
+        );
+    }
+
+    return ['ok' => true, 'post_id' => $postId, 'points_awarded' => $pts];
 }
 
 /**
@@ -134,6 +147,7 @@ function get_feed_posts(array $user, string $scope = 'neighborhood', ?string $ca
             u.full_name,
             u.role AS user_role,
             u.avatar_color,
+            u.total_points AS user_points,
             h.housing_type,
             h.unit_label,
             n.city AS post_city,
@@ -214,6 +228,31 @@ function toggle_post_reaction(int $postId, int $userId): array
         $ins = $pdo->prepare("INSERT INTO post_reactions (post_id, user_id) VALUES (:pid, :uid)");
         $ins->execute([':pid' => $postId, ':uid' => $userId]);
         $reacted = true;
+
+        if (function_exists('award_points')) {
+            // Tepki veren kullanıcının household_id'sini al
+            $uSt = $pdo->prepare("SELECT household_id FROM users WHERE id = :uid LIMIT 1");
+            $uSt->execute([':uid' => $userId]);
+            $reactorHid = (int) $uSt->fetchColumn();
+            if ($reactorHid > 0) {
+                award_points($userId, $reactorHid, 'post_reaction_give', 5, '💧 Komşunun paylaşımına damla desteği verdin!', 'react_give_' . $postId);
+            }
+
+            // Gönderi sahibine de +10 DP kazandır (kendi gönderisi değilse)
+            $pSt = $pdo->prepare("SELECT p.user_id, u.household_id FROM posts p INNER JOIN users u ON u.id = p.user_id WHERE p.id = :pid LIMIT 1");
+            $pSt->execute([':pid' => $postId]);
+            $author = $pSt->fetch();
+            if ($author && (int) $author['user_id'] !== $userId) {
+                award_points(
+                    (int) $author['user_id'],
+                    (int) $author['household_id'],
+                    'post_reaction_receive',
+                    10,
+                    '💙 Paylaşımın komşulardan damla desteği aldı!',
+                    'react_recv_' . $postId . '_' . $userId
+                );
+            }
+        }
     }
 
     $cntStmt = $pdo->prepare("SELECT COUNT(*) FROM post_reactions WHERE post_id = :pid");
@@ -233,7 +272,8 @@ function add_post_comment(int $postId, int $userId, string $content): array
         return ['ok' => false, 'error' => 'Yorum metni boş olamaz.'];
     }
 
-    $stmt = db()->prepare("
+    $pdo  = db();
+    $stmt = $pdo->prepare("
         INSERT INTO comments (post_id, user_id, content)
         VALUES (:pid, :uid, :content)
     ");
@@ -242,8 +282,19 @@ function add_post_comment(int $postId, int $userId, string $content): array
         ':uid'     => $userId,
         ':content' => $content,
     ]);
+    $commentId = (int) $pdo->lastInsertId();
 
-    return ['ok' => true];
+    $pts = 0;
+    if (function_exists('award_points')) {
+        $uSt = $pdo->prepare("SELECT household_id FROM users WHERE id = :uid LIMIT 1");
+        $uSt->execute([':uid' => $userId]);
+        $hid = (int) $uSt->fetchColumn();
+        if ($hid > 0) {
+            $pts = award_points($userId, $hid, 'comment_create', 10, '💬 Komşunun paylaşımına yorum yaptın!', 'comment_' . $commentId);
+        }
+    }
+
+    return ['ok' => true, 'points_awarded' => $pts];
 }
 
 /**

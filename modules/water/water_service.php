@@ -63,9 +63,10 @@ function save_water_log(array $user, array $input): array
         ':notes'  => $notes !== '' ? $notes : null,
     ]);
 
+    $monthName = turkish_month_name($month) . ' ' . $year;
+
     // İsteğe bağlı olarak sosyal akışta başarı paylaşımı oluştur
     if ($shareOnFeed) {
-        $monthName = turkish_month_name($month) . ' ' . $year;
         $postText  = "{$monthName} dönemi su tüketimimizi kaydettik: Toplam {$consumptionM3} m³ (Kişi başı günde ortalama {$dailyLitersPerPerson} L).";
         if ($notes !== '') {
             $postText .= " Notumuz: " . $notes;
@@ -83,7 +84,30 @@ function save_water_log(array $user, array $input): array
         ]);
     }
 
-    return ['ok' => true, 'daily_liters' => $dailyLitersPerPerson];
+    $pointsAwarded = 0;
+    if (function_exists('award_points')) {
+        $pointsAwarded += award_points(
+            (int) $user['id'],
+            (int) $user['household_id'],
+            'water_log_entry',
+            100,
+            "📊 {$monthName} su sayacı verisini kaydettin!",
+            "water_log_{$year}_{$month}"
+        );
+
+        if ($dailyLitersPerPerson <= 100.0) {
+            $pointsAwarded += award_points(
+                (int) $user['id'],
+                (int) $user['household_id'],
+                'water_saving_bonus',
+                150,
+                "🏆 {$monthName} döneminde 100L/gün tasarruf hedefini yakaladın!",
+                "water_bonus_{$year}_{$month}"
+            );
+        }
+    }
+
+    return ['ok' => true, 'daily_liters' => $dailyLitersPerPerson, 'points_awarded' => $pointsAwarded];
 }
 
 /**
@@ -185,7 +209,7 @@ function get_saving_habits_with_status(int $householdId): array
 /**
  * Hanenin Tasarruf Alışkanlığını Açıp Kapatma
  */
-function toggle_household_habit(int $householdId, int $habitId): void
+function toggle_household_habit(int $householdId, int $habitId, int $userId = 0): int
 {
     $pdo = db();
     $chk = $pdo->prepare("
@@ -198,9 +222,25 @@ function toggle_household_habit(int $householdId, int $habitId): void
     if ($chk->fetchColumn()) {
         $del = $pdo->prepare("DELETE FROM household_habits WHERE household_id = :hid AND habit_id = :hab");
         $del->execute([':hid' => $householdId, ':hab' => $habitId]);
+        return 0;
     } else {
         $ins = $pdo->prepare("INSERT INTO household_habits (household_id, habit_id) VALUES (:hid, :hab)");
         $ins->execute([':hid' => $householdId, ':hab' => $habitId]);
+
+        if ($userId > 0 && function_exists('award_points')) {
+            $hSt = $pdo->prepare("SELECT title FROM saving_habits WHERE id = :id LIMIT 1");
+            $hSt->execute([':id' => $habitId]);
+            $hTitle = $hSt->fetchColumn() ?: 'Tasarruf Alışkanlığı';
+            return award_points(
+                $userId,
+                $householdId,
+                'habit_adopt',
+                40,
+                '🛠️ Yeni alışkanlık: ' . $hTitle,
+                'habit_' . $habitId
+            );
+        }
+        return 0;
     }
 }
 

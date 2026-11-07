@@ -16,6 +16,8 @@ Veritabanınızı MySQL sunucunuzda (örn. `debi_db`) oluşturduktan sonra `sql-
    - Örnek yönetici: `ali@debi.test`
    - Örnek bireysel katılımcı: `mehmet@debi.test`
    - Örnek müstakil ev: `selim@debi.test`
+5. `sql-dum/005_post_images_and_alerts.sql` — Gönderi fotoğraf yükleme alanı ve mahalle su kesintisi/arıza bildirim tablosu.
+6. `sql-dum/006_gamification_points.sql` — Damla Puanı (DP), Seviye sistemi, Günlük Su Görevleri (`daily_quests`) ve Rozet (`badges`) tabloları.
 
 ---
 

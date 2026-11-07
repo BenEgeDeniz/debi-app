@@ -256,6 +256,17 @@ function register_user(array $input): array
         }
 
         $pdo->commit();
+
+        // Hoş geldin ve katılım Damla Puanlarını (DP) tanımla
+        if (function_exists('award_points')) {
+            award_points($userId, $householdId, 'welcome_bonus', 50, '🎉 Debi mahalle ağına katıldın!', 'welcome_' . $userId);
+            if ($mode === 'apartment_manager' && $apartmentId) {
+                award_points($userId, $householdId, 'apartment_create', 100, '🏢 Mahallende apartmanını oluşturup yönetici oldun!', 'apt_create_' . $apartmentId);
+            } elseif ($mode === 'apartment_invite' && $apartmentId) {
+                award_points($userId, $householdId, 'apartment_join', 50, '🏠 Davet koduyla apartmanına katıldın!', 'apt_join_' . $userId);
+            }
+        }
+
         return ['ok' => true, 'user_id' => $userId];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {

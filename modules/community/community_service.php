@@ -118,6 +118,9 @@ function join_apartment_for_existing_user(array $user, string $inviteCode, strin
         }
 
         $pdo->commit();
+        if (function_exists('award_points')) {
+            award_points((int) $user['id'], (int) $user['household_id'], 'apartment_join', 50, '🏠 Apartmanına bağlandın!', 'apt_join_' . $user['id']);
+        }
         return ['ok' => true];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -189,6 +192,9 @@ function create_apartment_for_existing_user(array $user, string $name, string $a
         ]);
 
         $pdo->commit();
+        if (function_exists('award_points')) {
+            award_points((int) $user['id'], (int) $user['household_id'], 'apartment_create', 100, '🏢 Mahallende apartmanını kurdun!', 'apt_create_' . $apartmentId);
+        }
         return ['ok' => true, 'apartment_id' => $apartmentId];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -283,6 +289,7 @@ function get_neighborhood_overview(int $neighborhoodId, int $year, int $month): 
             u.id AS user_id,
             u.full_name,
             u.avatar_color,
+            u.total_points,
             w.consumption_m3,
             w.daily_liters_per_person
         FROM households h
@@ -397,6 +404,7 @@ function get_apartment_overview(int $apartmentId, int $year, int $month): array
             u.full_name,
             u.role,
             u.avatar_color,
+            u.total_points,
             w.consumption_m3,
             w.daily_liters_per_person,
             w.bill_amount,

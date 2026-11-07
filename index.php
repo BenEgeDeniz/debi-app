@@ -20,11 +20,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $returnTab = 'neighborhood';
     }
 
+    if ($action === 'complete_quest') {
+        $questId   = (int) ($_POST['quest_id'] ?? 0);
+        $returnUrl = basename($_POST['return_url'] ?? 'index.php');
+        if ($questId > 0) {
+            $res = complete_daily_quest($currentUser, $questId);
+            if ($res['ok']) {
+                set_flash('success', $res['emoji'] . ' Harika! "' . $res['title'] . '" görevini tamamladın: +' . $res['points'] . ' DP kazandın ve ~' . $res['liters'] . ' L su kurtardın!');
+            } else {
+                set_flash('error', $res['error']);
+            }
+        }
+        redirect($returnUrl ?: 'index.php');
+    }
+
     if ($action === 'create_post') {
         $file = $_FILES['post_image'] ?? null;
         $res  = create_post($currentUser, $_POST, $file);
         if ($res['ok']) {
-            set_flash('success', 'Paylaşımınız akışa eklendi.');
+            $ptsMsg = !empty($res['points_awarded']) ? ' (+' . (int) $res['points_awarded'] . ' DP kazandın!)' : '';
+            set_flash('success', 'Paylaşımın akışa eklendi!' . $ptsMsg);
             $vis = $_POST['visibility'] ?? 'neighborhood';
             if (in_array($vis, ['neighborhood', 'apartment', 'public'], true)) {
                 $returnTab = $vis;
@@ -53,7 +68,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $content = $_POST['comment_content'] ?? '';
         if ($postId > 0) {
             $res = add_post_comment($postId, (int) $currentUser['id'], $content);
-            if (!$res['ok']) {
+            if ($res['ok']) {
+                if (!empty($res['points_awarded'])) {
+                    set_flash('success', 'Yorumun eklendi! 💬 +' . (int) $res['points_awarded'] . ' DP kazandın!');
+                }
+            } else {
                 set_flash('error', $res['error']);
             }
         }
@@ -173,7 +192,7 @@ require_once __DIR__ . '/includes/header.php';
                             <span></span>
                         <?php endif; ?>
 
-                        <button type="submit" class="btn btn-primary">Paylaş</button>
+                        <button type="submit" class="btn btn-primary">Paylaş (+25 DP)</button>
                     </div>
                 </div>
             </form>
@@ -183,56 +202,60 @@ require_once __DIR__ . '/includes/header.php';
         <div class="feed-tabs-bar">
             <div class="feed-tabs">
                 <a href="index.php?scope=neighborhood" class="feed-tab <?= $scope === 'neighborhood' ? 'active' : '' ?>">
-                    Mahallem
+                    <span>🏘️ Mahallem</span>
                     <small><?= e($currentUser['neighborhood_name']) ?></small>
                 </a>
                 <a href="index.php?scope=apartment" class="feed-tab <?= $scope === 'apartment' ? 'active' : '' ?>">
-                    Apartmanım
+                    <span>🏢 Apartmanım</span>
                     <small><?= !empty($currentUser['apartment_name']) ? e($currentUser['apartment_name']) : 'Bireysel' ?></small>
                 </a>
                 <a href="index.php?scope=public" class="feed-tab <?= $scope === 'public' ? 'active' : '' ?>">
-                    Genel Akış
+                    <span>🌍 Genel Akış</span>
                     <small>Tüm Debi</small>
                 </a>
             </div>
 
             <!-- Kategori Filtresi -->
             <div class="category-filter-row">
-                <a href="index.php?scope=<?= e($scope) ?>" class="filter-chip <?= !$categoryFilter ? 'active' : '' ?>">Tümü</a>
-                <a href="index.php?scope=<?= e($scope) ?>&amp;category=tip" class="filter-chip <?= $categoryFilter === 'tip' ? 'active' : '' ?>">İpuçları</a>
-                <a href="index.php?scope=<?= e($scope) ?>&amp;category=achievement" class="filter-chip <?= $categoryFilter === 'achievement' ? 'active' : '' ?>">Sayaç Başarıları</a>
-                <a href="index.php?scope=<?= e($scope) ?>&amp;category=question" class="filter-chip <?= $categoryFilter === 'question' ? 'active' : '' ?>">Sorular</a>
-                <a href="index.php?scope=<?= e($scope) ?>&amp;category=alert" class="filter-chip <?= $categoryFilter === 'alert' ? 'active' : '' ?>">Uyarılar</a>
+                <a href="index.php?scope=<?= e($scope) ?>" class="filter-chip <?= !$categoryFilter ? 'active' : '' ?>">✨ Tümü</a>
+                <a href="index.php?scope=<?= e($scope) ?>&amp;category=tip" class="filter-chip <?= $categoryFilter === 'tip' ? 'active' : '' ?>">💡 İpuçları</a>
+                <a href="index.php?scope=<?= e($scope) ?>&amp;category=achievement" class="filter-chip <?= $categoryFilter === 'achievement' ? 'active' : '' ?>">🏆 Sayaç Başarıları</a>
+                <a href="index.php?scope=<?= e($scope) ?>&amp;category=question" class="filter-chip <?= $categoryFilter === 'question' ? 'active' : '' ?>">❓ Sorular</a>
+                <a href="index.php?scope=<?= e($scope) ?>&amp;category=alert" class="filter-chip <?= $categoryFilter === 'alert' ? 'active' : '' ?>">🚨 Uyarılar</a>
             </div>
         </div>
 
         <!-- Eğer "Apartmanım" sekmesindeyse ve kullanıcı bireysel/müstakil üyeyse bilgi kutusu -->
         <?php if ($scope === 'apartment' && empty($currentUser['apartment_id'])): ?>
             <div class="panel-card empty-state-card">
-                <h3>Şu anda mahallenizde bireysel katılımcı olarak yer alıyorsunuz</h3>
+                <h3>🏡 Şu anda mahallenizde bireysel katılımcı olarak yer alıyorsunuz</h3>
                 <p>
                     <strong><?= e($currentUser['neighborhood_name']) ?></strong> mahallesinde bireysel veya müstakil hane olarak tüm mahalle akışına ve sıralamasına dahilsiniz.
-                    Eğer bir apartmanda oturuyorsanız ve apartman yöneticiniz Debi'de hesap açtıysa davet kodunuzla apartmanınıza bağlanabilir veya apartmanınızı kendiniz oluşturabilirsiniz.
+                    Eğer bir apartmanda oturuyorsanız davet kodunuzla apartmanınıza bağlanabilir (<strong>+50 DP</strong>) veya apartmanınızı kendiniz oluşturabilirsiniz (<strong>+100 DP</strong>).
                 </p>
                 <div class="action-row">
-                    <a href="apartment.php" class="btn btn-primary">Apartmana Katıl veya Apartman Oluştur</a>
-                    <a href="index.php?scope=neighborhood" class="btn btn-outline">Mahalle Akışına Dön</a>
+                    <a href="apartment.php" class="btn btn-primary">🏢 Apartmana Katıl veya Oluştur (+100 DP)</a>
+                    <a href="index.php?scope=neighborhood" class="btn btn-outline">🏘️ Mahalle Akışına Dön</a>
                 </div>
             </div>
         <?php else: ?>
             <!-- Gönderi Listesi -->
             <?php if (empty($posts)): ?>
                 <div class="panel-card empty-state-card">
-                    <h3>Bu görünümde henüz paylaşım yok</h3>
-                    <p>İlk su tasarrufu ipucunu, fatura değişimini veya komşu sorusunu yukarıdaki kutudan paylaşabilirsiniz.</p>
+                    <h3>🌱 Bu görünümde henüz paylaşım yok</h3>
+                    <p>İlk su tasarrufu ipucunu, fatura değişimini veya komşu sorusunu yukarıdaki kutudan paylaşarak <strong>+25 DP</strong> kazanabilirsin!</p>
                 </div>
             <?php else: ?>
                 <div class="post-list">
                     <?php foreach ($posts as $post): ?>
-                        <?php $catMeta = post_category_meta($post['category']); ?>
+                        <?php
+                        $catMeta    = post_category_meta($post['category']);
+                        $authorPts  = (int) ($post['user_points'] ?? 50);
+                        $authorLvl  = get_level_info($authorPts);
+                        ?>
                         <article class="panel-card post-card <?= $post['is_pinned'] ? 'post-pinned' : '' ?>" id="post-<?= (int) $post['id'] ?>">
                             <?php if ($post['is_pinned']): ?>
-                                <div class="pinned-banner">Sabitlenmiş Topluluk Paylaşımı</div>
+                                <div class="pinned-banner">📌 Sabitlenmiş Topluluk Paylaşımı</div>
                             <?php endif; ?>
 
                             <div class="post-header">
@@ -243,6 +266,9 @@ require_once __DIR__ . '/includes/header.php';
                                     <div>
                                         <div class="post-author-line">
                                             <strong><?= e($post['full_name']) ?></strong>
+                                            <span class="author-lvl-chip" title="Seviye <?= (int) $authorLvl['level'] ?>: <?= e($authorLvl['title']) ?>">
+                                                <?= $authorLvl['emoji'] ?> <?= number_format($authorPts, 0, ',', '.') ?> DP
+                                            </span>
                                             <?php if ($post['user_role'] === 'manager'): ?>
                                                 <span class="tag tag-manager">Yönetici</span>
                                             <?php endif; ?>
@@ -294,14 +320,14 @@ require_once __DIR__ . '/includes/header.php';
                                     <input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>">
                                     <input type="hidden" name="return_scope" value="<?= e($scope) ?>">
                                     <button type="submit" class="btn-action <?= (int) $post['user_reacted'] > 0 ? 'reacted' : '' ?>">
-                                        <span class="drop-symbol">&#9679;</span>
+                                        <span class="drop-symbol">💧</span>
                                         <span class="reaction-label">Damla Desteği</span>
                                         <span class="reaction-count">(<?= (int) $post['reaction_count'] ?>)</span>
                                     </button>
                                 </form>
 
                                 <button type="button" class="btn-action js-toggle-comments" data-target="comments-<?= (int) $post['id'] ?>">
-                                    Yorumlar (<?= (int) $post['comment_count'] ?>)
+                                    💬 Yorumlar (<?= (int) $post['comment_count'] ?>)
                                 </button>
 
                                 <?php if ((int) $post['user_id'] === (int) $currentUser['id'] || ($currentUser['role'] === 'manager' && !empty($currentUser['apartment_id']) && (int) $post['apartment_id'] === (int) $currentUser['apartment_id'])): ?>
