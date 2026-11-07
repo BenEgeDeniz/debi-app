@@ -120,7 +120,7 @@ require_once __DIR__ . '/includes/header.php';
                         <label for="password">Şifre (Min. 6 karakter)</label>
                         <input type="password" id="password" name="password" required placeholder="••••••">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="residentCountGroup">
                         <label for="resident_count">Hanedeki Kişi Sayısı</label>
                         <input type="number" id="resident_count" name="resident_count" min="1" max="20" required
                                value="<?= e($_POST['resident_count'] ?? '3') ?>">
@@ -229,7 +229,6 @@ require_once __DIR__ . '/includes/header.php';
                                disabled>
                     </div>
                 </div>
-                <button type="button" class="btn btn-outline" id="lookupInviteButton">Kodu Sorgula</button>
                 <p id="inviteLookupResult" class="form-help" aria-live="polite"></p>
             </div>
 
@@ -279,37 +278,25 @@ require_once __DIR__ . '/includes/header.php';
     const form = document.getElementById('registerForm');
     const modeInput = document.getElementById('registerModeInput');
     const inviteCode = document.getElementById('invite_code');
-    const lookupButton = document.getElementById('lookupInviteButton');
+    const residentCountGroup = document.getElementById('residentCountGroup');
+    const residentCount = document.getElementById('resident_count');
     const targetBox = document.getElementById('inviteTargetBox');
     const targetInput = document.getElementById('inv_unit_label');
     const result = document.getElementById('inviteLookupResult');
     const csrf = form.querySelector('input[name="csrf_token"]').value;
+    let lookupTimer;
 
-    document.querySelectorAll('[data-mode-target]').forEach((tab) => {
-        tab.addEventListener('click', () => {
-            const mode = tab.dataset.modeTarget;
-            modeInput.value = mode;
-            document.querySelectorAll('[data-mode-box]').forEach((box) => {
-                const active = box.dataset.modeBox === mode;
-                box.style.display = active ? '' : 'none';
-                box.querySelectorAll('input, select, textarea').forEach((input) => {
-                    input.disabled = !active;
-                });
-            });
-            document.querySelectorAll('[data-mode-target]').forEach((item) => {
-                item.classList.toggle('active', item === tab);
-            });
-        });
-    });
-
-    lookupButton?.addEventListener('click', async () => {
+    const lookupInvite = async () => {
         const code = inviteCode.value.trim().toUpperCase();
         if (!code) {
-            result.textContent = 'Önce davet kodunu girin.';
+            result.textContent = '';
             return;
         }
-        lookupButton.disabled = true;
-        result.textContent = 'Kod sorgulanıyor...';
+        if (!/^(DEBI|DAIRE)-[A-Z0-9]+$/.test(code)) {
+            result.textContent = '';
+            return;
+        }
+        result.textContent = 'Kod kontrol ediliyor...';
         const body = new URLSearchParams({
             action: 'lookup_invite',
             invite_code: code,
@@ -325,22 +312,63 @@ require_once __DIR__ . '/includes/header.php';
             if (!data.ok) {
                 targetBox.hidden = true;
                 targetInput.disabled = true;
+                targetInput.required = false;
                 result.textContent = data.error;
                 return;
             }
             inviteCode.value = code;
-            targetBox.hidden = data.type !== 'manager';
-            targetInput.disabled = data.type !== 'manager';
-            targetInput.required = data.type === 'manager';
+            const isManager = data.type === 'manager';
+            targetBox.hidden = !isManager;
+            targetInput.disabled = !isManager;
+            targetInput.required = isManager;
             targetInput.value = data.unit_label || '';
-            result.textContent = data.type === 'manager'
+            result.textContent = isManager
                 ? `${data.apartment_name}: Daire Yöneticisi olarak devam edebilirsiniz.`
                 : `${data.unit_label}: Daire Sakini olarak devam edebilirsiniz.`;
         } catch (error) {
-            result.textContent = 'Kod sorgulanırken beklenmeyen bir hata oluştu.';
-        } finally {
-            lookupButton.disabled = false;
+            result.textContent = 'Kod kontrol edilirken beklenmeyen bir hata oluştu.';
+        }
+    };
+
+    const syncModeFields = (mode) => {
+        const inviteMode = mode === 'apartment_invite';
+        residentCountGroup.hidden = inviteMode;
+        residentCount.disabled = inviteMode;
+        residentCount.required = !inviteMode;
+        if (inviteMode) {
+            residentCount.value = '';
+        }
+    };
+
+    document.querySelectorAll('[data-mode-target]').forEach((tab) => {
+        tab.addEventListener('click', () => {
+            const mode = tab.dataset.modeTarget;
+            modeInput.value = mode;
+            syncModeFields(mode);
+            document.querySelectorAll('[data-mode-box]').forEach((box) => {
+                const active = box.dataset.modeBox === mode;
+                box.style.display = active ? '' : 'none';
+                box.querySelectorAll('input, select, textarea').forEach((input) => {
+                    input.disabled = !active;
+                });
+            });
+            document.querySelectorAll('[data-mode-target]').forEach((item) => {
+                item.classList.toggle('active', item === tab);
+            });
+        });
+    });
+
+    inviteCode?.addEventListener('input', () => {
+        clearTimeout(lookupTimer);
+        lookupTimer = setTimeout(lookupInvite, 500);
+    });
+    inviteCode?.addEventListener('blur', lookupInvite);
+    inviteCode?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            lookupInvite();
         }
     });
+    syncModeFields(modeInput.value);
 })();
 </script>
