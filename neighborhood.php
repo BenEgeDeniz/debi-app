@@ -80,7 +80,7 @@ require_once __DIR__ . '/includes/header.php';
         <section class="panel-card">
             <div class="panel-card-header">
                 <h2 class="section-title">Mahalledeki Apartmanlar (<?= count($apartments) ?>)</h2>
-                <?php if (empty($currentUser['apartment_id'])): ?>
+                <?php if (empty($currentUser['apartment_id']) && ($currentUser['housing_type'] ?? '') !== 'detached_house'): ?>
                     <a href="apartment.php" class="btn btn-outline btn-sm">Apartman Ekle / Katıl</a>
                 <?php endif; ?>
             </div>

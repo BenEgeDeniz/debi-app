@@ -7,6 +7,11 @@ require_once __DIR__ . '/modules/community/community_service.php';
 
 $currentUser = require_login();
 
+// Müstakil ev kullanıcıları apartmana katılamaz veya apartman oluşturamaz; doğrudan mahalle çatısına bağlıdır
+if (empty($currentUser['apartment_id']) && ($currentUser['housing_type'] ?? '') === 'detached_house') {
+    redirect('neighborhood.php');
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf()) {
         set_flash('error', 'Güvenlik doğrulaması başarısız oldu.');

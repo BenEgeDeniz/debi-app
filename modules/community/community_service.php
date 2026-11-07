@@ -8,6 +8,10 @@
  */
 function join_apartment_for_existing_user(array $user, string $inviteCode, string $customUnitLabel = ''): array
 {
+    if (($user['housing_type'] ?? '') === 'detached_house') {
+        return ['ok' => false, 'error' => 'Müstakil ev olarak kayıtlı haneler apartmana bağlanamaz.'];
+    }
+
     $pdo        = db();
     $inviteCode = strtoupper(trim($inviteCode));
     $customUnit = trim($customUnitLabel);
@@ -135,6 +139,10 @@ function join_apartment_for_existing_user(array $user, string $inviteCode, strin
  */
 function create_apartment_for_existing_user(array $user, string $name, string $address, int $totalUnits, string $unitLabel): array
 {
+    if (($user['housing_type'] ?? '') === 'detached_house') {
+        return ['ok' => false, 'error' => 'Müstakil ev olarak kayıtlı haneler apartman oluşturamaz.'];
+    }
+
     $pdo        = db();
     $name       = trim($name);
     $address    = trim($address);

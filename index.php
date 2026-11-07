@@ -69,8 +69,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$isDetachedHome = ($currentUser['housing_type'] ?? '') === 'detached_house' && empty($currentUser['apartment_id']);
+
 $scope = $_GET['scope'] ?? 'neighborhood';
 if (!in_array($scope, ['neighborhood', 'apartment', 'public'], true)) {
+    $scope = 'neighborhood';
+}
+// Müstakil ev kullanıcılarının apartman akışı yoktur; yalnızca Mahalle ve Genel akışı vardır
+if ($isDetachedHome && $scope === 'apartment') {
     $scope = 'neighborhood';
 }
 
@@ -142,15 +148,17 @@ require_once __DIR__ . '/includes/header.php';
 
         <!-- Akış Sekmeleri -->
         <div class="feed-tabs-bar">
-            <div class="feed-tabs">
+            <div class="feed-tabs <?= $isDetachedHome ? 'feed-tabs-2' : '' ?>">
                 <a href="index.php?scope=neighborhood" class="feed-tab <?= $scope === 'neighborhood' ? 'active' : '' ?>">
                     <span>Mahallem</span>
                     <small><?= e($currentUser['neighborhood_name']) ?></small>
                 </a>
-                <a href="index.php?scope=apartment" class="feed-tab <?= $scope === 'apartment' ? 'active' : '' ?>">
-                    <span>Apartmanım</span>
-                    <small><?= !empty($currentUser['apartment_name']) ? e($currentUser['apartment_name']) : 'Bireysel' ?></small>
-                </a>
+                <?php if (!$isDetachedHome): ?>
+                    <a href="index.php?scope=apartment" class="feed-tab <?= $scope === 'apartment' ? 'active' : '' ?>">
+                        <span>Apartmanım</span>
+                        <small><?= !empty($currentUser['apartment_name']) ? e($currentUser['apartment_name']) : 'Bireysel' ?></small>
+                    </a>
+                <?php endif; ?>
                 <a href="index.php?scope=public" class="feed-tab <?= $scope === 'public' ? 'active' : '' ?>">
                     <span>Genel Akış</span>
                     <small>Tüm Debi</small>
