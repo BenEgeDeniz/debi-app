@@ -31,6 +31,11 @@ $unitFormatted    = !empty($currentUser)
             <?php endif; ?>
         </a>
 
+        <a href="events.php" class="side-nav-link <?= $activeNav === 'events' ? 'active' : '' ?>">
+            <span class="nav-icon">📅</span>
+            <span>Etkinlikler</span>
+        </a>
+
         <a href="water.php" class="side-nav-link <?= $activeNav === 'water' ? 'active' : '' ?>">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
             <span>Faturalar</span>
@@ -57,6 +62,9 @@ $unitFormatted    = !empty($currentUser)
     </a>
     <a href="friends.php" class="mobile-nav-item <?= $activeNav === 'friends' ? 'active' : '' ?>">
         <span>Arkadaşlar<?= $pendingFriendCnt > 0 ? ' (' . $pendingFriendCnt . ')' : '' ?></span>
+    </a>
+    <a href="events.php" class="mobile-nav-item <?= $activeNav === 'events' ? 'active' : '' ?>">
+        <span>Etkinlikler</span>
     </a>
     <a href="water.php" class="mobile-nav-item <?= $activeNav === 'water' ? 'active' : '' ?>">
         <span>Fatura</span>

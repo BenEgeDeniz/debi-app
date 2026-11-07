@@ -61,7 +61,7 @@ function award_points(
     if ($points <= 0 || $userId <= 0 || $householdId <= 0) {
         return 0;
     }
-    if ($actionCode !== 'bill_drops_earned') {
+    if (!in_array($actionCode, ['bill_drops_earned', 'event_participation'], true)) {
         return 0;
     }
 
