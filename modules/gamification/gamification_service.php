@@ -82,10 +82,17 @@ function ensure_gamification_schema(): void
             }
         }
 
-        // 8. 102_household_pond_and_ai_drops.sql kontrolü (household_ponds tablosu ve water_logs.ai_verified sütunu)
-        $hasHouseholdPond = (bool) $pdo->query("SHOW TABLES LIKE 'household_ponds'")->fetchColumn();
+        $hasRetiredGamificationTable = (bool) $pdo->query("
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = DATABASE() AND table_name = 'debi_schema_versions'
+        ")->fetchColumn() && (bool) $pdo->query("
+            SELECT 1 FROM debi_schema_versions
+            WHERE version = '105_remove_retired_gamification_tables'
+        ")->fetchColumn();
+
+        // 8. 102_household_pond_and_ai_drops.sql içindeki fatura doğrulama alanını kur
         $hasAiVerifiedCol = (bool) $pdo->query("SHOW COLUMNS FROM `water_logs` LIKE 'ai_verified'")->fetchColumn();
-        if (!$hasHouseholdPond || !$hasAiVerifiedCol) {
+        if (!$hasRetiredGamificationTable && !$hasAiVerifiedCol) {
             $sql102 = __DIR__ . '/../../sql-dum/102_household_pond_and_ai_drops.sql';
             if (file_exists($sql102)) {
                 run_sql_migration_file($pdo, $sql102);
@@ -115,6 +122,17 @@ function ensure_gamification_schema(): void
             $sql104 = __DIR__ . '/../../sql-dum/104_invoice_only_points.sql';
             if (file_exists($sql104)) {
                 run_sql_migration_file($pdo, $sql104);
+            }
+        }
+
+        $retiredGamificationDone = $hasPointCleanup && (bool) $pdo->query("
+            SELECT 1 FROM debi_schema_versions
+            WHERE version = '105_remove_retired_gamification_tables'
+        ")->fetchColumn();
+        if (!$retiredGamificationDone) {
+            $sql105 = __DIR__ . '/../../sql-dum/105_remove_retired_gamification_tables.sql';
+            if (file_exists($sql105)) {
+                run_sql_migration_file($pdo, $sql105);
             }
         }
 

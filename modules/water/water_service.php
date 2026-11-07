@@ -151,8 +151,7 @@ function save_water_log(array $user, array $input): array
 
 /**
  * Hanenin yüklediği gerçek fatura kayıtlarını kronolojik sırayla karşılaştırarak
- * tasarruf miktarlarını (saved_m3, saved_liters, saving_pct, earned_points) ve
- * Daire Göleti (household_ponds) toplamlarını gerçek verilerle senkronize eder.
+ * Fatura tasarruf metriklerini, puan geçmişini ve ortak hane bakiyesini senkronize eder.
  */
 function recalculate_household_water_savings(int $householdId, int $userId = 0, ?int $targetYear = null, ?int $targetMonth = null): array
 {
@@ -181,8 +180,6 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
         if (!in_array($housingType, ['apartment_unit', 'detached_house'], true)) {
             $pdo->prepare("UPDATE water_logs SET earned_points = 0 WHERE household_id = :hid")
                 ->execute([':hid' => $householdId]);
-            $pdo->prepare("DELETE FROM household_ponds WHERE household_id = :hid")
-                ->execute([':hid' => $householdId]);
             return $emptyResult;
         }
 
@@ -210,8 +207,6 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
         $latestResult     = $emptyResult;
         $totalRows        = count($rows);
         $sumBillDrops     = 0;
-        $sumSavedM3       = 0.0;
-        $sumSavedLiters   = 0;
         $invoicePointRows = [];
 
         for ($i = 0; $i < $totalRows; $i++) {
@@ -254,9 +249,6 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
             }
 
             $sumBillDrops   += $earnedPoints;
-            $sumSavedM3     += $savedM3;
-            $sumSavedLiters += $savedLiters;
-
             $oldPrev = $cur['previous_consumption_m3'] !== null ? round((float) $cur['previous_consumption_m3'], 2) : null;
             if (
                 $oldPrev !== $prevM3 ||
@@ -398,19 +390,6 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
             ':hid'         => $householdId,
         ]);
 
-        // Daire Bazlı Gölet (household_ponds) tablosunu güncelle
-        $pondUpd = $pdo->prepare("
-            INSERT INTO household_ponds (household_id, saved_m3, saved_liters)
-            VALUES (:hid, :sm3, :slit)
-            ON DUPLICATE KEY UPDATE
-                saved_m3     = VALUES(saved_m3),
-                saved_liters = VALUES(saved_liters)
-        ");
-        $pondUpd->execute([
-            ':hid'   => $householdId,
-            ':sm3'   => round($sumSavedM3, 2),
-            ':slit'  => $sumSavedLiters,
-        ]);
         $pdo->commit();
 
         return $matchedResult ?? $latestResult;
@@ -544,8 +523,7 @@ function toggle_household_habit(int $householdId, int $habitId, int $userId = 0)
 }
 
 /**
- * Daire / Hane Bazlı Gölet (household_ponds) Durumunu Döndürür
- * Hedef kapasite: 100 Damla 💧 (0-29: dry, 30-69: half, 70+: full)
+ * Ortak hane puanı ve fatura tasarrufu özetini döndürür.
  */
 function get_household_pond_state(int $householdId): array
 {
@@ -580,20 +558,27 @@ function get_household_pond_state(int $householdId): array
             return $defaultState;
         }
 
-        // Önce hanenin gerçek fatura ve alışkanlık damlalarını senkronize et
+        // Fatura istatistiklerini ve ortak bakiyeyi senkronize et
         recalculate_household_water_savings($householdId);
 
-        $pdo  = db();
-        $stmt = $pdo->prepare("SELECT * FROM household_ponds WHERE household_id = :hid LIMIT 1");
-        $stmt->execute([':hid' => $householdId]);
-        $row = $stmt->fetch();
+        $pdo = db();
+        $statsStmt = $pdo->prepare("
+            SELECT
+                total_points,
+                COALESCE(SUM(saved_m3), 0) AS saved_m3,
+                COALESCE(SUM(saved_liters), 0) AS saved_liters
+            FROM households h
+            LEFT JOIN water_logs wl ON wl.household_id = h.id
+            WHERE h.id = :hid
+            GROUP BY h.id, h.total_points
+        ");
+        $statsStmt->execute([':hid' => $householdId]);
+        $stats = $statsStmt->fetch() ?: [];
 
-        $pointsStmt = $pdo->prepare("SELECT total_points FROM households WHERE id = :hid LIMIT 1");
-        $pointsStmt->execute([':hid' => $householdId]);
-        $totalDrops  = (int) $pointsStmt->fetchColumn();
+        $totalDrops  = (int) ($stats['total_points'] ?? 0);
         $targetDrops = 100;
-        $savedM3     = round((float) ($row['saved_m3'] ?? 0.0), 2);
-        $savedLiters = (int) ($row['saved_liters'] ?? 0);
+        $savedM3     = round((float) ($stats['saved_m3'] ?? 0.0), 2);
+        $savedLiters = (int) ($stats['saved_liters'] ?? 0);
         $dolulukPct  = min(100.0, round(($totalDrops / $targetDrops) * 100, 1));
 
         if ($totalDrops >= 70) {
