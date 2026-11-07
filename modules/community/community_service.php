@@ -408,3 +408,122 @@ function get_apartment_overview(int $apartmentId, int $year, int $month): array
         'stats'     => $stats,
     ];
 }
+
+/**
+ * 1. Arkadaş Sıralaması: Arkadaşların ve kullanıcının dairelerinin puanları (toplam damlalar)
+ */
+function get_friends_drops_leaderboard(array $currentUser, int $limit = 6): array
+{
+    $pdo       = db();
+    $currentId = (int) ($currentUser['id'] ?? 0);
+    if ($currentId <= 0) {
+        return [];
+    }
+
+    require_once __DIR__ . '/../friends/friendship_service.php';
+    $friendIds = get_user_friend_ids($currentId);
+    $userIds   = array_values(array_unique(array_merge([$currentId], $friendIds)));
+
+    if (empty($userIds)) {
+        return [];
+    }
+
+    $placeholders = implode(',', array_fill(0, count($userIds), '?'));
+
+    try {
+        $sql = "
+            SELECT
+                u.id AS user_id,
+                u.full_name,
+                u.avatar_color,
+                u.avatar_photo,
+                h.id AS household_id,
+                h.unit_label,
+                h.housing_type,
+                a.name AS apartment_name,
+                COALESCE(hp.total_drops, 0) AS total_drops
+            FROM users u
+            INNER JOIN households h ON h.id = u.household_id
+            LEFT JOIN household_ponds hp ON hp.household_id = h.id
+            LEFT JOIN apartments a ON a.id = h.apartment_id
+            WHERE u.id IN ({$placeholders})
+            ORDER BY total_drops DESC, u.full_name ASC
+            LIMIT " . (int) $limit;
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($userIds);
+        return $stmt->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/**
+ * 2. Apartman Sıralaması: Kullanıcının apartmanındaki dairelerin puanları
+ */
+function get_apartment_drops_leaderboard(array $currentUser, int $limit = 6): array
+{
+    $apartmentId = (int) ($currentUser['apartment_id'] ?? 0);
+    if ($apartmentId <= 0) {
+        return [];
+    }
+
+    $pdo = db();
+    try {
+        $sql = "
+            SELECT
+                h.id AS household_id,
+                h.unit_label,
+                h.housing_type,
+                h.owner_user_id,
+                COALESCE(u.full_name, 'Daire Sakini') AS display_name,
+                u.id AS user_id,
+                u.avatar_color,
+                u.avatar_photo,
+                COALESCE(hp.total_drops, 0) AS total_drops
+            FROM households h
+            LEFT JOIN users u ON u.id = h.owner_user_id
+            LEFT JOIN household_ponds hp ON hp.household_id = h.id
+            WHERE h.apartment_id = :aid
+            ORDER BY total_drops DESC, h.unit_label ASC
+            LIMIT " . (int) $limit;
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([':aid' => $apartmentId]);
+        return $stmt->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/**
+ * 3. Genel Sıralama: Apartmanların içindeki dairelerin puan toplamları sıralaması
+ */
+function get_general_apartments_drops_leaderboard(int $limit = 6): array
+{
+    $pdo = db();
+    try {
+        $sql = "
+            SELECT
+                a.id AS apartment_id,
+                a.name AS apartment_name,
+                n.district,
+                n.city,
+                COUNT(DISTINCT h.id) AS daire_count,
+                COALESCE(SUM(hp.total_drops), 0) AS total_drops
+            FROM apartments a
+            INNER JOIN neighborhoods n ON n.id = a.neighborhood_id
+            LEFT JOIN households h ON h.apartment_id = a.id
+            LEFT JOIN household_ponds hp ON hp.household_id = h.id
+            GROUP BY a.id, a.name, n.district, n.city
+            ORDER BY total_drops DESC, daire_count DESC, a.name ASC
+            LIMIT " . (int) $limit;
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+

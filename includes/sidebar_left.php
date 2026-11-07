@@ -12,44 +12,6 @@ $unitFormatted    = !empty($currentUser)
     : '';
 ?>
 <aside class="sidebar-left">
-    <?php if (!empty($currentUser)): ?>
-        <div class="sidebar-role-card">
-            <div class="sidebar-role-user">
-                <?= render_avatar($currentUser, 'avatar-sm') ?>
-                <div class="sidebar-role-text">
-                    <strong><?= e($currentUser['full_name']) ?></strong>
-                    <span>
-                        <?php if (!empty($currentUser['apartment_id'])): ?>
-                            <?= e($currentUser['apartment_name']) ?> &middot; <?= e($unitFormatted) ?>
-                        <?php else: ?>
-                            <?= e($currentUser['neighborhood_district']) ?> &middot; <?= e($unitFormatted) ?>
-                        <?php endif; ?>
-                    </span>
-                </div>
-            </div>
-
-            <div class="sidebar-role-badges">
-                <?php if ($currentUser['role'] === 'manager'): ?>
-                    <span class="role-badge role-badge-apt">🏢 Apt. Yöneticisi</span>
-                <?php endif; ?>
-
-                <?php if (is_unit_manager($currentUser)): ?>
-                    <span class="role-badge role-badge-unit">
-                        🏠 <?= e($unitFormatted) ?>
-                    </span>
-                <?php else: ?>
-                    <span class="role-badge role-badge-resident">
-                        👤 <?= e($unitFormatted) ?>
-                    </span>
-                <?php endif; ?>
-
-                <a href="index.php#daireGoleti" class="role-badge role-badge-drops" title="Daire Göleti">
-                    💧 <?= number_format((int) ($headerPondDrops ?? 0), 0, ',', '.') ?>
-                </a>
-            </div>
-        </div>
-    <?php endif; ?>
-
     <nav class="side-nav" aria-label="Ana Menü">
         <a href="index.php" class="side-nav-link <?= $activeNav === 'feed' ? 'active' : '' ?>">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>

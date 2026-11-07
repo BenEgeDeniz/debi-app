@@ -45,7 +45,14 @@
     box-sizing: border-box;
 }
 
-html, body {
+html {
+    height: 100%;
+}
+
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
     margin: 0;
     padding: 0;
     background-color: var(--bg-page);
@@ -458,6 +465,8 @@ code {
    ANA UYGULAMA İSKELETİ (APP SHELL)
    ========================================================== */
 .app-shell {
+    flex: 1 0 auto;
+    width: 100%;
     max-width: 1240px;
     margin: 20px auto 44px auto;
     padding: 0 20px;
@@ -2058,6 +2067,41 @@ a.timeline-meta-item:hover {
     background-color: var(--brand-green);
 }
 
+.lb-switch-tabs {
+    display: flex;
+    background-color: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+    gap: 3px;
+    margin-bottom: 10px;
+}
+
+.lb-switch-tab {
+    flex: 1;
+    padding: 5px 6px;
+    font-family: inherit;
+    font-size: 0.77rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s ease;
+}
+
+.lb-switch-tab:hover {
+    color: var(--text-main);
+}
+
+.lb-switch-tab.active {
+    background-color: var(--bg-surface);
+    color: var(--brand-primary-dark);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
 .leaderboard-list {
     list-style: none;
     margin: 0;
@@ -2226,6 +2270,8 @@ a.timeline-meta-item:hover {
    GİRİŞ & KAYIT SAYFALARI (AUTH LAYOUT)
    ========================================================== */
 .auth-layout {
+    flex: 1 0 auto;
+    width: 100%;
     max-width: 1000px;
     margin: 34px auto;
     padding: 0 20px;
@@ -2480,7 +2526,8 @@ a.timeline-meta-item:hover {
     border-top: 1px solid var(--border-color);
     background-color: var(--bg-surface);
     padding: 18px 20px;
-    margin-top: 44px;
+    margin-top: auto;
+    flex-shrink: 0;
 }
 
 .footer-inner {

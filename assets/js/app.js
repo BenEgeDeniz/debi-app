@@ -772,4 +772,20 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+    // 12. Sağ Sütun Debi Puan Sıralaması Sekmeleri (Arkadaş / Apartman / Genel)
+    const lbTabs = document.querySelectorAll('.js-lb-tab');
+    if (lbTabs.length > 0) {
+        lbTabs.forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                const targetId = tab.getAttribute('data-target');
+                lbTabs.forEach(function (t) {
+                    t.classList.toggle('active', t === tab);
+                });
+                document.querySelectorAll('.js-lb-panel').forEach(function (p) {
+                    p.style.display = (p.id === targetId) ? '' : 'none';
+                });
+            });
+        });
+    }
 });
