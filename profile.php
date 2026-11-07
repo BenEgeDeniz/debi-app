@@ -103,20 +103,35 @@ require_once __DIR__ . '/includes/header.php';
     <main class="main-column">
         <!-- Zaman Tüneli (Timeline) Kapak & Profil Kartı -->
         <section class="panel-card timeline-profile-card">
-            <!-- Kapak Fotoğrafı Alanı -->
-            <div class="timeline-cover" <?php if (!empty($profileUser['cover_photo'])): ?>style="background-image: url('<?= e($profileUser['cover_photo']) ?>');"<?php endif; ?>>
-                <?php if ($isOwnProfile): ?>
-                    <button type="button" class="btn-cover-edit js-open-profile-edit">
-                        📷 Kapak / Profil Düzenle
-                    </button>
-                <?php endif; ?>
-            </div>
+            <div class="timeline-cover" <?php if (!empty($profileUser['cover_photo'])): ?>style="background-image: url('<?= e($profileUser['cover_photo']) ?>');"<?php endif; ?>></div>
 
-            <!-- Profil Avatarı & Sağ Aksiyon Butonları -->
             <div class="timeline-body">
-                <div class="timeline-avatar-row">
+                <div class="timeline-header-main">
                     <div class="timeline-avatar-wrap">
                         <?= render_avatar($profileUser, 'avatar-xl') ?>
+                    </div>
+
+                    <div class="timeline-identity">
+                        <div class="profile-title-row">
+                            <h1 class="page-title"><?= e($profileUser['full_name']) ?></h1>
+                            <?php if ($profileUser['role'] === 'manager'): ?>
+                                <span class="tag tag-manager">Apartman Yöneticisi</span>
+                            <?php endif; ?>
+                        </div>
+
+                        <p class="page-subtitle">
+                            <?= e($profileUser['neighborhood_district'] . ' / ' . $profileUser['neighborhood_city']) ?>
+                            ·
+                            <?php if (!empty($profileUser['apartment_id'])): ?>
+                                <strong><?= e($profileUser['apartment_name']) ?></strong> (<?= e($profileUser['unit_label']) ?>)
+                            <?php else: ?>
+                                <strong><?= e(housing_type_label($profileUser['housing_type'])) ?></strong> (<?= e($profileUser['unit_label']) ?>)
+                            <?php endif; ?>
+                        </p>
+
+                        <?php if (!empty($profileUser['bio'])): ?>
+                            <p class="timeline-bio"><?= e($profileUser['bio']) ?></p>
+                        <?php endif; ?>
                     </div>
 
                     <div class="timeline-hero-actions">
@@ -163,30 +178,6 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
 
-                <!-- İsim, Konum ve Biyografi -->
-                <div class="timeline-identity">
-                    <div class="profile-title-row">
-                        <h1 class="page-title"><?= e($profileUser['full_name']) ?></h1>
-                        <?php if ($profileUser['role'] === 'manager'): ?>
-                            <span class="tag tag-manager">Apartman Yöneticisi</span>
-                        <?php endif; ?>
-                    </div>
-
-                    <p class="page-subtitle">
-                        <?= e($profileUser['neighborhood_district'] . ' / ' . $profileUser['neighborhood_city']) ?>
-                        ·
-                        <?php if (!empty($profileUser['apartment_id'])): ?>
-                            <strong><?= e($profileUser['apartment_name']) ?></strong> (<?= e($profileUser['unit_label']) ?>)
-                        <?php else: ?>
-                            <strong><?= e(housing_type_label($profileUser['housing_type'])) ?></strong> (<?= e($profileUser['unit_label']) ?>)
-                        <?php endif; ?>
-                    </p>
-
-                    <?php if (!empty($profileUser['bio'])): ?>
-                        <p class="timeline-bio"><?= e($profileUser['bio']) ?></p>
-                    <?php endif; ?>
-                </div>
-
                 <!-- Tek Satır Kompakt Sayaçlar -->
                 <div class="timeline-meta-inline">
                     <?php if ($isOwnProfile): ?>
@@ -213,50 +204,74 @@ require_once __DIR__ . '/includes/header.php';
         </section>
 
         <?php if ($isOwnProfile): ?>
-            <!-- Kendi Profilimizse: Gizlenebilir Fotoğraf, Profil & Hane Düzenleme Kutusu -->
-            <section class="panel-card" id="editProfileSection" <?= $showEditForm ? '' : 'hidden' ?>>
-                <h2 class="section-title">Profil Fotoğrafı, Kapak ve Hane Ayarları</h2>
+            <!-- Kendi Profilimizse: Şık ve Kompakt Profil & Fotoğraf Düzenleme Kartı -->
+            <section class="panel-card profile-edit-card" id="editProfileSection" <?= $showEditForm ? '' : 'hidden' ?>>
+                <div class="panel-card-header">
+                    <div>
+                        <h2 class="section-title">Profili &amp; Görselleri Düzenle</h2>
+                    </div>
+                    <button type="button" class="btn btn-outline btn-sm js-open-profile-edit">Kapat</button>
+                </div>
 
                 <form method="post" action="profile.php" enctype="multipart/form-data" class="form-stack">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="update_profile">
 
-                    <div class="form-grid-2">
-                        <div class="form-group">
-                            <label for="avatar_photo">Profil Fotoğrafı (JPG, PNG, WebP)</label>
-                            <input type="file" id="avatar_photo" name="avatar_photo" accept="image/jpeg,image/png,image/webp">
-                        </div>
-                        <div class="form-group">
-                            <label for="cover_photo">Kapak Fotoğrafı (Geniş Görsel)</label>
-                            <input type="file" id="cover_photo" name="cover_photo" accept="image/jpeg,image/png,image/webp">
-                        </div>
+                    <!-- Özel Tasarımlı Görsel Seçici Kartlar -->
+                    <div class="media-picker-grid">
+                        <label for="avatar_photo_input" class="media-picker-card">
+                            <div class="media-picker-thumb media-thumb-circle" id="avatarPickerThumb">
+                                <?php if (!empty($currentUser['avatar_photo'])): ?>
+                                    <img src="<?= e($currentUser['avatar_photo']) ?>" alt="Profil Fotoğrafı" id="avatarPreviewEl">
+                                <?php else: ?>
+                                    <span id="avatarInitialsEl"><?= e(avatar_initials($currentUser['full_name'])) ?></span>
+                                    <img src="" alt="" id="avatarPreviewEl" hidden>
+                                <?php endif; ?>
+                            </div>
+                            <div class="media-picker-info">
+                                <strong>Profil Fotoğrafı</strong>
+                                <span id="avatarFileName">JPG, PNG veya WebP · Maks. 5 MB</span>
+                                <span class="media-picker-btn">Fotoğraf Seç</span>
+                            </div>
+                            <input type="file" id="avatar_photo_input" name="avatar_photo" accept="image/jpeg,image/png,image/webp">
+                        </label>
+
+                        <label for="cover_photo_input" class="media-picker-card">
+                            <div class="media-picker-thumb media-thumb-wide" id="coverPickerThumb"
+                                 <?php if (!empty($currentUser['cover_photo'])): ?>style="background-image: url('<?= e($currentUser['cover_photo']) ?>');"<?php endif; ?>>
+                            </div>
+                            <div class="media-picker-info">
+                                <strong>Kapak Görseli</strong>
+                                <span id="coverFileName">Geniş yatay görsel · Maks. 6 MB</span>
+                                <span class="media-picker-btn">Kapak Seç</span>
+                            </div>
+                            <input type="file" id="cover_photo_input" name="cover_photo" accept="image/jpeg,image/png,image/webp">
+                        </label>
                     </div>
 
-                    <div class="form-grid-2">
+                    <div class="form-grid-3">
                         <div class="form-group">
                             <label for="full_name">Ad Soyad</label>
                             <input type="text" id="full_name" name="full_name" required
                                    value="<?= e($currentUser['full_name']) ?>">
                         </div>
                         <div class="form-group">
-                            <label for="bio">Kısa Biyografi</label>
-                            <input type="text" id="bio" name="bio"
-                                   value="<?= e($currentUser['bio'] ?? '') ?>"
-                                   placeholder="Örn: Balkonda yağmur suyu biriktiriyoruz.">
-                        </div>
-                    </div>
-
-                    <div class="form-grid-2">
-                        <div class="form-group">
                             <label for="unit_label">Daire / Ev Tanımı</label>
                             <input type="text" id="unit_label" name="unit_label" required
-                                   value="<?= e($currentUser['unit_label']) ?>" placeholder="Örn: Daire 4 veya Müstakil No:12">
+                                   value="<?= e($currentUser['unit_label']) ?>" placeholder="Örn: Daire 4">
                         </div>
                         <div class="form-group">
-                            <label for="resident_count">Hanede Yaşayan Kişi Sayısı</label>
+                            <label for="resident_count">Kişi Sayısı</label>
                             <input type="number" id="resident_count" name="resident_count" min="1" max="20" required
                                    value="<?= (int) $currentUser['resident_count'] ?>">
                         </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="bio">Kısa Biyografi</label>
+                        <input type="text" id="bio" name="bio"
+                               value="<?= e($currentUser['bio'] ?? '') ?>"
+                               placeholder="Örn: Su tasarrufu ve yağmur suyu hasadıyla ilgileniyorum.">
                     </div>
 
                     <?php if (empty($currentUser['apartment_id'])): ?>
@@ -273,8 +288,9 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     <?php endif; ?>
 
-                    <div class="bill-confirm-actions">
-                        <button type="submit" class="btn btn-primary">Değişiklikleri Kaydet</button>
+                    <div class="edit-profile-footer">
+                        <button type="submit" class="btn btn-primary btn-sm">Değişiklikleri Kaydet</button>
+                        <button type="button" class="btn btn-outline btn-sm js-open-profile-edit">Vazgeç</button>
                     </div>
                 </form>
             </section>
