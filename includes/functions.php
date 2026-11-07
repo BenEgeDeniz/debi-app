@@ -116,6 +116,25 @@ function user_initials(string $fullName): string
 }
 
 /**
+ * Kullanıcı Avatarı (Fotoğraf varsa <img>, yoksa baş harfli daire döndürür)
+ */
+function render_avatar(array $user, string $extraClass = ''): string
+{
+    $cls   = trim('avatar-circle ' . $extraClass);
+    $photo = trim((string) ($user['avatar_photo'] ?? ''));
+    $name  = (string) ($user['full_name'] ?? 'Üye');
+    $color = (string) ($user['avatar_color'] ?? '#1cb0f6');
+
+    if ($photo !== '') {
+        return '<img src="' . e($photo) . '" alt="' . e($name) . '" class="' . e($cls) . ' avatar-img">';
+    }
+
+    return '<span class="' . e($cls) . '" style="background-color: ' . e($color) . ';">'
+        . e(user_initials($name))
+        . '</span>';
+}
+
+/**
  * Göreli Zaman Formatı (Örn: 15 dk önce, 2 saat önce)
  */
 function time_ago(string $datetime): string

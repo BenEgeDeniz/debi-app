@@ -1092,6 +1092,18 @@ code {
 /* ==========================================================
    ARKADAŞLIK SİSTEMİ & KULLANICI ZAMAN TÜNELİ (TIMELINE)
    ========================================================== */
+.avatar-img {
+    object-fit: cover;
+    display: inline-block;
+}
+
+.avatar-xl {
+    width: 92px;
+    height: 92px;
+    font-size: 2rem;
+    border: 4px solid var(--bg-surface);
+}
+
 .author-link {
     color: var(--text-main);
     text-decoration: none;
@@ -1117,151 +1129,186 @@ code {
     margin-left: auto;
 }
 
-.timeline-hero-top {
+/* Zaman Tüneli Kapak & Profil Kartı */
+.timeline-profile-card {
+    padding: 0;
+    overflow: hidden;
+}
+
+.timeline-cover {
+    height: 175px;
+    background-color: #bfe9ff;
+    background-image: radial-gradient(circle at 20% 20%, #e0f5ff 0%, #9bd9f8 55%, #65c3f3 100%);
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.btn-cover-edit {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    padding: 6px 12px;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: var(--text-main);
+    background-color: rgba(255, 255, 255, 0.92);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-pill);
+    cursor: pointer;
+}
+
+.btn-cover-edit:hover {
+    background-color: #ffffff;
+    border-color: var(--brand-primary);
+}
+
+.timeline-body {
+    padding: 0 20px 18px 20px;
+}
+
+.timeline-avatar-row {
     display: flex;
-    align-items: flex-start;
+    align-items: flex-end;
     justify-content: space-between;
-    gap: 14px;
-    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: -46px;
+    margin-bottom: 10px;
+    position: relative;
+    z-index: 2;
+}
+
+.timeline-avatar-wrap {
+    display: inline-flex;
+    border-radius: 50%;
+    background-color: var(--bg-surface);
+}
+
+.timeline-identity {
+    margin-bottom: 12px;
 }
 
 .timeline-bio {
     margin-top: 6px;
     margin-bottom: 0;
-    font-size: 0.92rem;
+    font-size: 0.93rem;
     font-weight: 600;
     color: var(--text-main);
 }
 
-.timeline-stats-strip {
+.timeline-meta-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-top: 10px;
+    border-top: 2px dashed var(--border-color);
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.timeline-meta-item {
+    color: var(--text-secondary);
+    text-decoration: none;
+}
+
+.timeline-meta-item strong {
+    color: var(--text-main);
+    font-weight: 900;
+}
+
+a.timeline-meta-item:hover {
+    color: var(--brand-primary-dark);
+    text-decoration: underline;
+}
+
+.timeline-water-badge {
+    color: var(--brand-green-dark);
+}
+
+/* Kompakt 2 Sütunlu Arkadaş Grid Yapısı */
+.friends-compact-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.friend-compact-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    background-color: var(--bg-subtle);
+    border: 2px solid var(--border-color);
+    border-bottom-width: 3px;
+    border-radius: var(--radius-sm);
+    text-decoration: none !important;
+    color: var(--text-main);
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.friend-card-link:hover {
+    border-color: var(--brand-primary);
+    background-color: #ffffff;
+}
+
+.friend-compact-user {
     display: flex;
     align-items: center;
     gap: 10px;
-    flex-wrap: wrap;
+    min-width: 0;
+    flex: 1;
+    color: var(--text-main);
+    text-decoration: none !important;
+}
+
+.friend-compact-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.friend-compact-meta strong {
+    font-size: 0.9rem;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.friend-compact-meta span {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pagination-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
     margin-top: 14px;
     padding-top: 12px;
     border-top: 2px dashed var(--border-color);
 }
 
-.timeline-stat-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    background-color: var(--bg-subtle);
-    border: 2px solid var(--border-color);
-    border-radius: var(--radius-pill);
+.pagination-info {
     font-size: 0.84rem;
-    font-weight: 700;
+    font-weight: 800;
     color: var(--text-secondary);
 }
 
-.timeline-stat-pill strong {
-    color: var(--text-main);
-    font-weight: 900;
-}
-
-.timeline-friends-strip {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 2px dashed var(--border-color);
-}
-
-.timeline-friends-label {
-    font-size: 0.82rem;
-    font-weight: 800;
-    color: var(--text-muted);
-}
-
-.timeline-friends-avatars {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.friend-chip-mini {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px 4px 5px;
-    background-color: var(--bg-subtle);
-    border: 2px solid var(--border-color);
-    border-radius: var(--radius-pill);
-    font-size: 0.82rem;
-    font-weight: 800;
-    color: var(--text-main);
-    text-decoration: none !important;
-}
-
-.friend-chip-mini:hover {
-    border-color: var(--brand-primary);
-    background-color: var(--brand-primary-bg);
-}
-
-.timeline-section-header {
-    margin: 4px 0 12px 2px;
-}
-
-.user-cards-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.user-row-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-    padding: 12px 14px;
-    background-color: var(--bg-subtle);
-    border: 2px solid var(--border-color);
-    border-bottom-width: 3px;
-    border-radius: var(--radius-sm);
-}
-
-.user-row-main {
-    display: flex;
-    align-items: center;
-    gap: 11px;
-    color: var(--text-main);
-    text-decoration: none !important;
-    flex: 1;
-    min-width: 200px;
-}
-
-.user-row-info {
-    display: flex;
-    flex-direction: column;
-}
-
-.user-row-info strong {
-    font-size: 0.96rem;
-    font-weight: 800;
-}
-
-.user-row-main:hover .user-row-info strong {
-    color: var(--brand-primary-dark);
-    text-decoration: underline;
-}
-
-.user-row-info span {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--text-muted);
-}
-
-.user-row-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+@media (max-width: 768px) {
+    .friends-compact-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 768px) {

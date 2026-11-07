@@ -313,15 +313,17 @@ document.addEventListener('DOMContentLoaded', function () {
         daysInput.addEventListener('input', updateLiveDaily);
     }
 
-    // 8. Zaman Tünelinde "Profili & Haneyi Düzenle" Kutusunu Aç/Kapat
-    const toggleEditProfileBtn = document.getElementById('toggleEditProfileBtn');
+    // 8. Zaman Tünelinde "Profili Düzenle" Kutusunu Aç/Kapat
+    const openEditBtns = document.querySelectorAll('.js-open-profile-edit');
     const editProfileSection = document.getElementById('editProfileSection');
-    if (toggleEditProfileBtn && editProfileSection) {
-        toggleEditProfileBtn.addEventListener('click', function () {
-            editProfileSection.hidden = !editProfileSection.hidden;
-            if (!editProfileSection.hidden) {
-                editProfileSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
+    if (openEditBtns.length > 0 && editProfileSection) {
+        openEditBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                editProfileSection.hidden = !editProfileSection.hidden;
+                if (!editProfileSection.hidden) {
+                    editProfileSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            });
         });
     }
 });

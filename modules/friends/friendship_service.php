@@ -158,12 +158,33 @@ function get_user_friend_ids(int $userId): array
 }
 
 /**
- * Kullanıcının kabul edilmiş arkadaşlarını detaylı bilgileriyle döndürür.
+ * Kullanıcının toplam arkadaş sayısını hızlıca döndürür (COUNT sorgusu).
  */
-function get_user_friends(int $userId): array
+function count_user_friends(int $userId): int
 {
-    $year  = (int) date('Y');
-    $month = (int) date('n');
+    try {
+        $stmt = db()->prepare("
+            SELECT COUNT(*)
+            FROM friendships
+            WHERE (requester_id = :u1 OR addressee_id = :u2)
+              AND status = 'accepted'
+        ");
+        $stmt->execute([':u1' => $userId, ':u2' => $userId]);
+        return (int) $stmt->fetchColumn();
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+/**
+ * Kullanıcının kabul edilmiş arkadaşlarını sayfalı (LIMIT/OFFSET) olarak döndürür.
+ */
+function get_user_friends(int $userId, int $limit = 12, int $offset = 0): array
+{
+    $year   = (int) date('Y');
+    $month  = (int) date('n');
+    $limit  = max(1, min(50, $limit));
+    $offset = max(0, $offset);
 
     try {
         $stmt = db()->prepare("
@@ -171,6 +192,7 @@ function get_user_friends(int $userId): array
                 u.id,
                 u.full_name,
                 u.avatar_color,
+                u.avatar_photo,
                 u.bio,
                 u.role,
                 h.housing_type,
@@ -191,6 +213,7 @@ function get_user_friends(int $userId): array
             WHERE (f.requester_id = :u2 OR f.addressee_id = :u3)
               AND f.status = 'accepted'
             ORDER BY u.full_name ASC
+            LIMIT {$limit} OFFSET {$offset}
         ");
         $stmt->execute([
             ':u1' => $userId,
@@ -218,6 +241,7 @@ function get_incoming_friend_requests(int $userId): array
                 u.id AS user_id,
                 u.full_name,
                 u.avatar_color,
+                u.avatar_photo,
                 u.bio,
                 h.housing_type,
                 h.unit_label,
@@ -232,6 +256,7 @@ function get_incoming_friend_requests(int $userId): array
             LEFT JOIN apartments a ON a.id = u.apartment_id
             WHERE f.addressee_id = :uid AND f.status = 'pending'
             ORDER BY f.created_at DESC
+            LIMIT 20
         ");
         $stmt->execute([':uid' => $userId]);
         return $stmt->fetchAll();
@@ -258,23 +283,24 @@ function count_incoming_friend_requests(int $userId): int
 }
 
 /**
- * Arkadaş araması ve önerilen kullanıcılar listesi
+ * Yalnızca arama yapıldığında eşleşen kullanıcıları döndürür (En fazla 8 sonuç).
  */
-function search_users_for_friendship(int $currentUserId, string $searchQuery = '', int $limit = 20): array
+function search_users_for_friendship(int $currentUserId, string $searchQuery = '', int $limit = 8): array
 {
-    $pdo    = db();
-    $q      = trim($searchQuery);
-    $params = [':me' => $currentUserId];
-    $where  = "u.id != :me";
-
-    if ($q !== '') {
-        $where .= " AND (u.full_name LIKE :q1 OR a.name LIKE :q2 OR n.district LIKE :q3 OR n.city LIKE :q4)";
-        $like = '%' . $q . '%';
-        $params[':q1'] = $like;
-        $params[':q2'] = $like;
-        $params[':q3'] = $like;
-        $params[':q4'] = $like;
+    $q = trim($searchQuery);
+    if ($q === '') {
+        return [];
     }
+
+    $pdo    = db();
+    $like   = '%' . $q . '%';
+    $params = [
+        ':me' => $currentUserId,
+        ':q1' => $like,
+        ':q2' => $like,
+        ':q3' => $like,
+        ':q4' => $like,
+    ];
 
     try {
         $sql = "
@@ -282,6 +308,7 @@ function search_users_for_friendship(int $currentUserId, string $searchQuery = '
                 u.id,
                 u.full_name,
                 u.avatar_color,
+                u.avatar_photo,
                 u.bio,
                 h.housing_type,
                 h.unit_label,
@@ -293,9 +320,10 @@ function search_users_for_friendship(int $currentUserId, string $searchQuery = '
             INNER JOIN households h ON h.id = u.household_id
             INNER JOIN neighborhoods n ON n.id = u.neighborhood_id
             LEFT JOIN apartments a ON a.id = u.apartment_id
-            WHERE {$where}
-            ORDER BY u.id DESC
-            LIMIT " . (int) $limit;
+            WHERE u.id != :me
+              AND (u.full_name LIKE :q1 OR a.name LIKE :q2 OR n.district LIKE :q3 OR n.city LIKE :q4)
+            ORDER BY u.full_name ASC
+            LIMIT " . (int) max(1, min(15, $limit));
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);

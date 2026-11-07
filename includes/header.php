@@ -66,9 +66,7 @@ $pendingFriendCnt = !empty($currentUser) && function_exists('count_incoming_frie
 
                 <div class="topbar-user">
                     <a href="profile.php" class="user-chip" title="Zaman Tünelim">
-                        <span class="avatar-circle avatar-sm" style="background-color: <?= e($currentUser['avatar_color']) ?>;">
-                            <?= e(user_initials($currentUser['full_name'])) ?>
-                        </span>
+                        <?= render_avatar($currentUser, 'avatar-sm') ?>
                         <span class="user-chip-name"><?= e($currentUser['full_name']) ?></span>
                     </a>
                     <a href="logout.php" class="btn btn-outline btn-sm">Çıkış</a>

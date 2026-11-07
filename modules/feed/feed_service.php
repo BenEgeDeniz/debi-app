@@ -190,6 +190,7 @@ function fetch_posts_with_comments(PDO $pdo, string $whereSql, array $params): a
             u.full_name,
             u.role AS user_role,
             u.avatar_color,
+            u.avatar_photo,
             u.total_points AS user_points,
             h.housing_type,
             h.unit_label,
@@ -227,6 +228,7 @@ function fetch_posts_with_comments(PDO $pdo, string $whereSql, array $params): a
             c.*,
             u.full_name,
             u.avatar_color,
+            u.avatar_photo,
             h.unit_label,
             a.name AS apartment_name
         FROM comments c

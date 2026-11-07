@@ -54,6 +54,15 @@ function ensure_gamification_schema(): void
                 run_sql_migration_file($pdo, $sql008);
             }
         }
+
+        // 5. 009_profile_and_cover_photos.sql kontrolü (users.avatar_photo ve users.cover_photo sütunları)
+        $hasAvatarPhoto = (bool) $pdo->query("SHOW COLUMNS FROM `users` LIKE 'avatar_photo'")->fetchColumn();
+        if (!$hasAvatarPhoto) {
+            $sql009 = __DIR__ . '/../../sql-dum/009_profile_and_cover_photos.sql';
+            if (file_exists($sql009)) {
+                run_sql_migration_file($pdo, $sql009);
+            }
+        }
     } catch (Throwable $e) {
         // Sessizce geç
     }

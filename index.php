@@ -94,9 +94,7 @@ require_once __DIR__ . '/includes/header.php';
         <section class="panel-card composer-card">
             <div class="composer-header">
                 <a href="profile.php">
-                    <span class="avatar-circle" style="background-color: <?= e($currentUser['avatar_color']) ?>;">
-                        <?= e(user_initials($currentUser['full_name'])) ?>
-                    </span>
+                    <?= render_avatar($currentUser) ?>
                 </a>
                 <div class="composer-author">
                     <a href="profile.php" class="author-link">
@@ -201,9 +199,7 @@ require_once __DIR__ . '/includes/header.php';
                             <div class="post-header">
                                 <div class="post-author-group">
                                     <a href="profile.php?id=<?= (int) $post['user_id'] ?>">
-                                        <span class="avatar-circle" style="background-color: <?= e($post['avatar_color']) ?>;">
-                                            <?= e(user_initials($post['full_name'])) ?>
-                                        </span>
+                                        <?= render_avatar($post) ?>
                                     </a>
                                     <div>
                                         <div class="post-author-line">
@@ -271,9 +267,7 @@ require_once __DIR__ . '/includes/header.php';
                                         <?php foreach ($post['comments'] as $comment): ?>
                                             <li class="comment-item">
                                                 <a href="profile.php?id=<?= (int) $comment['user_id'] ?>">
-                                                    <span class="avatar-circle avatar-xs" style="background-color: <?= e($comment['avatar_color']) ?>;">
-                                                        <?= e(user_initials($comment['full_name'])) ?>
-                                                    </span>
+                                                    <?= render_avatar($comment, 'avatar-xs') ?>
                                                 </a>
                                                 <div class="comment-content">
                                                     <div class="comment-meta">
