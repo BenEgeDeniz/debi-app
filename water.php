@@ -35,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'consumption_m3' => round((float) str_replace(',', '.', (string) ($res['extracted']['consumption_m3'] ?? '0')), 2),
             'reading_days'   => (int) ($res['extracted']['reading_days'] ?? 30),
             'bill_amount'    => trim((string) ($res['extracted']['bill_amount'] ?? '')),
+            'provider_name'  => trim((string) ($res['extracted']['provider_name'] ?? '')),
         ];
     }
 
@@ -52,7 +53,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $subM3       = round((float) str_replace(',', '.', trim((string) ($_POST['consumption_m3'] ?? '0'))), 2);
             $subDays     = (int) ($_POST['reading_days'] ?? 30);
             $subBillRaw  = trim((string) ($_POST['bill_amount'] ?? ''));
+            $subProvider = trim((string) ($_POST['provider_name'] ?? ''));
             $aiBillRaw   = trim((string) ($aiScan['bill_amount'] ?? ''));
+            $aiProvider  = trim((string) ($aiScan['provider_name'] ?? ''));
             $billMatches = ($aiBillRaw === '' && $subBillRaw === '') ||
                 (round((float) str_replace(',', '.', $subBillRaw), 2) === round((float) str_replace(',', '.', $aiBillRaw), 2));
 
@@ -61,7 +64,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $subYear === (int) $aiScan['period_year'] &&
                 abs($subM3 - (float) $aiScan['consumption_m3']) < 0.001 &&
                 $subDays === (int) $aiScan['reading_days'] &&
-                $billMatches
+                $billMatches &&
+                $subProvider === $aiProvider
             ) {
                 $aiUnmodified = true;
             }
@@ -75,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($aiUnmodified) {
                 $_SESSION['pond_celebration'] = [
-                    'earned_drops'    => max(10, (int) ($res['points_awarded'] ?? 10)),
+                    'earned_drops'    => (int) ($res['points_awarded'] ?? 0),
                     'drop_reasons'    => !empty($res['drop_reasons']) ? $res['drop_reasons'] : ['✨ Yapay Zeka Doğrulaması: +10 Damla'],
                     'drops_before'    => (int) ($pondBefore['total_drops'] ?? 0),
                     'drops_after'     => (int) ($pondAfter['total_drops'] ?? 10),
@@ -389,6 +393,7 @@ require_once __DIR__ . '/includes/header.php';
                                 $daily    = (float) $row['daily_liters_per_person'];
                                 $rowDrops = (int) ($row['earned_points'] ?? 0);
                                 $rowAiVer = (int) ($row['ai_verified'] ?? 0) === 1;
+                                $reviewPending = ($row['review_status'] ?? 'approved') === 'pending';
                                 ?>
                                 <tr>
                                     <td>
@@ -405,9 +410,11 @@ require_once __DIR__ . '/includes/header.php';
                                         </span>
                                     </td>
                                     <td>
-                                        <?php if ($rowDrops > 0): ?>
+                                        <?php if ($reviewPending): ?>
+                                            <span class="tag">Admin incelemesi bekliyor</span>
+                                        <?php elseif ($rowDrops > 0): ?>
                                             <span class="drop-motivation-badge" style="padding: 3px 9px; font-size: 0.78rem;">
-                                                💧 +<?= $rowDrops ?> Damla
+                                                💧 +<?= $rowDrops ?> Puan
                                             </span>
                                             <?php if ($rowAiVer): ?>
                                                 <div class="table-sub" style="color: var(--brand-primary-dark); font-weight: 700;">✨ AI Onaylı</div>

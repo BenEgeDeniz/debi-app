@@ -40,6 +40,12 @@ $unitFormatted    = !empty($currentUser)
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
             <span>Faturalar</span>
         </a>
+        <?php if (!empty($currentUser['is_admin'])): ?>
+            <a href="admin_water_reviews.php" class="side-nav-link <?= $activeNav === 'admin_water_reviews' ? 'active' : '' ?>">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v5c0 5 3.5 8 8 9 4.5-1 8-4 8-9V7z"/><path d="m9 12 2 2 4-4"/></svg>
+                <span>Fatura incelemeleri</span>
+            </a>
+        <?php endif; ?>
 
         <a href="analytics.php" class="side-nav-link <?= $activeNav === 'analytics' ? 'active' : '' ?>">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
@@ -69,6 +75,11 @@ $unitFormatted    = !empty($currentUser)
     <a href="water.php" class="mobile-nav-item <?= $activeNav === 'water' ? 'active' : '' ?>">
         <span>Fatura</span>
     </a>
+    <?php if (!empty($currentUser['is_admin'])): ?>
+        <a href="admin_water_reviews.php" class="mobile-nav-item <?= $activeNav === 'admin_water_reviews' ? 'active' : '' ?>">
+            <span>İnceleme</span>
+        </a>
+    <?php endif; ?>
     <a href="analytics.php" class="mobile-nav-item <?= $activeNav === 'analytics' ? 'active' : '' ?>">
         <span>Analiz</span>
     </a>

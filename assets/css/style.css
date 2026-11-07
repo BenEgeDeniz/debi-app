@@ -779,6 +779,19 @@ code {
     margin-bottom: 12px;
 }
 
+.admin-review-list {
+    display: grid;
+    gap: 16px;
+}
+
+.admin-review-card {
+    margin-bottom: 0;
+}
+
+.admin-review-card .form-help {
+    margin: 4px 0 0;
+}
+
 form[aria-busy="true"] {
     opacity: 0.72;
     pointer-events: none;

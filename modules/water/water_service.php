@@ -45,6 +45,7 @@ function save_water_log(array $user, array $input): array
     // 1 m3 = 1000 Litre. Faturadaki okuma gün sayısı ve kişi sayısına göre günlük litre:
     $dailyLitersPerPerson = round(($consumptionM3 * 1000) / ($readingDays * $residentCount), 1);
     $aiVerified           = !empty($input['ai_verified']) ? 1 : 0;
+    $reviewStatus         = $aiVerified === 1 ? 'approved' : 'pending';
 
     $pdo = db();
 
@@ -54,13 +55,15 @@ function save_water_log(array $user, array $input): array
             period_year, period_month, consumption_m3,
             previous_consumption_m3, saved_m3, saved_liters, saving_pct, earned_points, ai_verified,
             resident_count_snapshot, daily_liters_per_person,
-            bill_amount, bill_image_path, provider_name, reading_days, notes
+            bill_amount, bill_image_path, provider_name, reading_days, notes, review_status,
+            reviewed_by_user_id, reviewed_at, review_note
         ) VALUES (
             :hid, :uid, :nid, :aid,
             :y, :m, :m3,
             NULL, 0.00, 0, 0.00, 0, :aiver,
             :rcount, :daily,
-            :bill, :bimg, :prov, :days, :notes
+            :bill, :bimg, :prov, :days, :notes, :review_status,
+            NULL, NULL, NULL
         )
         ON DUPLICATE KEY UPDATE
             user_id                 = VALUES(user_id),
@@ -72,7 +75,11 @@ function save_water_log(array $user, array $input): array
             bill_image_path         = COALESCE(VALUES(bill_image_path), bill_image_path),
             provider_name           = VALUES(provider_name),
             reading_days            = VALUES(reading_days),
-            notes                   = VALUES(notes)
+            notes                   = VALUES(notes),
+            review_status           = VALUES(review_status),
+            reviewed_by_user_id     = NULL,
+            reviewed_at             = NULL,
+            review_note             = NULL
     ");
 
     $stmt->execute([
@@ -91,6 +98,7 @@ function save_water_log(array $user, array $input): array
         ':prov'   => $providerName !== '' ? $providerName : null,
         ':days'   => $readingDays,
         ':notes'  => $notes !== '' ? $notes : null,
+        ':review_status' => $reviewStatus,
     ]);
 
     $monthName = turkish_month_name($month) . ' ' . $year;
@@ -109,9 +117,9 @@ function save_water_log(array $user, array $input): array
         $provTag  = $providerName !== '' ? " ({$providerName})" : '';
         $postText = "💧 {$monthName}{$provTag}: {$consumptionM3} m³ ({$dailyLitersPerPerson} L/gün).";
         if ($kurtarilanLitre > 0) {
-            $postText .= " {$kurtarilanLitre} L (%{$tasarrufYuzdesi}) tasarruf · +{$earnedPoints} Damla!";
+            $postText .= " {$kurtarilanLitre} L (%{$tasarrufYuzdesi}) tasarruf · +{$earnedPoints} puan!";
         } elseif ($earnedPoints > 0) {
-            $postText .= " +{$earnedPoints} Damla!";
+            $postText .= " +{$earnedPoints} puan!";
         }
         if ($notes !== '') {
             $postText .= " — " . $notes;
@@ -177,7 +185,8 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
 
         $stmt = $pdo->prepare("
             SELECT id, user_id, period_year, period_month, consumption_m3,
-                   previous_consumption_m3, saved_m3, saved_liters, saving_pct, earned_points, ai_verified
+                   previous_consumption_m3, saved_m3, saved_liters, saving_pct, earned_points, ai_verified,
+                   review_status
             FROM water_logs
             WHERE household_id = :hid
             ORDER BY period_year ASC, period_month ASC
@@ -200,11 +209,12 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
         $totalRows        = count($rows);
         $sumBillDrops     = 0;
         $invoicePointRows = [];
+        $previousApprovedM3 = null;
 
         for ($i = 0; $i < $totalRows; $i++) {
             $cur        = $rows[$i];
             $curM3      = round((float) $cur['consumption_m3'], 2);
-            $isAiVer    = (int) ($cur['ai_verified'] ?? 0) === 1;
+            $isApproved = ($cur['review_status'] ?? 'approved') === 'approved';
 
             $prevM3       = null;
             $savedM3      = 0.0;
@@ -213,31 +223,33 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
             $earnedPoints = 0;
             $dropReasons  = [];
 
-            // 1. Yapay Zeka Doğrulama Ödülü (+10 Damla)
-            if ($isAiVer) {
-                $earnedPoints += 10;
-                $dropReasons[] = '✨ AI Doğrulama +10 💧';
-            }
-
-            // 2. Önceki Gerçek Faturaya Göre Su Tasarrufu Ödülü
-            if ($i > 0) {
-                $prevRow = $rows[$i - 1];
-                $prevM3  = round((float) $prevRow['consumption_m3'], 2);
+            // İnceleme bekleyen veya reddedilen faturalar puan kazanamaz.
+            if ($isApproved && $previousApprovedM3 !== null) {
+                $prevM3 = $previousApprovedM3;
                 if ($prevM3 > 0) {
                     $diff = round($prevM3 - $curM3, 2);
                     if ($diff > 0) {
                         $savedM3      = $diff;
                         $savedLiters  = (int) round($savedM3 * 1000);
                         $savingPct    = round(($savedM3 / $prevM3) * 100, 2);
-                        $earnedPoints += 10;
-                        $dropReasons[] = '📉 ' . number_format($savedLiters, 0, ',', '.') . ' L Tasarruf +10 💧';
-
-                        if ($savingPct >= 10.0) {
-                            $earnedPoints += 10;
-                            $dropReasons[] = '🏆 %' . number_format($savingPct, 0, ',', '.') . ' Tasarruf Bonusu +10 💧';
-                        }
+                        $earnedPoints = max(1, (int) round($savedM3 * 10));
+                        $dropReasons[] = '📉 ' . number_format($savedM3, 2, ',', '.') . ' ton azalma · +' . $earnedPoints . ' puan';
+                    } elseif ($diff === 0.0) {
+                        $earnedPoints = 10;
+                        $dropReasons[] = '↔️ Tüketim aynı kaldı · +10 puan';
+                    } else {
+                        $earnedPoints = 2;
+                        $dropReasons[] = '📈 Tüketim arttı · fatura yükleme +2 puan';
                     }
+                } else {
+                    $earnedPoints = 10;
+                    $dropReasons[] = '✨ İlk karşılaştırılabilir fatura · +10 puan';
                 }
+            } elseif ($isApproved) {
+                $earnedPoints = 10;
+                $dropReasons[] = '✨ İlk fatura yükleme · +10 puan';
+            } else {
+                $dropReasons[] = '⏳ Fatura değerleri admin incelemesi bekliyor; henüz puan verilmedi.';
             }
 
             $sumBillDrops   += $earnedPoints;
@@ -268,7 +280,7 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
                         'year'    => (int) $cur['period_year'],
                         'month'   => (int) $cur['period_month'],
                         'points'  => $earnedPoints,
-                        'label'   => "💧 {$mLabel} faturasından +{$earnedPoints} Puan",
+                        'label'   => "💧 {$mLabel} faturasından +{$earnedPoints} puan",
                     ];
                 }
             }
@@ -284,6 +296,9 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
             $latestResult = $rowResult;
             if ($targetYear !== null && $targetMonth !== null && (int) $cur['period_year'] === $targetYear && (int) $cur['period_month'] === $targetMonth) {
                 $matchedResult = $rowResult;
+            }
+            if ($isApproved) {
+                $previousApprovedM3 = $curM3;
             }
         }
 
@@ -407,6 +422,77 @@ function get_household_water_history(int $householdId): array
     ");
     $stmt->execute([':hid' => $householdId]);
     return $stmt->fetchAll();
+}
+
+function get_pending_water_log_reviews(): array
+{
+    $stmt = db()->query("
+        SELECT w.*, u.full_name, h.unit_label
+        FROM water_logs w
+        INNER JOIN users u ON u.id = w.user_id
+        INNER JOIN households h ON h.id = w.household_id
+        WHERE w.review_status = 'pending'
+        ORDER BY w.created_at ASC
+    ");
+    return $stmt->fetchAll();
+}
+
+function review_water_log(array $admin, int $logId, array $input): array
+{
+    if (empty($admin['is_admin'])) {
+        return ['ok' => false, 'error' => 'Bu işlem için admin yetkisi gerekiyor.'];
+    }
+
+    $stmt = db()->prepare("SELECT * FROM water_logs WHERE id = :id LIMIT 1");
+    $stmt->execute([':id' => $logId]);
+    $log = $stmt->fetch();
+    if (!$log || $log['review_status'] !== 'pending') {
+        return ['ok' => false, 'error' => 'İncelenecek fatura bulunamadı.'];
+    }
+
+    $consumption = (float) str_replace(',', '.', trim((string) ($input['consumption_m3'] ?? $log['consumption_m3'])));
+    $readingDays = max(1, min(90, (int) ($input['reading_days'] ?? $log['reading_days'])));
+    if ($consumption <= 0 || $consumption > 500) {
+        return ['ok' => false, 'error' => 'Geçerli bir tüketim değeri girin.'];
+    }
+
+    $residentStmt = db()->prepare("SELECT resident_count FROM households WHERE id = :hid LIMIT 1");
+    $residentStmt->execute([':hid' => (int) $log['household_id']]);
+    $residentCount = max(1, (int) $residentStmt->fetchColumn());
+    $daily = round(($consumption * 1000) / ($readingDays * $residentCount), 1);
+    $status = ($input['decision'] ?? '') === 'reject' ? 'rejected' : 'approved';
+
+    db()->prepare("
+        UPDATE water_logs
+        SET consumption_m3 = :m3, reading_days = :days, daily_liters_per_person = :daily,
+            review_status = :status, reviewed_by_user_id = :admin_id,
+            reviewed_at = NOW(), review_note = :note
+        WHERE id = :id
+    ")->execute([
+        ':m3' => $consumption,
+        ':days' => $readingDays,
+        ':daily' => $daily,
+        ':status' => $status,
+        ':admin_id' => (int) $admin['id'],
+        ':note' => trim((string) ($input['review_note'] ?? '')) ?: null,
+        ':id' => $logId,
+    ]);
+
+    if ($status === 'approved') {
+        recalculate_household_water_savings(
+            (int) $log['household_id'],
+            (int) $log['user_id'],
+            (int) $log['period_year'],
+            (int) $log['period_month']
+        );
+    }
+
+    return [
+        'ok' => true,
+        'message' => $status === 'approved'
+            ? 'Fatura onaylandı ve puanlar yeniden hesaplandı.'
+            : 'Fatura reddedildi; puan verilmedi.',
+    ];
 }
 
 /**
