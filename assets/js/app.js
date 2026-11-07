@@ -89,7 +89,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const btn = form.querySelector('.btn-action');
             const countSpan = form.querySelector('.reaction-count');
 
-            fetch(form.action, {
+            const actionUrl = form.getAttribute('action') || window.location.href;
+            fetch(actionUrl, {
                 method: 'POST',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'
@@ -797,7 +798,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if ((form.method || 'get').toLowerCase() !== 'post') return;
         if (form.hasAttribute('data-no-ajax') || form.classList.contains('reaction-form')) return;
 
-        const actionUrl = new URL(form.action || window.location.href, window.location.href);
+        const actionUrl = new URL(form.getAttribute('action') || window.location.href, window.location.href);
         const excludedPages = ['login.php', 'register.php', 'migration.php', 'migrate.php'];
         if (actionUrl.origin !== window.location.origin || excludedPages.indexOf(actionUrl.pathname.split('/').pop()) !== -1) return;
 
