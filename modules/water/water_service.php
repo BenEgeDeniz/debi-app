@@ -352,16 +352,59 @@ function get_household_water_analytics(array $user): array
         $pondStage = 'dry';
     }
 
+    // Yıllık (Yearly) Seri Hesaplaması
+    $yearlyStmt = db()->prepare("
+        SELECT period_year, SUM(consumption_m3) AS total_m3, AVG(daily_liters_per_person) AS avg_daily
+        FROM water_logs
+        WHERE household_id = :hid
+        GROUP BY period_year
+        ORDER BY period_year ASC
+        LIMIT 6
+    ");
+    $yearlyStmt->execute([':hid' => (int) ($user['household_id'] ?? 0)]);
+    $yearlyRows = $yearlyStmt->fetchAll();
+
+    $yearlySeries = [];
+    if (count($yearlyRows) >= 2) {
+        foreach ($yearlyRows as $yRow) {
+            $yr = (string) $yRow['period_year'];
+            $yearlySeries[] = [
+                'xlab'           => $yr,
+                'period_label'   => $yr . ' Yılı',
+                'consumption_m3' => round((float) $yRow['total_m3'], 1),
+                'daily_liters'   => round((float) $yRow['avg_daily'], 1),
+            ];
+        }
+    } else {
+        $curYear = (int) date('Y');
+        $baseYearly = max(90.0, round($currMonthM3 * 12, 1));
+        $sampleYears = [
+            $curYear - 3 => round($baseYearly + 18.5, 1),
+            $curYear - 2 => round($baseYearly + 11.2, 1),
+            $curYear - 1 => round($baseYearly + 4.8, 1),
+            $curYear     => $baseYearly,
+        ];
+        foreach ($sampleYears as $yr => $ym3) {
+            $yearlySeries[] = [
+                'xlab'           => (string) $yr,
+                'period_label'   => $yr . ' Yılı',
+                'consumption_m3' => $ym3,
+                'daily_liters'   => round(($ym3 * 1000) / (365 * max(1, (int) ($user['resident_count'] ?? 3))), 1),
+            ];
+        }
+    }
+
     return [
-        'has_real_logs' => $hasRealLogs,
-        'is_sample'     => $isSample,
-        'series'        => $series,
-        'prev_m3'       => $prevMonthM3,
-        'curr_m3'       => $currMonthM3,
-        'diff_m3'       => $diffM3,
-        'saved_m3'      => $savedM3,
-        'saved_liters'  => $savedLiters,
-        'pond_stage'    => $pondStage,
+        'has_real_logs'  => $hasRealLogs,
+        'is_sample'      => $isSample,
+        'series'         => $series,
+        'yearly_series'  => $yearlySeries,
+        'prev_m3'        => $prevMonthM3,
+        'curr_m3'        => $currMonthM3,
+        'diff_m3'        => $diffM3,
+        'saved_m3'       => $savedM3,
+        'saved_liters'   => $savedLiters,
+        'pond_stage'     => $pondStage,
     ];
 }
 
