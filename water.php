@@ -38,6 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('water.php');
         }
         $scanResult = $res;
+        if (!empty($res['ai_used'])) {
+            $scanResult['ai_approved_notice'] = 'Fatura doğrulandı. Görsel ve bilgiler uygun bulundu; şimdi değerleri kontrol edip onaylayın.';
+        }
         $_SESSION['pending_ai_scan'] = [
             'ai_used'        => !empty($res['ai_used']),
             'period_month'   => (int) ($res['extracted']['period_month'] ?? 0),
@@ -170,6 +173,11 @@ require_once __DIR__ . '/includes/header.php';
                 <?php elseif (!empty($scanResult['ai_error'])): ?>
                     <div class="bill-ai-notice notice-warn">
                         <?= e($scanResult['ai_error']) ?>
+                    </div>
+                <?php endif; ?>
+                <?php if (!empty($scanResult['ai_approved_notice'])): ?>
+                    <div class="bill-ai-notice notice-ok">
+                        <?= e($scanResult['ai_approved_notice']) ?>
                     </div>
                 <?php endif; ?>
 

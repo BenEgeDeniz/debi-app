@@ -71,7 +71,9 @@ function analyze_water_bill_image(array $file): array
     $prompt = <<<PROMPT
 Sen Türkiye'deki su faturalarını (İSKİ, ASKİ, İZSU, BUSKİ, MESKİ, ASAT, KASKİ, SASKİ vb.) okuyan uzman bir asistansın.
 Bu görseldeki su faturasını incele ve aşağıdaki alanları JSON olarak çıkar:
-- is_water_bill: Görsel bir su faturası veya sayaç/tüketim belgesi mi? (true/false)
+- is_water_bill: Görsel resmi bir su faturası mı? El yazısı not, boş form, ekran görüntüsü, makbuz veya sayaç fotoğrafıysa false.
+- is_handwritten: Faturadaki ana bilgiler el yazısıyla mı yazılmış? El yazısıysa true.
+- is_original_document: Görsel resmi faturanın kendisi mi; düzenlenmiş, üzerine yazılmış veya manipüle edilmiş görünüyor mu? Değilse false.
 - provider_name: Su idaresi veya kurum adı (Örn: "İSKİ", "ASKİ", "İZSU". Okunamıyorsa boş bırak)
 - period_month: Fatura dönemi ayı (1 ile 12 arasında tam sayı. Son okuma tarihindeki ayı baz al)
 - period_year: Fatura dönemi yılı (Örn: 2025 veya 2026)
@@ -85,6 +87,8 @@ PROMPT;
         'type'       => 'object',
         'properties' => [
             'is_water_bill'  => ['type' => 'boolean'],
+            'is_handwritten' => ['type' => 'boolean'],
+            'is_original_document' => ['type' => 'boolean'],
             'provider_name'  => ['type' => 'string'],
             'period_month'   => ['type' => 'integer'],
             'period_year'    => ['type' => 'integer'],
@@ -95,6 +99,8 @@ PROMPT;
         ],
         'required' => [
             'is_water_bill',
+            'is_handwritten',
+            'is_original_document',
             'provider_name',
             'period_month',
             'period_year',
@@ -192,6 +198,22 @@ PROMPT;
         ];
     }
 
+    $isWaterBill = !empty($extracted['is_water_bill']);
+    $isHandwritten = !empty($extracted['is_handwritten']);
+    $isOriginalDocument = array_key_exists('is_original_document', $extracted)
+        ? !empty($extracted['is_original_document'])
+        : true;
+    if (!$isWaterBill || $isHandwritten || !$isOriginalDocument) {
+        @unlink($fullPath);
+        $reason = $isHandwritten
+            ? 'El yazısı faturalar kabul edilmiyor.'
+            : (!$isOriginalDocument ? 'Düzenlenmiş veya üzerine yazılmış görseller kabul edilmiyor.' : 'Yüklenen görsel resmi bir su faturası olarak doğrulanamadı.');
+        return [
+            'ok' => false,
+            'error' => 'Fatura reddedildi: ' . $reason . ' Orijinal faturayı olduğu gibi ve net şekilde yükleyin.',
+        ];
+    }
+
     $month = (int) ($extracted['period_month'] ?? date('n'));
     if ($month < 1 || $month > 12) {
         $month = (int) date('n');
@@ -217,7 +239,7 @@ PROMPT;
     return [
         'ok'              => true,
         'ai_used'         => true,
-        'is_water_bill'   => (bool) ($extracted['is_water_bill'] ?? true),
+        'is_water_bill'   => $isWaterBill,
         'bill_image_path' => $relPath,
         'extracted'       => [
             'provider_name'  => trim((string) ($extracted['provider_name'] ?? '')),
