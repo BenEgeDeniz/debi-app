@@ -7,7 +7,6 @@ function create_event(array $user, array $input): array
     $location = trim((string) ($input['location'] ?? ''));
     $date = trim((string) ($input['event_date'] ?? ''));
     $start = trim((string) ($input['start_time'] ?? ''));
-    $end = trim((string) ($input['end_time'] ?? '')) ?: null;
     $scope = ($input['scope'] ?? 'neighborhood') === 'public' ? 'public' : 'neighborhood';
     if (mb_strlen($title, 'UTF-8') < 4 || mb_strlen($description, 'UTF-8') < 10 || $location === '' || $date === '' || $start === '') {
         return ['ok' => false, 'error' => 'Başlık, açıklama, yer, tarih ve başlama saati zorunludur.'];
@@ -16,21 +15,18 @@ function create_event(array $user, array $input): array
     if (!$dateObject || $dateObject->format('Y-m-d') !== $date || $date < date('Y-m-d')) {
         return ['ok' => false, 'error' => 'Etkinlik tarihi geçerli ve bugün veya daha sonrası olmalıdır.'];
     }
-    if (!preg_match('/^\d{2}:\d{2}$/', $start) || ($end !== null && !preg_match('/^\d{2}:\d{2}$/', $end))) {
+    if (!preg_match('/^\d{2}:\d{2}$/', $start)) {
         return ['ok' => false, 'error' => 'Etkinlik saati geçersiz.'];
-    }
-    if ($end !== null && $end <= $start) {
-        return ['ok' => false, 'error' => 'Bitiş saati başlangıç saatinden sonra olmalıdır.'];
     }
     if ($scope === 'neighborhood' && empty($user['neighborhood_id'])) {
         return ['ok' => false, 'error' => 'Mahalle bilgisi olmayan kullanıcı mahalle etkinliği oluşturamaz.'];
     }
-    $ai = score_event_with_ai($title, $description, $date, $start, $end);
-    $stmt = db()->prepare("INSERT INTO events (creator_id, neighborhood_id, scope, title, description, location, event_date, start_time, end_time, points, points_reason) VALUES (:uid, :nid, :scope, :title, :description, :location, :date, :start, :end, :points, :reason)");
+    $ai = score_event_with_ai($title, $description, $date, $start);
+    $stmt = db()->prepare("INSERT INTO events (creator_id, neighborhood_id, scope, title, description, location, event_date, start_time, points, points_reason) VALUES (:uid, :nid, :scope, :title, :description, :location, :date, :start, :points, :reason)");
     $stmt->execute([
         ':uid' => (int) $user['id'], ':nid' => (int) $user['neighborhood_id'], ':scope' => $scope,
         ':title' => $title, ':description' => $description, ':location' => $location, ':date' => $date,
-        ':start' => $start, ':end' => $end, ':points' => $ai['points'], ':reason' => $ai['reason'],
+        ':start' => $start, ':points' => $ai['points'], ':reason' => $ai['reason'],
     ]);
     $eventId = (int) db()->lastInsertId();
     db()->prepare("INSERT INTO event_attendees (event_id, user_id) VALUES (:eid, :uid)")
@@ -41,12 +37,11 @@ function create_event(array $user, array $input): array
 function get_event_time_state(array $event): array
 {
     $startAt = strtotime($event['event_date'] . ' ' . $event['start_time']);
-    $endAt = strtotime($event['event_date'] . ' ' . ($event['end_time'] ?: $event['start_time']));
     $now = time();
 
     return [
         'started' => $startAt !== false && $now >= $startAt,
-        'ended' => $endAt !== false && $now >= $endAt,
+        'ended' => !empty($event['ended_at']),
     ];
 }
 
@@ -85,12 +80,28 @@ function get_events_for_user(array $user): array
 
 function join_event(array $user, int $eventId): array
 {
-    $stmt = db()->prepare("SELECT id FROM events WHERE id = :id AND (scope = 'public' OR neighborhood_id = :nid) LIMIT 1");
+    $stmt = db()->prepare("SELECT * FROM events WHERE id = :id AND (scope = 'public' OR neighborhood_id = :nid) LIMIT 1");
     $stmt->execute([':id' => $eventId, ':nid' => (int) $user['neighborhood_id']]);
-    if (!$stmt->fetchColumn()) return ['ok' => false, 'error' => 'Etkinlik bulunamadı.'];
+    $event = $stmt->fetch();
+    if (!$event) return ['ok' => false, 'error' => 'Etkinlik bulunamadı.'];
+    if (get_event_time_state($event)['ended']) return ['ok' => false, 'error' => 'Bitirilmiş etkinliğe artık katılım yapılamaz.'];
     $stmt = db()->prepare("INSERT IGNORE INTO event_attendees (event_id, user_id) VALUES (:eid, :uid)");
     $stmt->execute([':eid' => $eventId, ':uid' => (int) $user['id']]);
     return ['ok' => true, 'message' => 'Etkinliğe katılımınız kaydedildi.'];
+}
+
+function finish_event(array $user, int $eventId): array
+{
+    $stmt = db()->prepare("SELECT * FROM events WHERE id = :eid AND creator_id = :uid LIMIT 1");
+    $stmt->execute([':eid' => $eventId, ':uid' => (int) $user['id']]);
+    $event = $stmt->fetch();
+    if (!$event) return ['ok' => false, 'error' => 'Bu etkinliği bitirme yetkiniz yok.'];
+    $state = get_event_time_state($event);
+    if (!$state['started']) return ['ok' => false, 'error' => 'Etkinlik başlamadan bitirilemez.'];
+    if ($state['ended']) return ['ok' => false, 'error' => 'Etkinlik zaten bitirilmiş.'];
+    db()->prepare("UPDATE events SET ended_at = NOW() WHERE id = :eid AND ended_at IS NULL")
+        ->execute([':eid' => $eventId]);
+    return ['ok' => true, 'message' => 'Etkinlik bitirildi. Katılımcılar artık fotoğraflarını yükleyebilir.'];
 }
 
 function mark_event_attendance(array $user, int $eventId, array $attendeeIds): array
@@ -142,11 +153,7 @@ function upload_event_photo(array $user, int $eventId, array $file): array
     $stmt->execute([':uid' => (int) $user['id'], ':eid' => $eventId]);
     $event = $stmt->fetch();
     if (!$event || $event['status'] !== 'attended') return ['ok' => false, 'error' => 'Fotoğraf yüklemek için etkinlikte yoklama ile katılmış olmalısınız.'];
-    $eventEnd = $event['end_time'] ?: $event['start_time'];
-    $eventEndAt = strtotime($event['event_date'] . ' ' . $eventEnd);
-    if ($eventEndAt !== false && time() < $eventEndAt) {
-        return ['ok' => false, 'error' => 'Etkinlik sona erdikten sonra fotoğraf yükleyebilirsiniz.'];
-    }
+    if (empty($event['ended_at'])) return ['ok' => false, 'error' => 'Etkinlik sahibi etkinliği bitirdikten sonra fotoğraf yükleyebilirsiniz.'];
     $dir = __DIR__ . '/../../uploads/events';
     if (!is_dir($dir) && !mkdir($dir, 0755, true)) return ['ok' => false, 'error' => 'Fotoğraf klasörü oluşturulamadı.'];
     $name = 'event_' . date('Ymd_His') . '_' . bin2hex(random_bytes(5)) . '.' . $extensions[$mime];

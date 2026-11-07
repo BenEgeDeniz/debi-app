@@ -1,18 +1,9 @@
 <?php
 require_once __DIR__ . '/../water/bill_ai_service.php';
 
-function score_event_with_ai(string $title, string $description, string $date, string $startTime, ?string $endTime): array
+function score_event_with_ai(string $title, string $description, string $date, string $startTime): array
 {
-    $hours = 1.0;
-    if ($endTime !== null && $endTime !== '') {
-        $start = strtotime($startTime);
-        $end = strtotime($endTime);
-        if ($start !== false && $end !== false && $end > $start) {
-            $hours = min(12, max(0.5, ($end - $start) / 3600));
-        }
-    }
-
-    $fallbackPoints = (int) min(100, max(5, round(8 + ($hours * 6) + (mb_strlen($description, 'UTF-8') >= 120 ? 8 : 0))));
+    $fallbackPoints = (int) min(100, max(5, round(14 + (mb_strlen($description, 'UTF-8') >= 120 ? 8 : 0))));
     $fallbackReason = 'Etkinlik süresi, fiziksel katılım gerektirmesi ve açıklamadaki topluluk katkısı dikkate alınarak geçici puan belirlendi.';
     $apiKey = defined('GEMINI_API_KEY') ? trim((string) GEMINI_API_KEY) : '';
     if ($apiKey === '') {
@@ -26,7 +17,7 @@ Başlık: {$title}
 Açıklama: {$description}
 Tarih: {$date}
 Başlangıç: {$startTime}
-Bitiş: {$endTime}
+Etkinlik, oluşturucu tarafından fiziksel çalışma tamamlandığında bitirilecek.
 5 ile 100 arasında adil bir tam sayı puan belirle. Süre, fiziksel emek, topluluk etkisi ve su/çevre katkısını sezgisel olarak değerlendir.
 Yanıtı yalnızca JSON ver: {"points": number, "reason": "Türkçe, en fazla iki cümlelik gerekçe"}.
 PROMPT;

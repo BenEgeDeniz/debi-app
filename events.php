@@ -34,6 +34,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $error = $result['error'];
             }
+        } elseif ($action === 'finish_event') {
+            $result = finish_event($currentUser, $eventId);
+            if ($result['ok']) {
+                $success = $result['message'];
+            } else {
+                $error = $result['error'];
+            }
         } elseif ($action === 'upload_event_photo') {
             $result = upload_event_photo($currentUser, $eventId, $_FILES['event_photo'] ?? []);
             if ($result['ok']) {
@@ -77,10 +84,9 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="form-group"><label for="event_location">Yer</label><input id="event_location" name="location" required maxlength="255" placeholder="Atatürk Parkı"></div>
                 </div>
                 <div class="form-group"><label for="event_description">Ne yapılacak?</label><textarea id="event_description" name="description" rows="3" required placeholder="Fiziksel işin kapsamını ve beklenen katkıyı anlatın."></textarea></div>
-                <div class="form-grid-3">
-                    <div class="form-group"><label for="event_date">Tarih</label><input id="event_date" type="date" name="event_date" required min="<?= date('Y-m-d') ?>"></div>
-                    <div class="form-group"><label for="start_time">Başlangıç</label><input id="start_time" type="time" name="start_time" required></div>
-                    <div class="form-group"><label for="end_time">Bitiş (isteğe bağlı)</label><input id="end_time" type="time" name="end_time"></div>
+                <div class="form-grid-2">
+                <div class="form-group"><label for="event_date">Tarih</label><input id="event_date" type="date" name="event_date" required min="<?= date('Y-m-d') ?>"></div>
+                <div class="form-group"><label for="start_time">Başlangıç</label><input id="start_time" type="time" name="start_time" required></div>
                 </div>
                 <div class="form-group">
                     <label for="event_scope">Görünürlük</label>
@@ -104,7 +110,7 @@ require_once __DIR__ . '/includes/header.php';
                         <div>
                             <span class="event-scope-label"><?= $event['scope'] === 'public' ? 'Genel Debi' : 'Mahalle Etkinliği' ?></span>
                             <h2 class="section-title"><?= e($event['title']) ?></h2>
-                            <p><?= e($event['event_date']) ?> · <?= e(substr($event['start_time'], 0, 5)) ?><?= $event['end_time'] ? '–' . e(substr($event['end_time'], 0, 5)) : '' ?> · <?= e($event['location']) ?></p>
+                            <p><?= e($event['event_date']) ?> · <?= e(substr($event['start_time'], 0, 5)) ?> · <?= e($event['location']) ?></p>
                         </div>
                         <div class="event-points"><strong><?= (int) $event['points'] ?></strong><span>DP</span></div>
                     </div>
@@ -134,7 +140,10 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     <?php endif; ?>
                     <?php if ($isCreator): ?>
-                        <?php if ($event['started']): ?>
+                        <?php if ($event['started'] && !$event['ended']): ?>
+                            <form method="post" class="event-action-row"><input type="hidden" name="action" value="finish_event"><input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>"><?= csrf_field() ?><button class="btn btn-primary btn-sm">Etkinliği bitir</button></form>
+                        <?php endif; ?>
+                        <?php if ($event['started'] && !$event['ended']): ?>
                             <form method="post" class="event-attendance"><input type="hidden" name="action" value="mark_attendance"><input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>"><?= csrf_field() ?><h3>Yoklama</h3><p class="form-help">Etkinlik başladı; yalnızca gerçekten gelenleri işaretleyin.</p><?php foreach ($managedAttendees[(int) $event['id']] as $attendee): ?><label><input type="checkbox" name="attendee_ids[]" value="<?= (int) $attendee['user_id'] ?>" <?= $attendee['user_id'] == $currentUser['id'] || $attendee['status'] === 'attended' ? 'checked' : '' ?> <?= $attendee['user_id'] == $currentUser['id'] ? 'disabled' : '' ?>> <?= e($attendee['full_name']) ?><?= $attendee['user_id'] == $currentUser['id'] ? ' (oluşturan)' : '' ?></label><?php endforeach; ?><button class="btn btn-outline btn-sm">Yoklamayı kaydet</button></form>
                         <?php else: ?>
                             <div class="event-attendance-locked">Yoklama, etkinliğin başlama saatinde açılacak.</div>
