@@ -14,6 +14,12 @@ if (file_exists(__DIR__ . '/database.local.php')) {
     define('DB_CHARSET', 'utf8mb4');
 }
 
+// Gemini API Anahtarı (Fatura fotoğrafı okuma için)
+// Anahtarınızı config/database.local.php içinde define('GEMINI_API_KEY', 'AIza...'); olarak tanımlayabilirsiniz.
+if (!defined('GEMINI_API_KEY')) {
+    define('GEMINI_API_KEY', getenv('GEMINI_API_KEY') ?: '');
+}
+
 /**
  * Tekil (Singleton) PDO bağlantısı döndürür.
  */

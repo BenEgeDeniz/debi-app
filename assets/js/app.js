@@ -253,4 +253,63 @@ document.addEventListener('DOMContentLoaded', function () {
             citySelect.dispatchEvent(new Event('change'));
         }
     }
+
+    // 6. Su Faturası Fotoğraf Önizleme & Yapay Zeka Tarama Durumu
+    const billInput = document.getElementById('bill_image_input');
+    const billDropzoneText = document.getElementById('billDropzoneText');
+    const billSelectedPreview = document.getElementById('billSelectedPreview');
+    const billPreviewImg = document.getElementById('billPreviewImg');
+    const billPreviewName = document.getElementById('billPreviewName');
+    const billScanForm = document.getElementById('billScanForm');
+    const billScanSubmitBtn = document.getElementById('billScanSubmitBtn');
+
+    if (billInput) {
+        billInput.addEventListener('change', function () {
+            const file = billInput.files && billInput.files[0];
+            if (!file) return;
+
+            if (billPreviewName) {
+                billPreviewName.textContent = file.name + ' (' + (file.size / (1024 * 1024)).toFixed(2) + ' MB)';
+            }
+
+            if (billPreviewImg && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function (ev) {
+                    billPreviewImg.src = ev.target.result;
+                    if (billDropzoneText) billDropzoneText.hidden = true;
+                    if (billSelectedPreview) billSelectedPreview.hidden = false;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    if (billScanForm && billScanSubmitBtn) {
+        billScanForm.addEventListener('submit', function () {
+            billScanSubmitBtn.disabled = true;
+            billScanSubmitBtn.textContent = 'Yapay zeka faturayı okuyor, lütfen bekleyin...';
+        });
+    }
+
+    // 7. Fatura Onay Ekranında Canlı Kişi Başı Günlük Litre Hesabı
+    const billConfirmForm = document.getElementById('billConfirmForm');
+    const m3Input = document.getElementById('consumption_m3');
+    const daysInput = document.getElementById('reading_days');
+    const liveDailyEl = document.getElementById('liveDailyLiters');
+
+    if (billConfirmForm && m3Input && daysInput && liveDailyEl) {
+        const residents = Math.max(1, parseInt(billConfirmForm.getAttribute('data-residents') || '2', 10));
+        function updateLiveDaily() {
+            const m3 = parseFloat((m3Input.value || '0').replace(',', '.'));
+            const days = Math.max(1, parseInt(daysInput.value || '30', 10));
+            if (m3 > 0) {
+                const daily = ((m3 * 1000) / (days * residents)).toFixed(1).replace('.', ',');
+                liveDailyEl.textContent = daily + ' L / gün';
+            } else {
+                liveDailyEl.textContent = '—';
+            }
+        }
+        m3Input.addEventListener('input', updateLiveDaily);
+        daysInput.addEventListener('input', updateLiveDaily);
+    }
 });

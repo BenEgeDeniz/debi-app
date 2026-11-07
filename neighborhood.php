@@ -160,7 +160,6 @@ require_once __DIR__ . '/includes/header.php';
                         <thead>
                             <tr>
                                 <th>Katılımcı</th>
-                                <th>Damla Puanı</th>
                                 <th>Konut Tipi</th>
                                 <th>Birim / Hane Tanımı</th>
                                 <th>Kişi Sayısı</th>
@@ -170,20 +169,13 @@ require_once __DIR__ . '/includes/header.php';
                         </thead>
                         <tbody>
                             <?php foreach ($individuals as $ind): ?>
-                                <?php
-                                $isMe = (int) $ind['user_id'] === (int) $currentUser['id'];
-                                $indPts = (int) ($ind['total_points'] ?? 50);
-                                $indLvl = get_level_info($indPts);
-                                ?>
+                                <?php $isMe = (int) $ind['user_id'] === (int) $currentUser['id']; ?>
                                 <tr class="<?= $isMe ? 'row-highlight' : '' ?>">
                                     <td>
                                         <strong><?= e($ind['full_name']) ?></strong>
                                         <?php if ($isMe): ?>
                                             <span class="tag tag-manager">Siz</span>
                                         <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <span class="author-lvl-chip"><?= $indLvl['emoji'] ?> <?= number_format($indPts, 0, ',', '.') ?> DP</span>
                                     </td>
                                     <td><?= e(housing_type_label($ind['housing_type'])) ?></td>
                                     <td><?= e($ind['unit_label']) ?></td>

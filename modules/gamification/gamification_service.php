@@ -36,6 +36,15 @@ function ensure_gamification_schema(): void
                 run_sql_migration_file($pdo, $sql006);
             }
         }
+
+        // 3. 007_bill_images.sql kontrolü (water_logs.bill_image_path sütunu)
+        $hasBillImage = (bool) $pdo->query("SHOW COLUMNS FROM `water_logs` LIKE 'bill_image_path'")->fetchColumn();
+        if (!$hasBillImage) {
+            $sql007 = __DIR__ . '/../../sql-dum/007_bill_images.sql';
+            if (file_exists($sql007)) {
+                run_sql_migration_file($pdo, $sql007);
+            }
+        }
     } catch (Throwable $e) {
         // Sessizce geç
     }

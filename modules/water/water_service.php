@@ -13,6 +13,9 @@ function save_water_log(array $user, array $input): array
     $consumptionM3 = (float) str_replace(',', '.', trim((string) ($input['consumption_m3'] ?? '0')));
     $billAmount    = trim((string) ($input['bill_amount'] ?? ''));
     $billVal       = $billAmount !== '' ? (float) str_replace(',', '.', $billAmount) : null;
+    $readingDays   = max(1, min(90, (int) ($input['reading_days'] ?? 30)));
+    $providerName  = trim((string) ($input['provider_name'] ?? ''));
+    $billImagePath = trim((string) ($input['bill_image_path'] ?? ''));
     $notes         = trim($input['notes'] ?? '');
     $shareOnFeed   = !empty($input['share_on_feed']);
 
@@ -24,9 +27,14 @@ function save_water_log(array $user, array $input): array
         return ['ok' => false, 'error' => 'Lütfen geçerli bir su tüketim miktarı (m³) girin (Örn: 9.5).'];
     }
 
+    // Yalnızca uploads/bills/ altındaki geçerli görsel yoluna izin ver
+    if ($billImagePath !== '' && strpos($billImagePath, 'uploads/bills/') !== 0) {
+        $billImagePath = '';
+    }
+
     $residentCount = max(1, (int) ($user['resident_count'] ?? 2));
-    // 1 m3 = 1000 Litre. Aylık 30 gün baz alınarak kişi başı günlük litre:
-    $dailyLitersPerPerson = round(($consumptionM3 * 1000) / (30 * $residentCount), 1);
+    // 1 m3 = 1000 Litre. Faturadaki okuma gün sayısı ve kişi sayısına göre günlük litre:
+    $dailyLitersPerPerson = round(($consumptionM3 * 1000) / ($readingDays * $residentCount), 1);
 
     $pdo = db();
 
@@ -34,11 +42,13 @@ function save_water_log(array $user, array $input): array
         INSERT INTO water_logs (
             household_id, user_id, neighborhood_id, apartment_id,
             period_year, period_month, consumption_m3,
-            resident_count_snapshot, daily_liters_per_person, bill_amount, notes
+            resident_count_snapshot, daily_liters_per_person,
+            bill_amount, bill_image_path, provider_name, reading_days, notes
         ) VALUES (
             :hid, :uid, :nid, :aid,
             :y, :m, :m3,
-            :rcount, :daily, :bill, :notes
+            :rcount, :daily,
+            :bill, :bimg, :prov, :days, :notes
         )
         ON DUPLICATE KEY UPDATE
             user_id                 = VALUES(user_id),
@@ -46,6 +56,9 @@ function save_water_log(array $user, array $input): array
             resident_count_snapshot = VALUES(resident_count_snapshot),
             daily_liters_per_person = VALUES(daily_liters_per_person),
             bill_amount             = VALUES(bill_amount),
+            bill_image_path         = COALESCE(VALUES(bill_image_path), bill_image_path),
+            provider_name           = VALUES(provider_name),
+            reading_days            = VALUES(reading_days),
             notes                   = VALUES(notes)
     ");
 
@@ -60,6 +73,9 @@ function save_water_log(array $user, array $input): array
         ':rcount' => $residentCount,
         ':daily'  => $dailyLitersPerPerson,
         ':bill'   => $billVal,
+        ':bimg'   => $billImagePath !== '' ? $billImagePath : null,
+        ':prov'   => $providerName !== '' ? $providerName : null,
+        ':days'   => $readingDays,
         ':notes'  => $notes !== '' ? $notes : null,
     ]);
 
@@ -67,7 +83,8 @@ function save_water_log(array $user, array $input): array
 
     // İsteğe bağlı olarak sosyal akışta başarı paylaşımı oluştur
     if ($shareOnFeed) {
-        $postText  = "{$monthName} dönemi su tüketimimizi kaydettik: Toplam {$consumptionM3} m³ (Kişi başı günde ortalama {$dailyLitersPerPerson} L).";
+        $provTag  = $providerName !== '' ? " ({$providerName})" : '';
+        $postText = "{$monthName} dönemi{$provTag} su faturamızı kaydettik: Toplam {$consumptionM3} m³ (Kişi başı günde ortalama {$dailyLitersPerPerson} L).";
         if ($notes !== '') {
             $postText .= " Notumuz: " . $notes;
         }

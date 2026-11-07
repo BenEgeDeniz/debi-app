@@ -46,25 +46,25 @@ require_once __DIR__ . '/includes/header.php';
 <main class="auth-layout auth-layout-wide">
     <div class="auth-card auth-card-wide">
         <div class="auth-header-block">
-            <h1 class="auth-card-title">💧 Debi Ağına Katıl (+50 DP Hediye!)</h1>
+            <h1 class="auth-card-title">Debi Ağına Katıl</h1>
             <p class="auth-card-subtitle">
-                Nasıl katılmak istediğini seç. Apartmanın henüz sistemde yoksa <strong>Bireysel / Müstakil</strong> seçeneğiyle doğrudan mahallende yer alabilirsin!
+                Nasıl katılmak istediğinizi seçin. Apartmanınız henüz sistemde yoksa <strong>Bireysel / Müstakil</strong> seçeneğiyle doğrudan mahallenizde yer alabilirsiniz.
             </p>
         </div>
 
         <!-- Katılım Modu Seçici Sekmeler -->
         <div class="mode-tabs" role="tablist">
             <button type="button" class="mode-tab <?= $mode === 'individual' ? 'active' : '' ?>" data-mode-target="individual">
-                <strong>🏡 1. Bireysel / Müstakil</strong>
-                <span>Mahallede bireysel yer al (+50 DP)</span>
+                <strong>1. Bireysel / Müstakil</strong>
+                <span>Mahallede bireysel yer al</span>
             </button>
             <button type="button" class="mode-tab <?= $mode === 'apartment_invite' ? 'active' : '' ?>" data-mode-target="apartment_invite">
-                <strong>🔑 2. Apartman Davetli</strong>
-                <span>Davet kodu ile dairene katıl (+100 DP)</span>
+                <strong>2. Apartman Davetli</strong>
+                <span>Davet kodu ile dairene katıl</span>
             </button>
             <button type="button" class="mode-tab <?= $mode === 'apartment_manager' ? 'active' : '' ?>" data-mode-target="apartment_manager">
-                <strong>🏢 3. Apartman Yöneticisi</strong>
-                <span>Apartmanını mahalleye kur (+150 DP)</span>
+                <strong>3. Apartman Yöneticisi</strong>
+                <span>Apartmanını mahalleye kur</span>
             </button>
         </div>
 

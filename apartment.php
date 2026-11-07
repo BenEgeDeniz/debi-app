@@ -323,7 +323,6 @@ require_once __DIR__ . '/includes/header.php';
                                 <th>Sıra</th>
                                 <th>Daire</th>
                                 <th>Sakin</th>
-                                <th>Damla Puanı</th>
                                 <th>Kişi Sayısı</th>
                                 <th>Aylık Sayaç (m³)</th>
                                 <th>Kişi Başı Günlük</th>
@@ -336,8 +335,6 @@ require_once __DIR__ . '/includes/header.php';
                                 $isMe      = (int) $unit['user_id'] === (int) $currentUser['id'];
                                 $unitDaily = $unit['daily_liters_per_person'] !== null ? (float) $unit['daily_liters_per_person'] : null;
                                 $isPioneer = ($unitDaily !== null && $avgDaily !== null && $unitDaily <= $avgDaily);
-                                $uPts      = (int) ($unit['total_points'] ?? 50);
-                                $uLvl      = get_level_info($uPts);
                                 ?>
                                 <tr class="<?= $isMe ? 'row-highlight' : '' ?>">
                                     <td><?= $unitDaily !== null ? '#' . ($idx + 1) : '—' ?></td>
@@ -347,9 +344,6 @@ require_once __DIR__ . '/includes/header.php';
                                         <?php if ($unit['role'] === 'manager'): ?>
                                             <span class="tag tag-manager">Yönetici</span>
                                         <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <span class="author-lvl-chip"><?= $uLvl['emoji'] ?> <?= number_format($uPts, 0, ',', '.') ?> DP</span>
                                     </td>
                                     <td><?= (int) $unit['resident_count'] ?> kişi</td>
                                     <td>

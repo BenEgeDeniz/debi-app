@@ -1,11 +1,13 @@
 <?php
 /**
- * DEBI - Su Tüketimi, Sayaç Girişi ve Tasarruf Alışkanlıkları Sayfası
+ * DEBI - Yapay Zeka (Gemini) ile Su Faturası Okuma ve Tüketim Takibi
  */
 require_once __DIR__ . '/includes/init.php';
 require_once __DIR__ . '/modules/water/water_service.php';
+require_once __DIR__ . '/modules/water/bill_ai_service.php';
 
 $currentUser = require_login();
+$scanResult  = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf()) {
@@ -15,42 +17,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $action = $_POST['action'] ?? '';
 
-    if ($action === 'save_water_log') {
-        $res = save_water_log($currentUser, $_POST);
-        if ($res['ok']) {
-            $ptsTxt = !empty($res['points_awarded']) ? ' (+' . (int) $res['points_awarded'] . ' DP kazandın!)' : '';
-            set_flash('success', 'Sayaç kaydın güncellendi! Kişi başı günlük ortalaman: ' . number_format($res['daily_liters'], 1, ',', '.') . ' L' . $ptsTxt);
-        } else {
+    // 1. Adım: Fatura fotoğrafını yükle ve Gemini AI ile verileri çıkar
+    if ($action === 'scan_bill') {
+        $file = $_FILES['bill_image'] ?? [];
+        $res  = analyze_water_bill_image($file);
+        if (!$res['ok']) {
             set_flash('error', $res['error']);
+            redirect('water.php');
         }
-        redirect('water.php');
+        $scanResult = $res;
     }
 
-    if ($action === 'toggle_habit') {
-        $habitId = (int) ($_POST['habit_id'] ?? 0);
-        if ($habitId > 0) {
-            $pts = toggle_household_habit((int) $currentUser['household_id'], $habitId, (int) $currentUser['id']);
-            if ($pts > 0) {
-                set_flash('success', 'Yeni tasarruf alışkanlığın eklendi! 🛠️ +' . $pts . ' Damla Puanı (DP) kazandın!');
-            } else {
-                set_flash('success', 'Hane tasarruf alışkanlığın güncellendi.');
-            }
+    // 2. Adım: Kullanıcının "Evet, Doğru" diyerek onayladığı fatura verisini kaydet
+    if ($action === 'confirm_bill') {
+        $res = save_water_log($currentUser, $_POST);
+        if ($res['ok']) {
+            set_flash('success', 'Faturanız kaydedildi. Kişi başı günlük ortalamanız: ' . number_format($res['daily_liters'], 1, ',', '.') . ' L');
+            redirect('water.php');
+        } else {
+            set_flash('error', $res['error']);
+            // Hata varsa onay ekranını koru
+            $scanResult = [
+                'ok'              => true,
+                'ai_used'         => false,
+                'bill_image_path' => $_POST['bill_image_path'] ?? '',
+                'extracted'       => [
+                    'provider_name'  => $_POST['provider_name'] ?? '',
+                    'period_month'   => (int) ($_POST['period_month'] ?? date('n')),
+                    'period_year'    => (int) ($_POST['period_year'] ?? date('Y')),
+                    'consumption_m3' => $_POST['consumption_m3'] ?? '',
+                    'bill_amount'    => $_POST['bill_amount'] ?? '',
+                    'reading_days'   => (int) ($_POST['reading_days'] ?? 30),
+                    'summary_text'   => 'Lütfen eksik veya hatalı alanı düzeltip tekrar onaylayın.',
+                ],
+            ];
         }
-        redirect('water.php#habits');
     }
 }
 
 $history = get_household_water_history((int) $currentUser['household_id']);
-$habits  = get_saving_habits_with_status((int) $currentUser['household_id']);
 
-$totalHabitSavings = 0;
-foreach ($habits as $h) {
-    if ((int) $h['is_active'] === 1) {
-        $totalHabitSavings += (int) $h['estimated_monthly_liters'];
-    }
-}
-
-$pageTitle = 'Su Tüketimi & Sayaç — Debi';
+$pageTitle = 'Su Faturası Takibi — Debi';
 $activeNav = 'water';
 require_once __DIR__ . '/includes/header.php';
 ?>
@@ -59,91 +66,183 @@ require_once __DIR__ . '/includes/header.php';
     <?php require_once __DIR__ . '/includes/sidebar_left.php'; ?>
 
     <main class="main-column">
-        <!-- Aylık Su Tüketimi Giriş Kartı -->
-        <section class="panel-card">
-            <div class="panel-card-header">
-                <div>
-                    <div class="section-kicker">SAYAÇ &amp; FATURA KAYDI</div>
-                    <h1 class="section-title">Aylık Su Tüketimi Girin</h1>
-                </div>
-                <span class="tag"><?= e($currentUser['unit_label']) ?> · <?= (int) $currentUser['resident_count'] ?> Kişi</span>
-            </div>
-
-            <p class="panel-desc">
-                Su faturanızdaki veya sayacınızdaki aylık metreküp (<strong>1 m³ = 1.000 Litre</strong>) değerini girin.
-                Sistem hanenizdeki kişi sayısına (<?= (int) $currentUser['resident_count'] ?> kişi) bölerek mahalleniz ve apartmanınızla adil kıyaslama yapar.
-            </p>
-
-            <form method="post" action="water.php" class="form-stack">
-                <?= csrf_field() ?>
-                <input type="hidden" name="action" value="save_water_log">
-
-                <div class="form-grid-4">
-                    <div class="form-group">
-                        <label for="period_month">Fatura Ayı</label>
-                        <select id="period_month" name="period_month">
-                            <?php $curM = (int) date('n'); ?>
-                            <?php for ($m = 1; $m <= 12; $m++): ?>
-                                <option value="<?= $m ?>" <?= $m === $curM ? 'selected' : '' ?>><?= e(turkish_month_name($m)) ?></option>
-                            <?php endfor; ?>
-                        </select>
+        <?php if ($scanResult): ?>
+            <?php
+            $ext          = $scanResult['extracted'];
+            $residentCnt  = max(1, (int) $currentUser['resident_count']);
+            $initM3       = (float) ($ext['consumption_m3'] ?: 0);
+            $initDays     = max(1, (int) ($ext['reading_days'] ?: 30));
+            $previewDaily = $initM3 > 0 ? round(($initM3 * 1000) / ($initDays * $residentCnt), 1) : 0;
+            ?>
+            <!-- ADIM 2: "BU BİLGİLER DOĞRU MU?" ONAY KARTI -->
+            <section class="panel-card bill-confirm-card">
+                <div class="panel-card-header">
+                    <div>
+                        <div class="section-kicker">YAPAY ZEKA FATURA KONTROLÜ</div>
+                        <h1 class="section-title">Faturanızdan Çıkarılan Bilgiler Doğru mu?</h1>
                     </div>
-
-                    <div class="form-group">
-                        <label for="period_year">Yıl</label>
-                        <select id="period_year" name="period_year">
-                            <?php $curY = (int) date('Y'); ?>
-                            <?php for ($y = $curY; $y >= 2024; $y--): ?>
-                                <option value="<?= $y ?>"><?= $y ?></option>
-                            <?php endfor; ?>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="consumption_m3">Tüketim (m³)</label>
-                        <input type="number" step="0.1" min="0.5" max="500" id="consumption_m3" name="consumption_m3"
-                               required placeholder="Örn: 9.5">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="bill_amount">Fatura Tutarı (TL - Opsiyonel)</label>
-                        <input type="number" step="0.5" min="0" id="bill_amount" name="bill_amount"
-                               placeholder="Örn: 340">
-                    </div>
+                    <span class="tag"><?= e($currentUser['unit_label']) ?> · <?= $residentCnt ?> Kişi</span>
                 </div>
 
-                <div class="form-group">
-                    <label for="notes">Bu Ay Uyguladığınız Tasarruf Notu (İsteğe bağlı)</label>
-                    <input type="text" id="notes" name="notes" placeholder="Örn: Mutfak musluğuna perlatör taktık, 2 m³ düştü.">
+                <?php if (!empty($scanResult['api_key_missing'])): ?>
+                    <div class="bill-ai-notice notice-warn">
+                        <strong>Gemini API Anahtarı Bekleniyor:</strong>
+                        <code>config/database.local.php</code> dosyasına <code>GEMINI_API_KEY</code> değerinizi girdiğinizde fatura fotoğrafları otomatik okunacaktır. Şimdilik faturanıza bakarak bilgileri aşağıdan onaylayabilirsiniz.
+                    </div>
+                <?php elseif (!empty($scanResult['ai_error'])): ?>
+                    <div class="bill-ai-notice notice-warn">
+                        <?= e($scanResult['ai_error']) ?>
+                    </div>
+                <?php else: ?>
+                    <div class="bill-ai-notice notice-ok">
+                        <strong>Yapay Zeka Özeti:</strong> <?= e($ext['summary_text']) ?>
+                    </div>
+                <?php endif; ?>
+
+                <div class="bill-verify-layout">
+                    <?php if (!empty($scanResult['bill_image_path'])): ?>
+                        <div class="bill-preview-column">
+                            <a href="<?= e($scanResult['bill_image_path']) ?>" target="_blank" title="Tam boyutta görüntüle">
+                                <img src="<?= e($scanResult['bill_image_path']) ?>" alt="Yüklenen Su Faturası" class="bill-scanned-img">
+                            </a>
+                            <span class="field-hint">Büyütmek için faturaya tıklayın</span>
+                        </div>
+                    <?php endif; ?>
+
+                    <form method="post" action="water.php" class="form-stack bill-confirm-form" id="billConfirmForm" data-residents="<?= $residentCnt ?>">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="confirm_bill">
+                        <input type="hidden" name="bill_image_path" value="<?= e($scanResult['bill_image_path'] ?? '') ?>">
+
+                        <div class="form-grid-3">
+                            <div class="form-group">
+                                <label for="provider_name">Su İdaresi / Kurum</label>
+                                <input type="text" id="provider_name" name="provider_name"
+                                       value="<?= e((string) $ext['provider_name']) ?>"
+                                       placeholder="Örn: İSKİ, ASKİ, İZSU">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="period_month">Fatura Ayı</label>
+                                <select id="period_month" name="period_month">
+                                    <?php for ($m = 1; $m <= 12; $m++): ?>
+                                        <option value="<?= $m ?>" <?= $m === (int) $ext['period_month'] ? 'selected' : '' ?>>
+                                            <?= e(turkish_month_name($m)) ?>
+                                        </option>
+                                    <?php endfor; ?>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="period_year">Fatura Yılı</label>
+                                <select id="period_year" name="period_year">
+                                    <?php $curY = (int) date('Y'); ?>
+                                    <?php for ($y = $curY + 1; $y >= 2023; $y--): ?>
+                                        <option value="<?= $y ?>" <?= $y === (int) $ext['period_year'] ? 'selected' : '' ?>><?= $y ?></option>
+                                    <?php endfor; ?>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-grid-3">
+                            <div class="form-group">
+                                <label for="consumption_m3">Tüketim Miktarı (m³)</label>
+                                <input type="number" step="0.01" min="0.5" max="500" id="consumption_m3" name="consumption_m3"
+                                       required value="<?= e((string) $ext['consumption_m3']) ?>" placeholder="Örn: 11">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="reading_days">Okuma Gün Sayısı</label>
+                                <input type="number" min="1" max="90" id="reading_days" name="reading_days"
+                                       required value="<?= (int) $ext['reading_days'] ?>">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="bill_amount">Fatura Tutarı (TL)</label>
+                                <input type="number" step="0.01" min="0" id="bill_amount" name="bill_amount"
+                                       value="<?= e((string) $ext['bill_amount']) ?>" placeholder="Örn: 345.50">
+                            </div>
+                        </div>
+
+                        <div class="bill-calc-preview">
+                            <span>Hesaplanan Kişi Başı Günlük Tüketim (<?= $residentCnt ?> kişi):</span>
+                            <strong id="liveDailyLiters"><?= $previewDaily > 0 ? number_format($previewDaily, 1, ',', '.') . ' L / gün' : '—' ?></strong>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="notes">Kısa Not (İsteğe bağlı)</label>
+                            <input type="text" id="notes" name="notes" placeholder="Örn: Bu ay musluk başlıklarını değiştirdik.">
+                        </div>
+
+                        <label class="checkbox-inline">
+                            <input type="checkbox" name="share_on_feed" value="1" checked>
+                            <span>Fatura sonucunu mahalle akışında paylaş</span>
+                        </label>
+
+                        <div class="bill-confirm-actions">
+                            <button type="submit" class="btn btn-primary">Evet, Doğru — Faturayı Kaydet</button>
+                            <a href="water.php" class="btn btn-outline">İptal / Yeniden Yükle</a>
+                        </div>
+                    </form>
+                </div>
+            </section>
+        <?php else: ?>
+            <!-- ADIM 1: FATURA FOTOĞRAFI YÜKLEME KARTI -->
+            <section class="panel-card">
+                <div class="panel-card-header">
+                    <div>
+                        <div class="section-kicker">YAPAY ZEKA DESTEKLİ FATURA OKUMA</div>
+                        <h1 class="section-title">Su Faturanızın Fotoğrafını Yükleyin</h1>
+                    </div>
+                    <span class="tag"><?= e($currentUser['unit_label']) ?> · <?= (int) $currentUser['resident_count'] ?> Kişi</span>
                 </div>
 
-                <div class="composer-submit-row">
-                    <label class="checkbox-inline">
-                        <input type="checkbox" name="share_on_feed" value="1" checked>
-                        <span>Bu kaydı mahalle akışında başarı olarak paylaş</span>
+                <p class="panel-desc">
+                    Faturanızın fotoğrafını çekin veya seçin. Yapay zeka (Gemini) fatura dönemini, harcanan metreküpü (<strong>m³</strong>) ve fatura tutarını otomatik çıkarıp onayınıza sunar.
+                </p>
+
+                <form method="post" action="water.php" enctype="multipart/form-data" class="bill-upload-form" id="billScanForm">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="scan_bill">
+
+                    <label for="bill_image_input" class="bill-dropzone" id="billDropzone">
+                        <input type="file" id="bill_image_input" name="bill_image"
+                               accept="image/jpeg,image/png,image/webp" capture="environment" required>
+                        <div class="bill-dropzone-content" id="billDropzoneText">
+                            <div class="bill-dropzone-icon">📷</div>
+                            <strong>Su Faturası Fotoğrafı Seçin veya Çekin</strong>
+                            <span>JPG, PNG veya WebP · Maksimum 8 MB</span>
+                        </div>
+                        <div class="bill-selected-preview" id="billSelectedPreview" hidden>
+                            <img id="billPreviewImg" src="" alt="Seçilen fatura önizlemesi">
+                            <span id="billPreviewName"></span>
+                        </div>
                     </label>
 
-                    <button type="submit" class="btn btn-primary">💧 Kaydet ve +100 DP Kazan</button>
-                </div>
-            </form>
-        </section>
+                    <div class="composer-submit-row">
+                        <span class="field-hint">Veriler kaydedilmeden önce size sorulur ve onayınız alınır.</span>
+                        <button type="submit" class="btn btn-primary" id="billScanSubmitBtn">
+                            Faturayı Yapay Zeka ile Okut
+                        </button>
+                    </div>
+                </form>
+            </section>
+        <?php endif; ?>
 
-        <!-- Geçmiş Su Tüketim Kayıtları ve Tüketim Trendi -->
+        <!-- Geçmiş Su Faturaları ve Tüketim Grafiği -->
         <section class="panel-card">
             <div class="panel-card-header">
-                <h2 class="section-title">Hanenizin Su Tüketim Trendi &amp; Kayıtları</h2>
+                <h2 class="section-title">Geçmiş Su Faturalarım</h2>
             </div>
 
             <?php if (empty($history)): ?>
                 <div class="empty-inline">
-                    Henüz aylık su tüketim kaydı girmediniz. Yukarıdaki formdan ilk kaydınızı ekleyebilirsiniz.
+                    Henüz kaydedilmiş bir su faturanız bulunmuyor. Yukarıdan ilk faturanızın fotoğrafını yükleyebilirsiniz.
                 </div>
             <?php else: ?>
-                <!-- Saf CSS/HTML Aylık Tüketim Çubuk Grafiği (Trend) -->
                 <?php
-                // Kronolojik sıraya çevir
                 $trendList = array_reverse($history);
-                $maxDaily = 1;
+                $maxDaily  = 1;
                 foreach ($trendList as $item) {
                     if ((float) $item['daily_liters_per_person'] > $maxDaily) {
                         $maxDaily = (float) $item['daily_liters_per_person'];
@@ -153,16 +252,16 @@ require_once __DIR__ . '/includes/header.php';
                 ?>
                 <div class="trend-chart-box">
                     <div class="trend-chart-header">
-                        <span class="trend-chart-title">Son Dönemler Kişi Başı Günlük Su Tüketimi (Litre)</span>
-                        <span class="trend-target-legend">Tasarruf Eşiği: 100 L</span>
+                        <span class="trend-chart-title">Kişi Başı Günlük Tüketim (Litre)</span>
+                        <span class="trend-target-legend">Hedef: 100 L / gün</span>
                     </div>
 
                     <div class="trend-bars-wrapper">
                         <?php foreach ($trendList as $tRow): ?>
                             <?php
-                            $tDaily = (float) $tRow['daily_liters_per_person'];
-                            $pctHeight = min(100, max(12, round(($tDaily / $maxScale) * 100)));
-                            $barClass = $tDaily <= 100 ? 'bar-good' : ($tDaily <= 140 ? 'bar-warn' : 'bar-high');
+                            $tDaily     = (float) $tRow['daily_liters_per_person'];
+                            $pctHeight  = min(100, max(12, round(($tDaily / $maxScale) * 100)));
+                            $barClass   = $tDaily <= 100 ? 'bar-good' : ($tDaily <= 140 ? 'bar-warn' : 'bar-high');
                             $shortLabel = mb_substr(turkish_month_name((int) $tRow['period_month']), 0, 3, 'UTF-8') . " '" . substr((string) $tRow['period_year'], -2);
                             ?>
                             <div class="trend-bar-col">
@@ -181,29 +280,40 @@ require_once __DIR__ . '/includes/header.php';
                         <thead>
                             <tr>
                                 <th>Dönem</th>
-                                <th>Toplam (m³)</th>
-                                <th>Kişi Sayısı</th>
+                                <th>Kurum</th>
+                                <th>Tüketim</th>
                                 <th>Kişi Başı Günlük</th>
-                                <th>Fatura</th>
-                                <th>Not</th>
+                                <th>Tutar</th>
+                                <th>Fatura Görseli</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($history as $row): ?>
                                 <?php $daily = (float) $row['daily_liters_per_person']; ?>
                                 <tr>
-                                    <td><strong><?= e(turkish_month_name((int) $row['period_month']) . ' ' . $row['period_year']) ?></strong></td>
-                                    <td><?= number_format((float) $row['consumption_m3'], 1, ',', '.') ?> m³</td>
-                                    <td><?= (int) $row['resident_count_snapshot'] ?> kişi</td>
+                                    <td>
+                                        <strong><?= e(turkish_month_name((int) $row['period_month']) . ' ' . $row['period_year']) ?></strong>
+                                        <?php if (!empty($row['reading_days'])): ?>
+                                            <div class="table-sub"><?= (int) $row['reading_days'] ?> gün</div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?= !empty($row['provider_name']) ? e($row['provider_name']) : '—' ?></td>
+                                    <td><strong><?= number_format((float) $row['consumption_m3'], 1, ',', '.') ?> m³</strong></td>
                                     <td>
                                         <span class="metric-pill <?= $daily <= 110 ? 'pill-good' : 'pill-neutral' ?>">
                                             <?= number_format($daily, 1, ',', '.') ?> L / gün
                                         </span>
                                     </td>
                                     <td>
-                                        <?= $row['bill_amount'] !== null ? number_format((float) $row['bill_amount'], 0, ',', '.') . ' TL' : '—' ?>
+                                        <?= $row['bill_amount'] !== null ? number_format((float) $row['bill_amount'], 2, ',', '.') . ' TL' : '—' ?>
                                     </td>
-                                    <td><?= e($row['notes'] ?? '—') ?></td>
+                                    <td>
+                                        <?php if (!empty($row['bill_image_path'])): ?>
+                                            <a href="<?= e($row['bill_image_path']) ?>" target="_blank" class="link-subtle">Faturayı Gör</a>
+                                        <?php else: ?>
+                                            <span class="muted-text">—</span>
+                                        <?php endif; ?>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -211,46 +321,9 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             <?php endif; ?>
         </section>
-
-        <!-- Hane Su Tasarrufu Alışkanlıkları -->
-        <section class="panel-card" id="habits">
-            <div class="panel-card-header">
-                <div>
-                    <h2 class="section-title">Evde Uyguladığımız Tasarruf Adımları</h2>
-                </div>
-                <span class="saved-water-pill">
-                    Aylık Tahmini Korunan: <strong><?= number_format($totalHabitSavings, 0, ',', '.') ?> L</strong>
-                </span>
-            </div>
-            <p class="panel-desc">
-                Hanenizde düzenli olarak uyguladığınız su tasarrufu alışkanlıklarını işaretleyin:
-            </p>
-
-            <div class="habit-list">
-                <?php foreach ($habits as $habit): ?>
-                    <?php $active = (int) $habit['is_active'] === 1; ?>
-                    <div class="habit-item <?= $active ? 'habit-active' : '' ?>">
-                        <div class="habit-info">
-                            <strong><?= e($habit['title']) ?></strong>
-                            <p><?= e($habit['description']) ?></p>
-                            <span class="habit-meta">Tahmini katkı: ~<?= number_format((int) $habit['estimated_monthly_liters'], 0, ',', '.') ?> L / ay</span>
-                        </div>
-                        <form method="post" action="water.php" class="habit-form">
-                            <?= csrf_field() ?>
-                            <input type="hidden" name="action" value="toggle_habit">
-                            <input type="hidden" name="habit_id" value="<?= (int) $habit['id'] ?>">
-                            <button type="submit" class="btn <?= $active ? 'btn-primary' : 'btn-outline' ?> btn-sm">
-                                <?= $active ? '✓ Uygulanıyor' : '+ Uygula (+40 DP)' ?>
-                            </button>
-                        </form>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-        </section>
     </main>
 
     <?php require_once __DIR__ . '/includes/sidebar_right.php'; ?>
 </div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
-
