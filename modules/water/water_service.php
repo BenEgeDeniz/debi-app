@@ -209,13 +209,7 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
         $latestResult     = $emptyResult;
         $totalRows        = count($rows);
         $invoicePointRows = [];
-        $rowsByPeriod = [];
-        foreach ($rows as $periodRow) {
-            if (($periodRow['review_status'] ?? 'approved') === 'approved') {
-                $periodKey = (int) $periodRow['period_year'] . '-' . str_pad((int) $periodRow['period_month'], 2, '0', STR_PAD_LEFT);
-                $rowsByPeriod[$periodKey] = round((float) $periodRow['consumption_m3'], 2);
-            }
-        }
+        $previousApprovedM3 = null;
 
         for ($i = 0; $i < $totalRows; $i++) {
             $cur        = $rows[$i];
@@ -231,34 +225,14 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
             $dropReasons  = [];
 
             // İnceleme bekleyen veya reddedilen faturalar puan kazanamaz.
-            $previousPeriod = (int) $cur['period_month'] === 1
-                ? ((int) $cur['period_year'] - 1) . '-12'
-                : (int) $cur['period_year'] . '-' . str_pad((int) $cur['period_month'] - 1, 2, '0', STR_PAD_LEFT);
-            $nextPeriod = (int) $cur['period_month'] === 12
-                ? ((int) $cur['period_year'] + 1) . '-01'
-                : (int) $cur['period_year'] . '-' . str_pad((int) $cur['period_month'] + 1, 2, '0', STR_PAD_LEFT);
-            $comparisonUsesPrevious = $isApproved && isset($rowsByPeriod[$previousPeriod]);
-            $comparisonM3 = $comparisonUsesPrevious
-                ? $rowsByPeriod[$previousPeriod]
-                : null;
-            $nextM3 = $isApproved && isset($rowsByPeriod[$nextPeriod])
-                ? $rowsByPeriod[$nextPeriod]
-                : null;
-            if ($comparisonM3 === null && $nextM3 !== null) {
-                // Geçmişten yüklenen kayıtta yalnızca gelecek komşu varsa
-                // tüketim farkının yönü tersinden değerlendirilir.
-                $comparisonM3 = $nextM3;
-            }
-            if ($comparisonM3 !== null) {
-                $prevM3 = $comparisonM3;
-                if ($comparisonM3 > 0) {
-                    $diff = $comparisonUsesPrevious
-                        ? round($comparisonM3 - $curM3, 2)
-                        : round($curM3 - $comparisonM3, 2);
+            if ($isApproved && $previousApprovedM3 !== null) {
+                $prevM3 = $previousApprovedM3;
+                if ($prevM3 > 0) {
+                    $diff = round($prevM3 - $curM3, 2);
                     if ($diff > 0) {
                         $savedM3      = $diff;
                         $savedLiters  = (int) round($savedM3 * 1000);
-                        $savingPct    = round(($savedM3 / $comparisonM3) * 100, 2);
+                        $savingPct    = round(($savedM3 / $prevM3) * 100, 2);
                         $earnedPoints = max(1, (int) round($savedM3 * 10));
                         $dropReasons[] = '📉 ' . number_format($savedM3, 2, ',', '.') . ' ton azalma · +' . $earnedPoints . ' puan';
                     } elseif ($diff === 0.0) {
@@ -285,32 +259,30 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
                 round((float) ($cur['saved_m3'] ?? 0), 2) !== $savedM3 ||
                 (int) ($cur['saved_liters'] ?? 0) !== $savedLiters ||
                 round((float) ($cur['saving_pct'] ?? 0), 2) !== $savingPct ||
-                max((int) ($cur['earned_points'] ?? 0), $earnedPoints) !== (int) ($cur['earned_points'] ?? 0)
+                (!$pointsAlreadyCredited && (int) ($cur['earned_points'] ?? 0) !== $earnedPoints)
             ) {
                 $updStmt->execute([
                     ':prevm3'  => $prevM3,
                     ':savedm3' => $savedM3,
                     ':savedl'  => $savedLiters,
                     ':savepct' => $savingPct,
-                    ':pts'     => max((int) $cur['earned_points'], $earnedPoints),
+                    ':pts'     => $pointsAlreadyCredited ? (int) $cur['earned_points'] : $earnedPoints,
                     ':id'      => (int) $cur['id'],
                 ]);
             }
 
-            $displayPoints = max((int) ($cur['earned_points'] ?? 0), $earnedPoints);
-            $pointsToCredit = max(0, $earnedPoints - (int) ($cur['earned_points'] ?? 0));
-            if ($pointsToCredit > 0) {
+            $displayPoints = $pointsAlreadyCredited ? (int) $cur['earned_points'] : $earnedPoints;
+            if ($earnedPoints > 0 && !$pointsAlreadyCredited) {
                 $targetUid = $userId > 0 ? $userId : (int) ($cur['user_id'] ?? 0);
                 if ($targetUid > 0) {
                     $mLabel = turkish_month_name((int) $cur['period_month']) . ' ' . (int) $cur['period_year'];
                     $invoicePointRows[] = [
                         'log_id'  => (int) $cur['id'],
-                        'points_credited' => $pointsAlreadyCredited,
                         'user_id' => $targetUid,
                         'year'    => (int) $cur['period_year'],
                         'month'   => (int) $cur['period_month'],
-                        'points'  => $pointsToCredit,
-                        'label'   => "💧 {$mLabel} faturasından ek +{$pointsToCredit} puan",
+                        'points'  => $earnedPoints,
+                        'label'   => "💧 {$mLabel} faturasından +{$earnedPoints} puan",
                     ];
                 }
             }
@@ -326,6 +298,9 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
             $latestResult = $rowResult;
             if ($targetYear !== null && $targetMonth !== null && (int) $cur['period_year'] === $targetYear && (int) $cur['period_month'] === $targetMonth) {
                 $matchedResult = $rowResult;
+            }
+            if ($isApproved) {
+                $previousApprovedM3 = $curM3;
             }
         }
 
@@ -352,7 +327,7 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
         foreach ($invoicePointRows as $pointRow) {
             $refKey = 'bill_drops_log_' . $pointRow['log_id'];
             $creditMarkerStmt->execute([':id' => $pointRow['log_id']]);
-            if ($creditMarkerStmt->rowCount() !== 1 && !$pointRow['points_credited']) {
+            if ($creditMarkerStmt->rowCount() !== 1) {
                 continue;
             }
             $creditBalanceStmt->execute([
