@@ -863,6 +863,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (currentTopbarPoints && updatedTopbarPoints) {
                     currentTopbarPoints.textContent = updatedTopbarPoints.textContent;
                 }
+                const responseFlash = documentFromResponse.querySelector('.flash-wrapper');
+                if (responseFlash) {
+                    const inlineFlash = responseFlash.querySelector('.alert');
+                    if (inlineFlash) {
+                        const existingFlash = updatedMain.querySelector('.ajax-form-error, .ajax-form-success');
+                        if (existingFlash) existingFlash.remove();
+                        const flashAlert = inlineFlash.cloneNode(true);
+                        flashAlert.classList.add(inlineFlash.classList.contains('alert-error') ? 'ajax-form-error' : 'ajax-form-success');
+                        updatedMain.insertBefore(flashAlert, updatedMain.firstChild);
+                    }
+                }
                 mainColumn.replaceWith(updatedMain);
                 if (updatedMain.querySelector('.alert-error')) {
                     preservedFields.forEach(function (savedField) {

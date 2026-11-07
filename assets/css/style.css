@@ -779,6 +779,10 @@ code {
     margin-bottom: 12px;
 }
 
+.ajax-form-success {
+    margin-bottom: 12px;
+}
+
 .bill-points-rule-box {
     display: flex;
     flex-direction: column;
