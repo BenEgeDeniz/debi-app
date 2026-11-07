@@ -209,7 +209,7 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
         $latestResult     = $emptyResult;
         $totalRows        = count($rows);
         $invoicePointRows = [];
-        $previousApprovedM3 = null;
+        $approvedByPeriod = [];
 
         for ($i = 0; $i < $totalRows; $i++) {
             $cur        = $rows[$i];
@@ -225,8 +225,11 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
             $dropReasons  = [];
 
             // İnceleme bekleyen veya reddedilen faturalar puan kazanamaz.
-            if ($isApproved && $previousApprovedM3 !== null) {
-                $prevM3 = $previousApprovedM3;
+            $previousPeriod = (int) $cur['period_month'] === 1
+                ? ((int) $cur['period_year'] - 1) . '-12'
+                : (int) $cur['period_year'] . '-' . str_pad((int) $cur['period_month'] - 1, 2, '0', STR_PAD_LEFT);
+            if ($isApproved && isset($approvedByPeriod[$previousPeriod])) {
+                $prevM3 = $approvedByPeriod[$previousPeriod];
                 if ($prevM3 > 0) {
                     $diff = round($prevM3 - $curM3, 2);
                     if ($diff > 0) {
@@ -300,7 +303,7 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
                 $matchedResult = $rowResult;
             }
             if ($isApproved) {
-                $previousApprovedM3 = $curM3;
+                $approvedByPeriod[(int) $cur['period_year'] . '-' . str_pad((int) $cur['period_month'], 2, '0', STR_PAD_LEFT)] = $curM3;
             }
         }
 
