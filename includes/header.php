@@ -3,9 +3,12 @@
  * DEBI - Üst Başlık (Header)
  * $pageTitle ve $activeNav değişkenleri sayfalardan gönderilebilir.
  */
-$pageTitle = $pageTitle ?? 'Debi — Su Tasarrufu Sosyal Ağı';
-$activeNav = $activeNav ?? 'feed';
-$flash     = get_flash();
+$pageTitle        = $pageTitle ?? 'Debi — Su Tasarrufu Sosyal Ağı';
+$activeNav        = $activeNav ?? 'feed';
+$flash            = get_flash();
+$pendingFriendCnt = !empty($currentUser) && function_exists('count_incoming_friend_requests')
+    ? count_incoming_friend_requests((int) $currentUser['id'])
+    : 0;
 ?>
 <!DOCTYPE html>
 <html lang="tr">
@@ -16,7 +19,7 @@ $flash     = get_flash();
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css?v=<?= @filemtime(__DIR__ . '/../assets/css/style.css') ?: 5 ?>">
+    <link rel="stylesheet" href="assets/css/style.css?v=<?= @filemtime(__DIR__ . '/../assets/css/style.css') ?: 6 ?>">
 </head>
 <body>
     <header class="topbar">
@@ -36,19 +39,13 @@ $flash     = get_flash();
                     </svg>
                     <div class="brand-text">
                         <span class="brand-mark">debi</span>
-                        <span class="brand-sub">komşu su ağı</span>
+                        <span class="brand-sub">sosyal su ağı</span>
                     </div>
                 </a>
             </div>
 
             <?php if (!empty($currentUser)): ?>
                 <div class="topbar-context">
-                    <a href="neighborhood.php" class="context-pill" title="Mahalle Sayfası">
-                        <strong><?= e($currentUser['neighborhood_name']) ?></strong>
-                        <span class="context-sep">·</span>
-                        <span><?= e($currentUser['neighborhood_district']) ?></span>
-                    </a>
-
                     <?php if (!empty($currentUser['apartment_id'])): ?>
                         <a href="apartment.php" class="context-pill context-pill-apt" title="Apartman Sayfası">
                             <span><?= e($currentUser['apartment_name']) ?> (<?= e($currentUser['unit_label']) ?>)</span>
@@ -58,10 +55,17 @@ $flash     = get_flash();
                             <span><?= e(housing_type_label($currentUser['housing_type'])) ?></span>
                         </span>
                     <?php endif; ?>
+
+                    <a href="friends.php" class="context-pill" title="Arkadaşlar">
+                        <span>Arkadaşlar</span>
+                        <?php if ($pendingFriendCnt > 0): ?>
+                            <span class="nav-badge-count"><?= $pendingFriendCnt ?></span>
+                        <?php endif; ?>
+                    </a>
                 </div>
 
                 <div class="topbar-user">
-                    <a href="profile.php" class="user-chip">
+                    <a href="profile.php" class="user-chip" title="Zaman Tünelim">
                         <span class="avatar-circle avatar-sm" style="background-color: <?= e($currentUser['avatar_color']) ?>;">
                             <?= e(user_initials($currentUser['full_name'])) ?>
                         </span>

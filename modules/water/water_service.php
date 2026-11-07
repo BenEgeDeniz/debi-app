@@ -91,7 +91,7 @@ function save_water_log(array $user, array $input): array
 
         $pStmt = $pdo->prepare("
             INSERT INTO posts (user_id, neighborhood_id, apartment_id, visibility, category, content)
-            VALUES (:uid, :nid, :aid, 'neighborhood', 'achievement', :content)
+            VALUES (:uid, :nid, :aid, 'public', 'achievement', :content)
         ");
         $pStmt->execute([
             ':uid'     => (int) $user['id'],

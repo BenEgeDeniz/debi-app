@@ -2,21 +2,31 @@
 /**
  * DEBI - Sol Navigasyon Sütunu (Masaüstü) & Alt Sabit Menü (Mobil)
  */
-$activeNav      = $activeNav ?? 'feed';
-$isDetachedHome = !empty($currentUser) && ($currentUser['housing_type'] ?? '') === 'detached_house' && empty($currentUser['apartment_id']);
+$activeNav        = $activeNav ?? 'feed';
+$isDetachedHome   = !empty($currentUser) && ($currentUser['housing_type'] ?? '') === 'detached_house' && empty($currentUser['apartment_id']);
+$pendingFriendCnt = !empty($currentUser) && function_exists('count_incoming_friend_requests')
+    ? count_incoming_friend_requests((int) $currentUser['id'])
+    : 0;
 ?>
 <aside class="sidebar-left">
     <nav class="side-nav" aria-label="Ana Menü">
         <a href="index.php" class="side-nav-link <?= $activeNav === 'feed' ? 'active' : '' ?>">
-            <span>Komşu Akışı</span>
+            <span>Sosyal Akış</span>
+        </a>
+
+        <a href="profile.php" class="side-nav-link <?= $activeNav === 'profile' ? 'active' : '' ?>">
+            <span>Zaman Tünelim</span>
+        </a>
+
+        <a href="friends.php" class="side-nav-link <?= $activeNav === 'friends' ? 'active' : '' ?>">
+            <span>Arkadaşlar</span>
+            <?php if ($pendingFriendCnt > 0): ?>
+                <span class="nav-badge-count"><?= $pendingFriendCnt ?></span>
+            <?php endif; ?>
         </a>
 
         <a href="water.php" class="side-nav-link <?= $activeNav === 'water' ? 'active' : '' ?>">
             <span>Fatura Yükle &amp; Takip</span>
-        </a>
-
-        <a href="neighborhood.php" class="side-nav-link <?= $activeNav === 'neighborhood' ? 'active' : '' ?>">
-            <span>Mahallem</span>
         </a>
 
         <?php if (!$isDetachedHome): ?>
@@ -26,10 +36,6 @@ $isDetachedHome = !empty($currentUser) && ($currentUser['housing_type'] ?? '') =
                 </span>
             </a>
         <?php endif; ?>
-
-        <a href="profile.php" class="side-nav-link <?= $activeNav === 'profile' ? 'active' : '' ?>">
-            <span>Profil &amp; Hane</span>
-        </a>
     </nav>
 
     <?php if (!empty($currentUser)): ?>
@@ -42,8 +48,8 @@ $isDetachedHome = !empty($currentUser) && ($currentUser['housing_type'] ?? '') =
             </div>
             <div class="household-meta-list">
                 <div class="meta-row">
-                    <span class="meta-label">Mahalle</span>
-                    <span class="meta-val"><?= e($currentUser['neighborhood_name']) ?></span>
+                    <span class="meta-label">Konum</span>
+                    <span class="meta-val"><?= e($currentUser['neighborhood_district'] . ' / ' . $currentUser['neighborhood_city']) ?></span>
                 </div>
                 <div class="meta-row">
                     <span class="meta-label">Konut</span>
@@ -84,11 +90,11 @@ $isDetachedHome = !empty($currentUser) && ($currentUser['housing_type'] ?? '') =
     <a href="index.php" class="mobile-nav-item <?= $activeNav === 'feed' ? 'active' : '' ?>">
         <span>Akış</span>
     </a>
+    <a href="friends.php" class="mobile-nav-item <?= $activeNav === 'friends' ? 'active' : '' ?>">
+        <span>Arkadaşlar<?= $pendingFriendCnt > 0 ? ' (' . $pendingFriendCnt . ')' : '' ?></span>
+    </a>
     <a href="water.php" class="mobile-nav-item <?= $activeNav === 'water' ? 'active' : '' ?>">
         <span>Fatura</span>
-    </a>
-    <a href="neighborhood.php" class="mobile-nav-item <?= $activeNav === 'neighborhood' ? 'active' : '' ?>">
-        <span>Mahalle</span>
     </a>
     <?php if (!$isDetachedHome): ?>
         <a href="apartment.php" class="mobile-nav-item <?= $activeNav === 'apartment' ? 'active' : '' ?>">
@@ -96,6 +102,6 @@ $isDetachedHome = !empty($currentUser) && ($currentUser['housing_type'] ?? '') =
         </a>
     <?php endif; ?>
     <a href="profile.php" class="mobile-nav-item <?= $activeNav === 'profile' ? 'active' : '' ?>">
-        <span>Profil</span>
+        <span>Zaman Tüneli</span>
     </a>
 </nav>

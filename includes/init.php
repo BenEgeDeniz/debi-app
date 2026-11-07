@@ -12,6 +12,7 @@ date_default_timezone_set('Europe/Istanbul');
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/../modules/gamification/gamification_service.php';
+require_once __DIR__ . '/../modules/friends/friendship_service.php';
 
 ensure_gamification_schema();
 

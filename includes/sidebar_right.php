@@ -1,15 +1,26 @@
 <?php
 /**
- * DEBI - Sağ Özet Sütunu (Fatura Özeti & Mahalle Tasarruf Sıralaması)
+ * DEBI - Sağ Özet Sütunu (Fatura Özeti & Arkadaşlar / Apartman Sıralaması)
  */
 require_once __DIR__ . '/../modules/water/water_service.php';
-require_once __DIR__ . '/../modules/community/community_service.php';
 
-$quickWater = $currentUser ? get_quick_water_summary($currentUser) : null;
-$overview   = $currentUser ? get_neighborhood_overview((int) $currentUser['neighborhood_id'], (int) date('Y'), (int) date('n')) : null;
+$quickWater   = $currentUser ? get_quick_water_summary($currentUser) : null;
+$leaders      = $currentUser ? get_friends_and_apartment_leaderboard($currentUser, 6) : [];
+$incomingReqs = $currentUser ? get_incoming_friend_requests((int) $currentUser['id']) : [];
 ?>
 <aside class="sidebar-right">
     <?php if ($currentUser && $quickWater): ?>
+        <?php if (!empty($incomingReqs)): ?>
+            <div class="panel-card">
+                <div class="panel-card-header">
+                    <span class="panel-title">Arkadaşlık İstekleri (<?= count($incomingReqs) ?>)</span>
+                    <a href="friends.php" class="link-subtle">Tümü</a>
+                </div>
+                <p class="panel-desc">Size arkadaşlık isteği gönderen kullanıcılar var.</p>
+                <a href="friends.php" class="btn btn-primary btn-sm btn-block">İstekleri Görüntüle</a>
+            </div>
+        <?php endif; ?>
+
         <!-- 1. Bu Ayki Fatura & Debi Özeti -->
         <div class="panel-card">
             <div class="panel-card-header">
@@ -35,23 +46,8 @@ $overview   = $currentUser ? get_neighborhood_overview((int) $currentUser['neigh
                 </div>
             <?php endif; ?>
 
-            <div class="comparison-bars">
-                <div class="comp-item">
-                    <div class="comp-row">
-                        <span>Mahalle Ortalaması</span>
-                        <strong>
-                            <?= $quickWater['neighborhood_avg'] !== null ? number_format($quickWater['neighborhood_avg'], 1, ',', '.') . ' L' : 'Veri yok' ?>
-                        </strong>
-                    </div>
-                    <?php if ($quickWater['neighborhood_avg'] !== null): ?>
-                        <?php $pctN = min(100, round(($quickWater['neighborhood_avg'] / 200) * 100)); ?>
-                        <div class="progress-track">
-                            <div class="progress-fill" style="width: <?= $pctN ?>%;"></div>
-                        </div>
-                    <?php endif; ?>
-                </div>
-
-                <?php if (!empty($currentUser['apartment_id'])): ?>
+            <?php if (!empty($currentUser['apartment_id'])): ?>
+                <div class="comparison-bars">
                     <div class="comp-item">
                         <div class="comp-row">
                             <span>Apartman Ortalaması</span>
@@ -66,23 +62,27 @@ $overview   = $currentUser ? get_neighborhood_overview((int) $currentUser['neigh
                             </div>
                         <?php endif; ?>
                     </div>
-                <?php endif; ?>
-            </div>
+                </div>
+            <?php endif; ?>
         </div>
 
-        <!-- 2. Mahalle En Az Tüketen Haneler -->
+        <!-- 2. Arkadaşlar & Apartman En Az Tüketenler -->
         <div class="panel-card">
             <div class="panel-card-header">
-                <span class="panel-title">En Az Tüketen Haneler</span>
-                <a href="neighborhood.php" class="link-subtle">Tümü</a>
+                <span class="panel-title">Çevremde En Az Tüketenler</span>
+                <a href="friends.php" class="link-subtle">Arkadaşlar</a>
             </div>
-            <?php if (!empty($overview['leaderboard'])): ?>
+            <?php if (!empty($leaders)): ?>
                 <ol class="leaderboard-list">
-                    <?php foreach ($overview['leaderboard'] as $idx => $row): ?>
-                        <li class="leaderboard-item">
+                    <?php foreach ($leaders as $idx => $row): ?>
+                        <li class="leaderboard-item <?= (int) $row['user_id'] === (int) $currentUser['id'] ? 'leaderboard-me' : '' ?>">
                             <span class="rank-num"><?= $idx + 1 ?></span>
                             <div class="rank-info">
-                                <div class="rank-name"><?= e($row['full_name']) ?></div>
+                                <div class="rank-name">
+                                    <a href="profile.php?id=<?= (int) $row['user_id'] ?>" class="author-link">
+                                        <?= e($row['full_name']) ?>
+                                    </a>
+                                </div>
                                 <div class="rank-sub">
                                     <?= !empty($row['apartment_name']) ? e($row['apartment_name'] . ' · ' . $row['unit_label']) : e($row['unit_label']) ?>
                                 </div>
@@ -92,7 +92,7 @@ $overview   = $currentUser ? get_neighborhood_overview((int) $currentUser['neigh
                     <?php endforeach; ?>
                 </ol>
             <?php else: ?>
-                <p class="muted-note">Bu ay henüz fatura verisi girilmedi.</p>
+                <p class="muted-note">Arkadaş çevrenizde bu ay henüz fatura verisi girilmedi.</p>
             <?php endif; ?>
         </div>
     <?php endif; ?>

@@ -1,11 +1,12 @@
 <?php
 /**
- * DEBI - Ana Sosyal Medya Akışı (Mahallem / Apartmanım / Genel)
+ * DEBI - Ana Sosyal Medya Akışı (Arkadaşlar / Apartman / Genel Debi)
  */
 require_once __DIR__ . '/includes/init.php';
 require_once __DIR__ . '/modules/feed/feed_service.php';
 
-$currentUser = require_login();
+$currentUser    = require_login();
+$isDetachedHome = ($currentUser['housing_type'] ?? '') === 'detached_house' && empty($currentUser['apartment_id']);
 
 // POST İşlemleri (Gönderi, Damla Tepkisi, Yorum, Silme)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -15,9 +16,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $action    = $_POST['action'] ?? '';
-    $returnTab = $_POST['return_scope'] ?? 'neighborhood';
-    if (!in_array($returnTab, ['neighborhood', 'apartment', 'public'], true)) {
-        $returnTab = 'neighborhood';
+    $returnTab = $_POST['return_scope'] ?? 'friends';
+    if (!in_array($returnTab, ['friends', 'apartment', 'public'], true)) {
+        $returnTab = 'friends';
     }
 
     if ($action === 'create_post') {
@@ -25,8 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $res  = create_post($currentUser, $_POST, $file);
         if ($res['ok']) {
             set_flash('success', 'Paylaşımınız akışa eklendi.');
-            $vis = $_POST['visibility'] ?? 'neighborhood';
-            if (in_array($vis, ['neighborhood', 'apartment', 'public'], true)) {
+            $vis = $_POST['visibility'] ?? 'friends';
+            if (in_array($vis, ['friends', 'apartment', 'public'], true)) {
                 $returnTab = $vis;
             }
         } else {
@@ -69,15 +70,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$isDetachedHome = ($currentUser['housing_type'] ?? '') === 'detached_house' && empty($currentUser['apartment_id']);
-
-$scope = $_GET['scope'] ?? 'neighborhood';
-if (!in_array($scope, ['neighborhood', 'apartment', 'public'], true)) {
-    $scope = 'neighborhood';
+$scope = $_GET['scope'] ?? 'friends';
+if (!in_array($scope, ['friends', 'apartment', 'public'], true)) {
+    $scope = 'friends';
 }
-// Müstakil ev kullanıcılarının apartman akışı yoktur; yalnızca Mahalle ve Genel akışı vardır
+// Müstakil ev kullanıcılarının apartman akışı yoktur; yalnızca Arkadaşlar ve Genel Debi vardır
 if ($isDetachedHome && $scope === 'apartment') {
-    $scope = 'neighborhood';
+    $scope = 'friends';
 }
 
 $posts = get_feed_posts($currentUser, $scope, null);
@@ -91,20 +90,23 @@ require_once __DIR__ . '/includes/header.php';
     <?php require_once __DIR__ . '/includes/sidebar_left.php'; ?>
 
     <main class="main-column">
-        <!-- Sadeleştirilmiş Gönderi Oluşturma Kutusu -->
+        <!-- Gönderi Oluşturma Kutusu -->
         <section class="panel-card composer-card">
             <div class="composer-header">
-                <span class="avatar-circle" style="background-color: <?= e($currentUser['avatar_color']) ?>;">
-                    <?= e(user_initials($currentUser['full_name'])) ?>
-                </span>
+                <a href="profile.php">
+                    <span class="avatar-circle" style="background-color: <?= e($currentUser['avatar_color']) ?>;">
+                        <?= e(user_initials($currentUser['full_name'])) ?>
+                    </span>
+                </a>
                 <div class="composer-author">
-                    <strong><?= e($currentUser['full_name']) ?></strong>
+                    <a href="profile.php" class="author-link">
+                        <strong><?= e($currentUser['full_name']) ?></strong>
+                    </a>
                     <span>
-                        <?= e($currentUser['neighborhood_name']) ?>
                         <?php if (!empty($currentUser['apartment_id'])): ?>
-                            · <?= e($currentUser['apartment_name']) ?> (<?= e($currentUser['unit_label']) ?>)
+                            <?= e($currentUser['apartment_name']) ?> (<?= e($currentUser['unit_label']) ?>)
                         <?php else: ?>
-                            · <?= e(housing_type_label($currentUser['housing_type'])) ?>
+                            <?= e(housing_type_label($currentUser['housing_type'])) ?>
                         <?php endif; ?>
                     </span>
                 </div>
@@ -117,13 +119,13 @@ require_once __DIR__ . '/includes/header.php';
                 <input type="hidden" name="category" value="tip">
 
                 <textarea name="content" rows="3" required
-                          placeholder="Komşularınızla su tasarrufu deneyiminizi, fatura değişiminizi veya bir sorunuzu paylaşın..."></textarea>
+                          placeholder="Arkadaşlarınızla veya apartmanınızla su tasarrufu deneyiminizi, fatura değişiminizi ya da sorunuzu paylaşın..."></textarea>
 
                 <div class="composer-bar-clean">
                     <div class="composer-bar-left">
                         <select name="visibility" class="composer-scope-select" aria-label="Görünürlük">
-                            <option value="neighborhood" <?= $scope === 'neighborhood' ? 'selected' : '' ?>>
-                                Mahallem (<?= e($currentUser['neighborhood_name']) ?>)
+                            <option value="friends" <?= $scope === 'friends' ? 'selected' : '' ?>>
+                                Arkadaşlarım
                             </option>
                             <?php if (!empty($currentUser['apartment_id'])): ?>
                                 <option value="apartment" <?= $scope === 'apartment' ? 'selected' : '' ?>>
@@ -131,7 +133,7 @@ require_once __DIR__ . '/includes/header.php';
                                 </option>
                             <?php endif; ?>
                             <option value="public" <?= $scope === 'public' ? 'selected' : '' ?>>
-                                Tüm Debi
+                                Genel Debi
                             </option>
                         </select>
 
@@ -146,43 +148,51 @@ require_once __DIR__ . '/includes/header.php';
             </form>
         </section>
 
-        <!-- Akış Sekmeleri -->
+        <!-- Akış Sekmeleri (Arkadaşlar / Apartmanım / Genel Debi) -->
         <div class="feed-tabs-bar">
             <div class="feed-tabs <?= $isDetachedHome ? 'feed-tabs-2' : '' ?>">
-                <a href="index.php?scope=neighborhood" class="feed-tab <?= $scope === 'neighborhood' ? 'active' : '' ?>">
-                    <span>Mahallem</span>
-                    <small><?= e($currentUser['neighborhood_name']) ?></small>
+                <a href="index.php?scope=friends" class="feed-tab <?= $scope === 'friends' ? 'active' : '' ?>">
+                    <span>Arkadaşlar</span>
+                    <small>Arkadaş Çevrem</small>
                 </a>
                 <?php if (!$isDetachedHome): ?>
                     <a href="index.php?scope=apartment" class="feed-tab <?= $scope === 'apartment' ? 'active' : '' ?>">
-                        <span>Apartmanım</span>
-                        <small><?= !empty($currentUser['apartment_name']) ? e($currentUser['apartment_name']) : 'Bireysel' ?></small>
+                        <span>Apartman</span>
+                        <small><?= !empty($currentUser['apartment_name']) ? e($currentUser['apartment_name']) : 'Katıl / Kur' ?></small>
                     </a>
                 <?php endif; ?>
                 <a href="index.php?scope=public" class="feed-tab <?= $scope === 'public' ? 'active' : '' ?>">
-                    <span>Genel Akış</span>
-                    <small>Tüm Debi</small>
+                    <span>Genel Debi</span>
+                    <small>Tüm Topluluk</small>
                 </a>
             </div>
         </div>
 
         <?php if ($scope === 'apartment' && empty($currentUser['apartment_id'])): ?>
             <div class="panel-card empty-state-card">
-                <h3>Şu anda mahallenizde bireysel katılımcı olarak yer alıyorsunuz</h3>
+                <h3>Henüz bir apartmana bağlı değilsiniz</h3>
                 <p>
-                    <strong><?= e($currentUser['neighborhood_name']) ?></strong> mahallesinde bireysel veya müstakil hane olarak mahalle akışına ve sıralamasına dahilsiniz.
-                    Bir apartmanda oturuyorsanız davet kodunuzla apartmanınıza bağlanabilir veya apartmanınızı oluşturabilirsiniz.
+                    Davet kodunuzla apartmanınıza bağlanabilir veya kendi apartmanınızı oluşturarak komşularınızı davet edebilirsiniz.
                 </p>
                 <div class="action-row">
                     <a href="apartment.php" class="btn btn-primary">Apartmana Katıl veya Oluştur</a>
-                    <a href="index.php?scope=neighborhood" class="btn btn-outline">Mahalle Akışına Dön</a>
+                    <a href="index.php?scope=friends" class="btn btn-outline">Arkadaşlar Akışına Dön</a>
                 </div>
             </div>
         <?php else: ?>
             <?php if (empty($posts)): ?>
                 <div class="panel-card empty-state-card">
-                    <h3>Bu görünümde henüz paylaşım yok</h3>
-                    <p>İlk su tasarrufu notunu veya fatura değişimini yukarıdaki kutudan paylaşabilirsiniz.</p>
+                    <?php if ($scope === 'friends'): ?>
+                        <h3>Arkadaşlar akışınızda henüz paylaşım yok</h3>
+                        <p>Yeni arkadaşlar ekleyerek onların su tasarrufu paylaşımlarını takip edebilir veya Genel Debi akışına göz atabilirsiniz.</p>
+                        <div class="action-row">
+                            <a href="friends.php" class="btn btn-primary">Arkadaş Bul &amp; Ekle</a>
+                            <a href="index.php?scope=public" class="btn btn-outline">Genel Debi Akışı</a>
+                        </div>
+                    <?php else: ?>
+                        <h3>Bu görünümde henüz paylaşım yok</h3>
+                        <p>İlk su tasarrufu notunu veya fatura değişimini yukarıdaki kutudan paylaşabilirsiniz.</p>
+                    <?php endif; ?>
                 </div>
             <?php else: ?>
                 <div class="post-list">
@@ -190,22 +200,25 @@ require_once __DIR__ . '/includes/header.php';
                         <article class="panel-card post-card <?= $post['is_pinned'] ? 'post-pinned' : '' ?>" id="post-<?= (int) $post['id'] ?>">
                             <div class="post-header">
                                 <div class="post-author-group">
-                                    <span class="avatar-circle" style="background-color: <?= e($post['avatar_color']) ?>;">
-                                        <?= e(user_initials($post['full_name'])) ?>
-                                    </span>
+                                    <a href="profile.php?id=<?= (int) $post['user_id'] ?>">
+                                        <span class="avatar-circle" style="background-color: <?= e($post['avatar_color']) ?>;">
+                                            <?= e(user_initials($post['full_name'])) ?>
+                                        </span>
+                                    </a>
                                     <div>
                                         <div class="post-author-line">
-                                            <strong><?= e($post['full_name']) ?></strong>
+                                            <a href="profile.php?id=<?= (int) $post['user_id'] ?>" class="author-link">
+                                                <strong><?= e($post['full_name']) ?></strong>
+                                            </a>
                                             <?php if ($post['user_role'] === 'manager'): ?>
                                                 <span class="tag tag-manager">Yönetici</span>
                                             <?php endif; ?>
                                         </div>
                                         <div class="post-location-line">
-                                            <?= e($post['post_neighborhood'] . ', ' . $post['post_district']) ?>
                                             <?php if (!empty($post['post_apartment'])): ?>
-                                                · <strong><?= e($post['post_apartment']) ?></strong> (<?= e($post['unit_label']) ?>)
+                                                <strong><?= e($post['post_apartment']) ?></strong> (<?= e($post['unit_label']) ?>)
                                             <?php else: ?>
-                                                · <span><?= e(housing_type_label($post['housing_type'])) ?> (<?= e($post['unit_label']) ?>)</span>
+                                                <span><?= e(housing_type_label($post['housing_type'])) ?></span>
                                             <?php endif; ?>
                                             · <time><?= e(time_ago($post['created_at'])) ?></time>
                                         </div>
@@ -257,12 +270,16 @@ require_once __DIR__ . '/includes/header.php';
                                     <ul class="comment-list">
                                         <?php foreach ($post['comments'] as $comment): ?>
                                             <li class="comment-item">
-                                                <span class="avatar-circle avatar-xs" style="background-color: <?= e($comment['avatar_color']) ?>;">
-                                                    <?= e(user_initials($comment['full_name'])) ?>
-                                                </span>
+                                                <a href="profile.php?id=<?= (int) $comment['user_id'] ?>">
+                                                    <span class="avatar-circle avatar-xs" style="background-color: <?= e($comment['avatar_color']) ?>;">
+                                                        <?= e(user_initials($comment['full_name'])) ?>
+                                                    </span>
+                                                </a>
                                                 <div class="comment-content">
                                                     <div class="comment-meta">
-                                                        <strong><?= e($comment['full_name']) ?></strong>
+                                                        <a href="profile.php?id=<?= (int) $comment['user_id'] ?>" class="author-link">
+                                                            <strong><?= e($comment['full_name']) ?></strong>
+                                                        </a>
                                                         <span>
                                                             <?= !empty($comment['apartment_name']) ? e($comment['apartment_name'] . ' · ' . $comment['unit_label']) : e($comment['unit_label']) ?>
                                                         </span>

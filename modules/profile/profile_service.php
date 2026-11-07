@@ -63,3 +63,47 @@ function update_user_and_household_profile(array $user, array $input): array
     }
 }
 
+/**
+ * Herhangi bir kullanıcının Zaman Tüneli (Timeline) profil bilgilerini döndürür.
+ */
+function get_user_public_profile(int $userId): ?array
+{
+    if ($userId <= 0) {
+        return null;
+    }
+
+    $pdo   = db();
+    $year  = (int) date('Y');
+    $month = (int) date('n');
+
+    $stmt = $pdo->prepare("
+        SELECT
+            u.*,
+            h.housing_type,
+            h.unit_label,
+            h.resident_count,
+            n.city AS neighborhood_city,
+            n.district AS neighborhood_district,
+            n.name AS neighborhood_name,
+            a.name AS apartment_name,
+            w.daily_liters_per_person AS current_daily_liters,
+            w.consumption_m3 AS current_consumption_m3
+        FROM users u
+        INNER JOIN households h ON h.id = u.household_id
+        INNER JOIN neighborhoods n ON n.id = u.neighborhood_id
+        LEFT JOIN apartments a ON a.id = u.apartment_id
+        LEFT JOIN water_logs w ON w.household_id = h.id AND w.period_year = :y AND w.period_month = :m
+        WHERE u.id = :id
+        LIMIT 1
+    ");
+    $stmt->execute([
+        ':id' => $userId,
+        ':y'  => $year,
+        ':m'  => $month,
+    ]);
+    $profile = $stmt->fetch();
+
+    return $profile ?: null;
+}
+
+
