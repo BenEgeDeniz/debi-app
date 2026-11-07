@@ -51,6 +51,7 @@ $offset           = ($page - 1) * $perPage;
 $incomingRequests = get_incoming_friend_requests((int) $currentUser['id']);
 $myFriends        = get_user_friends((int) $currentUser['id'], $perPage, $offset);
 $searchResults    = $searchQuery !== '' ? search_users_for_friendship((int) $currentUser['id'], $searchQuery, 8) : [];
+$apartmentSuggestions = get_apartment_friend_suggestions($currentUser);
 
 $pageTitle = 'Arkadaşlar — Debi';
 $activeNav = 'friends';
@@ -164,7 +165,58 @@ require_once __DIR__ . '/includes/header.php';
             </section>
         <?php endif; ?>
 
-        <!-- 3. Arkadaşlarım (Kompakt 2 Sütunlu Grid + Sayfalama) -->
+        <!-- 3. Apartman Arkadaş Önerileri -->
+        <?php if (!empty($apartmentSuggestions)): ?>
+            <section class="panel-card">
+                <div class="panel-card-header">
+                    <h2 class="section-title">Apartmandan Önerilenler (<?= count($apartmentSuggestions) ?>)</h2>
+                </div>
+
+                <div class="friends-compact-grid">
+                    <?php foreach ($apartmentSuggestions as $u): ?>
+                        <?php $relState = $u['relation']['state'] ?? 'none'; ?>
+                        <div class="friend-compact-card">
+                            <a href="profile.php?id=<?= (int) $u['id'] ?>" class="friend-compact-user">
+                                <?= render_avatar($u) ?>
+                                <div class="friend-compact-meta">
+                                    <strong><?= e($u['full_name']) ?></strong>
+                                    <span><?= e($u['unit_label']) ?></span>
+                                </div>
+                            </a>
+
+                            <?php if ($relState === 'accepted'): ?>
+                                <span class="tag">Arkadaş</span>
+                            <?php elseif ($relState === 'pending_sent'): ?>
+                                <form method="post" action="friends.php">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="remove_friend">
+                                    <input type="hidden" name="target_user_id" value="<?= (int) $u['id'] ?>">
+                                    <input type="hidden" name="return_url" value="friends.php">
+                                    <button type="submit" class="btn btn-outline btn-sm">İptal</button>
+                                </form>
+                            <?php elseif ($relState === 'pending_received'): ?>
+                                <form method="post" action="friends.php">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="accept_request">
+                                    <input type="hidden" name="target_user_id" value="<?= (int) $u['id'] ?>">
+                                    <button type="submit" class="btn btn-primary btn-sm">Kabul Et</button>
+                                </form>
+                            <?php else: ?>
+                                <form method="post" action="friends.php">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="send_request">
+                                    <input type="hidden" name="target_user_id" value="<?= (int) $u['id'] ?>">
+                                    <input type="hidden" name="return_url" value="friends.php">
+                                    <button type="submit" class="btn btn-primary btn-sm">+ Ekle</button>
+                                </form>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+        <?php endif; ?>
+
+        <!-- 4. Arkadaşlarım (Kompakt 2 Sütunlu Grid + Sayfalama) -->
         <section class="panel-card">
             <div class="panel-card-header">
                 <h1 class="section-title">Arkadaşlarım (<?= $totalFriends ?>)</h1>
