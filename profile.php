@@ -224,7 +224,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <?php if (!empty($currentUser['avatar_photo'])): ?>
                                     <img src="<?= e($currentUser['avatar_photo']) ?>" alt="Profil Fotoğrafı" id="avatarPreviewEl">
                                 <?php else: ?>
-                                    <span id="avatarInitialsEl"><?= e(avatar_initials($currentUser['full_name'])) ?></span>
+                                    <span id="avatarInitialsEl"><?= e(user_initials($currentUser['full_name'])) ?></span>
                                     <img src="" alt="" id="avatarPreviewEl" hidden>
                                 <?php endif; ?>
                             </div>

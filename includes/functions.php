@@ -115,6 +115,11 @@ function user_initials(string $fullName): string
     return mb_strtoupper($first . $last, 'UTF-8');
 }
 
+function avatar_initials(string $fullName): string
+{
+    return user_initials($fullName);
+}
+
 /**
  * Kullanıcı Avatarı (Fotoğraf varsa <img>, yoksa baş harfli daire döndürür)
  */
