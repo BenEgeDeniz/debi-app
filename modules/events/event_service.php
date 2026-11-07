@@ -105,9 +105,18 @@ function mark_event_attendance(array $user, int $eventId, array $attendeeIds): a
     db()->prepare("UPDATE event_attendees SET status = 'absent', marked_at = NOW() WHERE event_id = :eid AND user_id <> :creator_id")
         ->execute([':eid' => $eventId, ':creator_id' => (int) $user['id']]);
     if ($attendeeIds) {
-        $sql = "UPDATE event_attendees SET status = 'attended', marked_at = NOW() WHERE event_id = :eid AND user_id IN (" . implode(',', array_fill(0, count($attendeeIds), '?')) . ")";
+        $placeholders = [];
+        $params = [':event_id' => $eventId];
+        foreach (array_values($attendeeIds) as $index => $attendeeId) {
+            $placeholder = ':attendee_' . $index;
+            $placeholders[] = $placeholder;
+            $params[$placeholder] = (int) $attendeeId;
+        }
+        $sql = "UPDATE event_attendees
+                SET status = 'attended', marked_at = NOW()
+                WHERE event_id = :event_id AND user_id IN (" . implode(',', $placeholders) . ")";
         $stmt = db()->prepare($sql);
-        $stmt->execute(array_merge([$eventId], array_map('intval', $attendeeIds)));
+        $stmt->execute($params);
     }
     db()->prepare("UPDATE event_attendees SET status = 'attended', marked_at = NOW() WHERE event_id = :eid AND user_id = :creator_id")
         ->execute([':eid' => $eventId, ':creator_id' => (int) $user['id']]);
