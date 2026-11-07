@@ -116,7 +116,7 @@ function register_user(array $input): array
     $fullName      = trim($input['full_name'] ?? '');
     $email         = mb_strtolower(trim($input['email'] ?? ''), 'UTF-8');
     $password      = $input['password'] ?? '';
-    $residentCount = max(1, min(20, (int) ($input['resident_count'] ?? 2)));
+    $residentCount = max(1, min(20, (int) ($input['resident_count'] ?? 1)));
 
     if (mb_strlen($fullName, 'UTF-8') < 3) {
         return ['ok' => false, 'error' => 'Lütfen adınızı ve soyadınızı eksiksiz girin.'];
@@ -126,6 +126,10 @@ function register_user(array $input): array
     }
     if (strlen($password) < 6) {
         return ['ok' => false, 'error' => 'Şifreniz en az 6 karakter olmalıdır.'];
+    }
+
+    if ($mode === 'apartment_invite') {
+        $residentCount = 1;
     }
 
     // E-posta kontrolü
