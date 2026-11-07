@@ -32,15 +32,22 @@ $incomingReqs = $currentUser ? get_incoming_friend_requests((int) $currentUser['
                 <?php
                 $myDaily     = (float) $quickWater['my_log']['daily_liters_per_person'];
                 $statusClass = $myDaily <= 110 ? 'status-good' : ($myDaily <= 150 ? 'status-warn' : 'status-high');
+                $mascotPose  = $myDaily <= 110 ? 'happy' : ($myDaily <= 150 ? 'thumbsup' : 'thinking');
                 ?>
-                <div class="metric-highlight <?= $statusClass ?>">
-                    <div class="metric-big"><?= number_format($myDaily, 1, ',', '.') ?> <small>L / kişi·gün</small></div>
-                    <div class="metric-sub">
-                        Bu ayki faturanız: <strong><?= number_format((float) $quickWater['my_log']['consumption_m3'], 1, ',', '.') ?> m³</strong>
+                <div class="metric-highlight metric-with-mascot <?= $statusClass ?>">
+                    <?= render_mascot($mascotPose, 'mascot-sm', 'Su Durumu Maskotu') ?>
+                    <div>
+                        <div class="metric-big"><?= number_format($myDaily, 1, ',', '.') ?> <small>L / kişi·gün</small></div>
+                        <div class="metric-sub">
+                            Bu ayki faturanız: <strong><?= number_format((float) $quickWater['my_log']['consumption_m3'], 1, ',', '.') ?> m³</strong>
+                        </div>
                     </div>
                 </div>
             <?php else: ?>
                 <div class="empty-mini">
+                    <div class="empty-mini-mascot">
+                        <?= render_mascot('thinking', 'mascot-sm', 'Debi Düşünen Maskot') ?>
+                    </div>
                     <p>Bu ayın su faturasını henüz yüklemediniz. Fotoğrafını yükleyerek yapay zeka ile okutabilirsiniz.</p>
                     <a href="water.php" class="btn btn-primary btn-sm btn-block">Fatura Fotoğrafı Yükle</a>
                 </div>

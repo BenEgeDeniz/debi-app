@@ -37,17 +37,8 @@ require_once __DIR__ . '/includes/header.php';
 <main class="auth-layout">
     <div class="auth-intro">
         <div class="auth-mascot-hero">
-            <svg width="72" height="72" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M22 3C22 3 7 18.2 7 28.5C7 36.5 13.7 42 22 42C30.3 42 37 36.5 37 28.5C37 18.2 22 3 22 3Z" fill="#1CB0F6" stroke="#118AB2" stroke-width="2.5"/>
-                <path d="M13 24C12 19 16 12 20 8" stroke="#72D6FF" stroke-width="2.5" stroke-linecap="round"/>
-                <circle cx="16.5" cy="27" r="2.3" fill="#1D3557"/>
-                <circle cx="27.5" cy="27" r="2.3" fill="#1D3557"/>
-                <circle cx="15.8" cy="26.2" r="0.8" fill="#FFFFFF"/>
-                <circle cx="26.8" cy="26.2" r="0.8" fill="#FFFFFF"/>
-                <ellipse cx="13.5" cy="30" rx="2.2" ry="1.2" fill="#FF8FA3"/>
-                <ellipse cx="30.5" cy="30" rx="2.2" ry="1.2" fill="#FF8FA3"/>
-                <path d="M18.5 31.2C19.6 33 24.4 33 25.5 31.2" stroke="#1D3557" stroke-width="2.2" stroke-linecap="round"/>
-            </svg>
+            <?= render_brand_logo('auth-hero-logo') ?>
+            <?= render_mascot('smile', 'auth-hero-mascot', 'Debi Damla Maskotu') ?>
         </div>
 
         <div class="auth-kicker">YEREL SU TASARRUFU AĞI</div>

@@ -237,3 +237,43 @@ function format_unit_label(?string $label, string $housingType = 'apartment_unit
     return $label;
 }
 
+/**
+ * Marka Logosu ve Maskot Görselleri İçin Merkezi Dosya Yolu Çözücü (assets/logo/)
+ */
+function brand_asset_path(string $key = 'logo'): string
+{
+    $map = [
+        'logo'     => 'assets/logo/debi-logo.png',
+        'logo_jpg' => 'assets/logo/debi-logo.jpg',
+        'pond'     => 'assets/logo/debi-pond.png',
+        'pond_jpg' => 'assets/logo/debi-pond.jpg',
+        'smile'    => 'assets/logo/mascot-smile.png',
+        'default'  => 'assets/logo/mascot-smile.png',
+        'happy'    => 'assets/logo/mascot-happy.png',
+        'thumbsup' => 'assets/logo/mascot-thumbsup.png',
+        'thinking' => 'assets/logo/mascot-thinking.png',
+        'sheet'    => 'assets/logo/mascot-sheet.jpg',
+    ];
+    return $map[$key] ?? $map['logo'];
+}
+
+/**
+ * Debi Ana Logosunu (Halkalı Su Damlası) HTML <img> Olarak Döndürür
+ */
+function render_brand_logo(string $extraClass = 'brand-mascot', string $alt = 'Debi Logo'): string
+{
+    $cls = trim($extraClass);
+    return '<img src="' . e(brand_asset_path('logo')) . '" alt="' . e($alt) . '" class="' . e($cls) . '">';
+}
+
+/**
+ * Debi Damla Maskotunu veya Su Göleti Görselini İstenen İfadeye Göre Döndürür
+ * Pozlar: 'smile', 'happy', 'thumbsup', 'thinking', 'pond'
+ */
+function render_mascot(string $pose = 'smile', string $extraClass = 'mascot-img', string $alt = 'Debi Maskot'): string
+{
+    $cls = trim($extraClass);
+    return '<img src="' . e(brand_asset_path($pose)) . '" alt="' . e($alt) . '" class="' . e($cls) . '" loading="lazy">';
+}
+
+
