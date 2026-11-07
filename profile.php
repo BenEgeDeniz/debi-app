@@ -24,7 +24,7 @@ if (!$profileUser) {
 $isOwnProfile = ((int) $profileUser['id'] === (int) $currentUser['id']);
 $showEditForm = $isOwnProfile && !empty($_GET['edit']);
 
-// POST İşlemleri (Profil güncelleme, Zaman Tüneli paylaşımı, Damla Tepkisi, Yorum)
+// POST İşlemleri (Profil/Kapak fotoğrafı güncelleme, Zaman Tüneli paylaşımı, Damla Tepkisi, Yorum)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf()) {
         set_flash('error', 'Güvenlik doğrulaması başarısız oldu.');
@@ -34,9 +34,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? 'update_profile';
 
     if ($action === 'update_profile' && $isOwnProfile) {
-        $res = update_user_and_household_profile($currentUser, $_POST);
+        $res = update_user_and_household_profile($currentUser, $_POST, $_FILES);
         if ($res['ok']) {
-            set_flash('success', 'Profil ve hane bilgileriniz güncellendi.');
+            set_flash('success', 'Profiliniz ve fotoğraflarınız güncellendi.');
         } else {
             set_flash('error', $res['error']);
         }
@@ -89,167 +89,195 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $relation      = get_friendship_relation((int) $currentUser['id'], (int) $profileUser['id']);
-$userFriends   = get_user_friends((int) $profileUser['id']);
+$friendCount   = count_user_friends((int) $profileUser['id']);
 $timelinePosts = get_user_timeline_posts($profileUser, $currentUser);
 
-$pageTitle = $profileUser['full_name'] . ' — Zaman Tüneli — Debi';
-$activeNav = $isOwnProfile ? 'profile' : 'friends';
+$pageTitle       = $profileUser['full_name'] . ' — Zaman Tüneli — Debi';
+$activeNav       = $isOwnProfile ? 'profile' : 'friends';
+$profileUnitName = format_unit_label($profileUser['unit_label'] ?? '', $profileUser['housing_type'] ?? 'apartment_unit');
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<div class="app-shell">
+<div class="app-shell app-shell-2col">
     <?php require_once __DIR__ . '/includes/sidebar_left.php'; ?>
 
     <main class="main-column">
-        <!-- Zaman Tüneli (Timeline) Üst Profil Kartı -->
-        <section class="panel-card timeline-hero-card">
-            <div class="timeline-hero-top">
-                <div class="profile-header-block">
-                    <span class="avatar-circle avatar-lg" style="background-color: <?= e($profileUser['avatar_color']) ?>;">
-                        <?= e(user_initials($profileUser['full_name'])) ?>
-                    </span>
-                    <div class="profile-hero-info">
+        <!-- Zaman Tüneli (Timeline) Kapak & Profil Kartı -->
+        <section class="panel-card timeline-profile-card">
+            <div class="timeline-cover" <?php if (!empty($profileUser['cover_photo'])): ?>style="background-image: url('<?= e($profileUser['cover_photo']) ?>');"<?php endif; ?>></div>
+
+            <div class="timeline-body">
+                <div class="timeline-header-main">
+                    <div class="timeline-avatar-wrap">
+                        <?= render_avatar($profileUser, 'avatar-xl') ?>
+                    </div>
+
+                    <div class="timeline-identity">
                         <div class="profile-title-row">
                             <h1 class="page-title"><?= e($profileUser['full_name']) ?></h1>
                             <?php if ($profileUser['role'] === 'manager'): ?>
-                                <span class="tag tag-manager">Apartman Yöneticisi</span>
+                                <span class="role-badge role-badge-apt">🏢 Apartman Yöneticisi</span>
+                            <?php endif; ?>
+                            <?php if (is_unit_manager($profileUser)): ?>
+                                <span class="role-badge role-badge-unit">🏠 <?= e($profileUnitName) ?> Yöneticisi</span>
+                            <?php else: ?>
+                                <span class="role-badge role-badge-resident">👤 <?= e($profileUnitName) ?> Sakini</span>
                             <?php endif; ?>
                         </div>
+
                         <p class="page-subtitle">
                             <?= e($profileUser['neighborhood_district'] . ' / ' . $profileUser['neighborhood_city']) ?>
-                            ·
+                            &middot;
                             <?php if (!empty($profileUser['apartment_id'])): ?>
-                                <strong><?= e($profileUser['apartment_name']) ?></strong> (<?= e($profileUser['unit_label']) ?>)
+                                <strong><?= e($profileUser['apartment_name']) ?></strong> &middot; <?= e($profileUnitName) ?>
                             <?php else: ?>
-                                <strong><?= e(housing_type_label($profileUser['housing_type'])) ?></strong> (<?= e($profileUser['unit_label']) ?>)
+                                <strong><?= e($profileUnitName) ?></strong>
                             <?php endif; ?>
                         </p>
+
                         <?php if (!empty($profileUser['bio'])): ?>
                             <p class="timeline-bio"><?= e($profileUser['bio']) ?></p>
                         <?php endif; ?>
                     </div>
+
+                    <div class="timeline-hero-actions">
+                        <?php if ($isOwnProfile): ?>
+                            <button type="button" class="btn btn-outline btn-sm js-open-profile-edit" id="toggleEditProfileBtn">
+                                Profili Düzenle
+                            </button>
+                        <?php else: ?>
+                            <?php $relState = $relation['state'] ?? 'none'; ?>
+                            <?php if ($relState === 'accepted'): ?>
+                                <form method="post" action="friends.php" onsubmit="return confirm('Arkadaşlıktan çıkarmak istediğinize emin misiniz?');">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="remove_friend">
+                                    <input type="hidden" name="target_user_id" value="<?= (int) $profileUser['id'] ?>">
+                                    <input type="hidden" name="return_url" value="profile.php?id=<?= (int) $profileUser['id'] ?>">
+                                    <button type="submit" class="btn btn-outline btn-sm">✓ Arkadaşsınız</button>
+                                </form>
+                            <?php elseif ($relState === 'pending_sent'): ?>
+                                <form method="post" action="friends.php">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="remove_friend">
+                                    <input type="hidden" name="target_user_id" value="<?= (int) $profileUser['id'] ?>">
+                                    <input type="hidden" name="return_url" value="profile.php?id=<?= (int) $profileUser['id'] ?>">
+                                    <button type="submit" class="btn btn-outline btn-sm">İstek Gönderildi (İptal)</button>
+                                </form>
+                            <?php elseif ($relState === 'pending_received'): ?>
+                                <form method="post" action="friends.php">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="accept_request">
+                                    <input type="hidden" name="target_user_id" value="<?= (int) $profileUser['id'] ?>">
+                                    <input type="hidden" name="return_url" value="profile.php?id=<?= (int) $profileUser['id'] ?>">
+                                    <button type="submit" class="btn btn-primary btn-sm">✓ İsteği Kabul Et</button>
+                                </form>
+                            <?php else: ?>
+                                <form method="post" action="friends.php">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="send_request">
+                                    <input type="hidden" name="target_user_id" value="<?= (int) $profileUser['id'] ?>">
+                                    <input type="hidden" name="return_url" value="profile.php?id=<?= (int) $profileUser['id'] ?>">
+                                    <button type="submit" class="btn btn-primary btn-sm">+ Arkadaş Ekle</button>
+                                </form>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                    </div>
                 </div>
 
-                <!-- Sağ Aksiyon Butonları (Arkadaş Ekle / Düzenle) -->
-                <div class="timeline-hero-actions">
+                <!-- Tek Satır Kompakt Sayaçlar -->
+                <div class="timeline-meta-inline">
                     <?php if ($isOwnProfile): ?>
-                        <button type="button" class="btn btn-outline btn-sm" id="toggleEditProfileBtn">
-                            Profili &amp; Haneyi Düzenle
-                        </button>
+                        <a href="friends.php" class="timeline-meta-item">
+                            <strong><?= $friendCount ?></strong> Arkadaş
+                        </a>
                     <?php else: ?>
-                        <?php $relState = $relation['state'] ?? 'none'; ?>
-                        <?php if ($relState === 'accepted'): ?>
-                            <form method="post" action="friends.php" onsubmit="return confirm('Arkadaşlıktan çıkarmak istediğinize emin misiniz?');">
-                                <?= csrf_field() ?>
-                                <input type="hidden" name="action" value="remove_friend">
-                                <input type="hidden" name="target_user_id" value="<?= (int) $profileUser['id'] ?>">
-                                <input type="hidden" name="return_url" value="profile.php?id=<?= (int) $profileUser['id'] ?>">
-                                <button type="submit" class="btn btn-outline btn-sm">✓ Arkadaşsınız · Çıkar</button>
-                            </form>
-                        <?php elseif ($relState === 'pending_sent'): ?>
-                            <form method="post" action="friends.php">
-                                <?= csrf_field() ?>
-                                <input type="hidden" name="action" value="remove_friend">
-                                <input type="hidden" name="target_user_id" value="<?= (int) $profileUser['id'] ?>">
-                                <input type="hidden" name="return_url" value="profile.php?id=<?= (int) $profileUser['id'] ?>">
-                                <button type="submit" class="btn btn-outline btn-sm">İstek Gönderildi (İptal)</button>
-                            </form>
-                        <?php elseif ($relState === 'pending_received'): ?>
-                            <form method="post" action="friends.php">
-                                <?= csrf_field() ?>
-                                <input type="hidden" name="action" value="accept_request">
-                                <input type="hidden" name="target_user_id" value="<?= (int) $profileUser['id'] ?>">
-                                <input type="hidden" name="return_url" value="profile.php?id=<?= (int) $profileUser['id'] ?>">
-                                <button type="submit" class="btn btn-primary btn-sm">✓ İsteği Kabul Et</button>
-                            </form>
-                        <?php else: ?>
-                            <form method="post" action="friends.php">
-                                <?= csrf_field() ?>
-                                <input type="hidden" name="action" value="send_request">
-                                <input type="hidden" name="target_user_id" value="<?= (int) $profileUser['id'] ?>">
-                                <input type="hidden" name="return_url" value="profile.php?id=<?= (int) $profileUser['id'] ?>">
-                                <button type="submit" class="btn btn-primary btn-sm">+ Arkadaş Ekle</button>
-                            </form>
-                        <?php endif; ?>
+                        <span class="timeline-meta-item">
+                            <strong><?= $friendCount ?></strong> Arkadaş
+                        </span>
+                    <?php endif; ?>
+                    <span class="context-sep">·</span>
+                    <span class="timeline-meta-item">
+                        <strong><?= count($timelinePosts) ?></strong> Paylaşım
+                    </span>
+                    <?php if ($profileUser['current_daily_liters'] !== null): ?>
+                        <span class="context-sep">·</span>
+                        <span class="timeline-meta-item timeline-water-badge">
+                            💧 Bu Ay: <strong><?= number_format((float) $profileUser['current_daily_liters'], 1, ',', '.') ?> L / gün</strong>
+                        </span>
                     <?php endif; ?>
                 </div>
             </div>
-
-            <!-- Profil İstatistik Şeridi -->
-            <div class="timeline-stats-strip">
-                <div class="timeline-stat-pill">
-                    <span>Arkadaşlar:</span>
-                    <strong><?= count($userFriends) ?> kişi</strong>
-                </div>
-                <div class="timeline-stat-pill">
-                    <span>Paylaşımlar:</span>
-                    <strong><?= count($timelinePosts) ?> gönderi</strong>
-                </div>
-                <div class="timeline-stat-pill">
-                    <span>Bu Ayki Tüketim:</span>
-                    <strong>
-                        <?php if ($profileUser['current_daily_liters'] !== null): ?>
-                            <?= number_format((float) $profileUser['current_daily_liters'], 1, ',', '.') ?> L / kişi·gün
-                        <?php else: ?>
-                            Henüz fatura girilmedi
-                        <?php endif; ?>
-                    </strong>
-                </div>
-            </div>
-
-            <!-- Kullanıcının Arkadaşları Önizleme Şeridi -->
-            <?php if (!empty($userFriends)): ?>
-                <div class="timeline-friends-strip">
-                    <span class="timeline-friends-label">Arkadaşları:</span>
-                    <div class="timeline-friends-avatars">
-                        <?php foreach (array_slice($userFriends, 0, 8) as $fr): ?>
-                            <a href="profile.php?id=<?= (int) $fr['id'] ?>" class="friend-chip-mini" title="<?= e($fr['full_name']) ?>">
-                                <span class="avatar-circle avatar-xs" style="background-color: <?= e($fr['avatar_color']) ?>;">
-                                    <?= e(user_initials($fr['full_name'])) ?>
-                                </span>
-                                <span><?= e($fr['full_name']) ?></span>
-                            </a>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-            <?php endif; ?>
         </section>
 
         <?php if ($isOwnProfile): ?>
-            <!-- Kendi Profilimizse: Gizlenebilir Profil & Hane Düzenleme Kutusu -->
-            <section class="panel-card" id="editProfileSection" <?= $showEditForm ? '' : 'hidden' ?>>
-                <h2 class="section-title">Kişisel ve Hane Ayarları</h2>
-                <p class="panel-desc">
-                    Hanede yaşayan kişi sayısını güncel tutmanız, su faturalarınızdan kişi başı günlük litre hesabının doğru yapılmasını sağlar.
-                </p>
+            <!-- Kendi Profilimizse: Şık ve Kompakt Profil & Fotoğraf Düzenleme Kartı -->
+            <section class="panel-card profile-edit-card" id="editProfileSection" <?= $showEditForm ? '' : 'hidden' ?>>
+                <div class="panel-card-header">
+                    <div>
+                        <h2 class="section-title">Profili &amp; Görselleri Düzenle</h2>
+                    </div>
+                    <button type="button" class="btn btn-outline btn-sm js-open-profile-edit">Kapat</button>
+                </div>
 
-                <form method="post" action="profile.php" class="form-stack">
+                <form method="post" action="profile.php" enctype="multipart/form-data" class="form-stack">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="update_profile">
 
-                    <div class="form-grid-2">
+                    <!-- Özel Tasarımlı Görsel Seçici Kartlar -->
+                    <div class="media-picker-grid">
+                        <label for="avatar_photo_input" class="media-picker-card">
+                            <div class="media-picker-thumb media-thumb-circle" id="avatarPickerThumb">
+                                <?php if (!empty($currentUser['avatar_photo'])): ?>
+                                    <img src="<?= e($currentUser['avatar_photo']) ?>" alt="Profil Fotoğrafı" id="avatarPreviewEl">
+                                <?php else: ?>
+                                    <span id="avatarInitialsEl"><?= e(user_initials($currentUser['full_name'])) ?></span>
+                                    <img src="" alt="" id="avatarPreviewEl" hidden>
+                                <?php endif; ?>
+                            </div>
+                            <div class="media-picker-info">
+                                <strong>Profil Fotoğrafı</strong>
+                                <span id="avatarFileName">JPG, PNG veya WebP · Maks. 5 MB</span>
+                                <span class="media-picker-btn">Fotoğraf Seç</span>
+                            </div>
+                            <input type="file" id="avatar_photo_input" name="avatar_photo" accept="image/jpeg,image/png,image/webp">
+                        </label>
+
+                        <label for="cover_photo_input" class="media-picker-card">
+                            <div class="media-picker-thumb media-thumb-wide" id="coverPickerThumb"
+                                 <?php if (!empty($currentUser['cover_photo'])): ?>style="background-image: url('<?= e($currentUser['cover_photo']) ?>');"<?php endif; ?>>
+                            </div>
+                            <div class="media-picker-info">
+                                <strong>Kapak Görseli</strong>
+                                <span id="coverFileName">Geniş yatay görsel · Maks. 6 MB</span>
+                                <span class="media-picker-btn">Kapak Seç</span>
+                            </div>
+                            <input type="file" id="cover_photo_input" name="cover_photo" accept="image/jpeg,image/png,image/webp">
+                        </label>
+                    </div>
+
+                    <div class="form-grid-3">
                         <div class="form-group">
                             <label for="full_name">Ad Soyad</label>
                             <input type="text" id="full_name" name="full_name" required
                                    value="<?= e($currentUser['full_name']) ?>">
                         </div>
                         <div class="form-group">
-                            <label for="email_readonly">E-posta Adresi</label>
-                            <input type="email" id="email_readonly" value="<?= e($currentUser['email']) ?>" disabled>
-                        </div>
-                    </div>
-
-                    <div class="form-grid-2">
-                        <div class="form-group">
                             <label for="unit_label">Daire / Ev Tanımı</label>
                             <input type="text" id="unit_label" name="unit_label" required
-                                   value="<?= e($currentUser['unit_label']) ?>" placeholder="Örn: Daire 4 veya Müstakil No:12">
+                                   value="<?= e($currentUser['unit_label']) ?>" placeholder="Örn: Daire 4">
                         </div>
                         <div class="form-group">
-                            <label for="resident_count">Hanede Yaşayan Kişi Sayısı</label>
+                            <label for="resident_count">Kişi Sayısı</label>
                             <input type="number" id="resident_count" name="resident_count" min="1" max="20" required
                                    value="<?= (int) $currentUser['resident_count'] ?>">
                         </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="bio">Kısa Biyografi</label>
+                        <input type="text" id="bio" name="bio"
+                               value="<?= e($currentUser['bio'] ?? '') ?>"
+                               placeholder="Örn: Su tasarrufu ve yağmur suyu hasadıyla ilgileniyorum.">
                     </div>
 
                     <?php if (empty($currentUser['apartment_id'])): ?>
@@ -266,15 +294,9 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     <?php endif; ?>
 
-                    <div class="form-group">
-                        <label for="bio">Kısa Biyografi / Not (Zaman tünelinizde görünür)</label>
-                        <input type="text" id="bio" name="bio"
-                               value="<?= e($currentUser['bio'] ?? '') ?>"
-                               placeholder="Örn: Balkonda yağmur suyu biriktiriyoruz.">
-                    </div>
-
-                    <div class="bill-confirm-actions">
-                        <button type="submit" class="btn btn-primary">Değişiklikleri Kaydet</button>
+                    <div class="edit-profile-footer">
+                        <button type="submit" class="btn btn-primary btn-sm">Değişiklikleri Kaydet</button>
+                        <button type="button" class="btn btn-outline btn-sm js-open-profile-edit">Vazgeç</button>
                     </div>
                 </form>
             </section>
@@ -292,11 +314,11 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="composer-bar-clean">
                         <div class="composer-bar-left">
                             <select name="visibility" class="composer-scope-select" aria-label="Görünürlük">
-                                <option value="friends">Sadece Arkadaşlarım</option>
+                                <option value="friends">Arkadaşlarım</option>
                                 <?php if (!empty($currentUser['apartment_id'])): ?>
                                     <option value="apartment">Apartmanım (<?= e($currentUser['apartment_name']) ?>)</option>
                                 <?php endif; ?>
-                                <option value="public" selected>Genel Debi (Herkes)</option>
+                                <option value="public" selected>Genel Debi</option>
                             </select>
 
                             <label class="file-attach-label">
@@ -312,19 +334,13 @@ require_once __DIR__ . '/includes/header.php';
         <?php endif; ?>
 
         <!-- Zaman Tüneli Gönderileri -->
-        <div class="timeline-section-header">
-            <h2 class="section-title">
-                <?= $isOwnProfile ? 'Zaman Tünelim' : e($profileUser['full_name']) . ' — Zaman Tüneli' ?>
-            </h2>
-        </div>
-
         <?php if (empty($timelinePosts)): ?>
             <div class="panel-card empty-state-card">
-                <h3>Zaman tünelinde henüz paylaşım bulunmuyor</h3>
+                <h3>Henüz paylaşım yok</h3>
                 <p>
                     <?= $isOwnProfile
-                        ? 'Yukarıdaki kutudan ilk paylaşımınızı ekleyebilir veya su faturanızı okuttuğunuzda sonucunu paylaşabilirsiniz.'
-                        : 'Bu kullanıcının henüz herkese açık veya arkadaşlarına özel bir paylaşımı yok.' ?>
+                        ? 'Yukarıdaki kutudan ilk paylaşımınızı ekleyebilirsiniz.'
+                        : 'Bu kullanıcının henüz paylaşımı bulunmuyor.' ?>
                 </p>
             </div>
         <?php else: ?>
@@ -334,9 +350,7 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="post-header">
                             <div class="post-author-group">
                                 <a href="profile.php?id=<?= (int) $post['user_id'] ?>">
-                                    <span class="avatar-circle" style="background-color: <?= e($post['avatar_color']) ?>;">
-                                        <?= e(user_initials($post['full_name'])) ?>
-                                    </span>
+                                    <?= render_avatar($post) ?>
                                 </a>
                                 <div>
                                     <div class="post-author-line">
@@ -401,9 +415,7 @@ require_once __DIR__ . '/includes/header.php';
                                     <?php foreach ($post['comments'] as $comment): ?>
                                         <li class="comment-item">
                                             <a href="profile.php?id=<?= (int) $comment['user_id'] ?>">
-                                                <span class="avatar-circle avatar-xs" style="background-color: <?= e($comment['avatar_color']) ?>;">
-                                                    <?= e(user_initials($comment['full_name'])) ?>
-                                                </span>
+                                                <?= render_avatar($comment, 'avatar-xs') ?>
                                             </a>
                                             <div class="comment-content">
                                                 <div class="comment-meta">
@@ -432,8 +444,6 @@ require_once __DIR__ . '/includes/header.php';
             </div>
         <?php endif; ?>
     </main>
-
-    <?php require_once __DIR__ . '/includes/sidebar_right.php'; ?>
 </div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

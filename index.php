@@ -94,9 +94,7 @@ require_once __DIR__ . '/includes/header.php';
         <section class="panel-card composer-card">
             <div class="composer-header">
                 <a href="profile.php">
-                    <span class="avatar-circle" style="background-color: <?= e($currentUser['avatar_color']) ?>;">
-                        <?= e(user_initials($currentUser['full_name'])) ?>
-                    </span>
+                    <?= render_avatar($currentUser) ?>
                 </a>
                 <div class="composer-author">
                     <a href="profile.php" class="author-link">
@@ -104,9 +102,9 @@ require_once __DIR__ . '/includes/header.php';
                     </a>
                     <span>
                         <?php if (!empty($currentUser['apartment_id'])): ?>
-                            <?= e($currentUser['apartment_name']) ?> (<?= e($currentUser['unit_label']) ?>)
+                            <?= e($currentUser['apartment_name']) ?> &middot; <?= e(format_unit_label($currentUser['unit_label'])) ?>
                         <?php else: ?>
-                            <?= e(housing_type_label($currentUser['housing_type'])) ?>
+                            <?= e(format_unit_label($currentUser['unit_label'], $currentUser['housing_type'])) ?>
                         <?php endif; ?>
                     </span>
                 </div>
@@ -201,9 +199,7 @@ require_once __DIR__ . '/includes/header.php';
                             <div class="post-header">
                                 <div class="post-author-group">
                                     <a href="profile.php?id=<?= (int) $post['user_id'] ?>">
-                                        <span class="avatar-circle" style="background-color: <?= e($post['avatar_color']) ?>;">
-                                            <?= e(user_initials($post['full_name'])) ?>
-                                        </span>
+                                        <?= render_avatar($post) ?>
                                     </a>
                                     <div>
                                         <div class="post-author-line">
@@ -216,9 +212,9 @@ require_once __DIR__ . '/includes/header.php';
                                         </div>
                                         <div class="post-location-line">
                                             <?php if (!empty($post['post_apartment'])): ?>
-                                                <strong><?= e($post['post_apartment']) ?></strong> (<?= e($post['unit_label']) ?>)
+                                                <strong><?= e($post['post_apartment']) ?></strong> &middot; <?= e(format_unit_label($post['unit_label'])) ?>
                                             <?php else: ?>
-                                                <span><?= e(housing_type_label($post['housing_type'])) ?></span>
+                                                <span><?= e(format_unit_label($post['unit_label'], $post['housing_type'])) ?></span>
                                             <?php endif; ?>
                                             · <time><?= e(time_ago($post['created_at'])) ?></time>
                                         </div>
@@ -271,9 +267,7 @@ require_once __DIR__ . '/includes/header.php';
                                         <?php foreach ($post['comments'] as $comment): ?>
                                             <li class="comment-item">
                                                 <a href="profile.php?id=<?= (int) $comment['user_id'] ?>">
-                                                    <span class="avatar-circle avatar-xs" style="background-color: <?= e($comment['avatar_color']) ?>;">
-                                                        <?= e(user_initials($comment['full_name'])) ?>
-                                                    </span>
+                                                    <?= render_avatar($comment, 'avatar-xs') ?>
                                                 </a>
                                                 <div class="comment-content">
                                                     <div class="comment-meta">

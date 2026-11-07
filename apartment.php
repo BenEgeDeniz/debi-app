@@ -1,11 +1,16 @@
 <?php
 /**
- * DEBI - Apartman Sayfası, Yönetici Davet Paneli ve Bireysel->Apartman Bağlantısı
+ * DEBI - Apartman & Dairem Sayfası
+ * Net ayrım:
+ * 1. Apartman Kartı -> Apartman Yöneticisi bilgisi + Apartman Kodu (DEBI-XXXXX: yeni dairelerin katılması için)
+ * 2. Dairem Kartı   -> Daire Yöneticisi / Sakin bilgisi + Daire Sakin Kodu (DAIRE-XXXXX: aynı dairede yaşayanlar için)
+ * 3. Daireler Listesi -> Apartmandaki dairelerin sade aylık su tüketim tablosu
  */
 require_once __DIR__ . '/includes/init.php';
 require_once __DIR__ . '/modules/community/community_service.php';
 
-$currentUser = require_login();
+$currentUser   = require_login();
+$isUnitManager = is_unit_manager($currentUser);
 
 // Müstakil ev kullanıcıları apartmana katılamaz veya apartman oluşturamaz
 if (empty($currentUser['apartment_id']) && ($currentUser['housing_type'] ?? '') === 'detached_house') {
@@ -20,20 +25,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $action = $_POST['action'] ?? '';
 
-    // Bireysel kullanıcının davet koduyla apartmana katılması
-    if ($action === 'join_apartment' && empty($currentUser['apartment_id'])) {
+    // 1. Davet koduyla apartmana (DEBI-...) veya mevcut bir daireye sakin olarak (DAIRE-...) katılma
+    if ($action === 'join_apartment') {
         $code  = $_POST['invite_code'] ?? '';
         $label = $_POST['unit_label'] ?? '';
         $res   = join_apartment_for_existing_user($currentUser, $code, $label);
         if ($res['ok']) {
-            set_flash('success', 'Apartmanınıza başarıyla bağlandınız!');
+            if (($res['joined_as'] ?? '') === 'resident') {
+                set_flash('success', format_unit_label($res['unit_label'] ?? 'Daire') . ' hanesine daire sakini olarak katıldınız!');
+            } else {
+                set_flash('success', 'Apartmanınıza daire yöneticisi olarak bağlandınız!');
+            }
         } else {
             set_flash('error', $res['error']);
         }
         redirect('apartment.php');
     }
 
-    // Bireysel kullanıcının kendi mahallesinde apartman oluşturması
+    // 2. Bireysel kullanıcının kendi mahallesinde apartman oluşturması
     if ($action === 'create_apartment' && empty($currentUser['apartment_id'])) {
         $name  = $_POST['apartment_name'] ?? '';
         $addr  = $_POST['address_detail'] ?? '';
@@ -41,93 +50,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $label = $_POST['unit_label'] ?? 'Daire 1';
         $res   = create_apartment_for_existing_user($currentUser, $name, $addr, $units, $label);
         if ($res['ok']) {
-            set_flash('success', 'Apartmanınız oluşturuldu. Davet kodunu komşularınızla paylaşabilirsiniz.');
+            set_flash('success', 'Apartmanınız oluşturuldu. Apartman davet kodunu komşularınızla paylaşabilirsiniz.');
         } else {
             set_flash('error', $res['error']);
         }
-        redirect('apartment.php');
-    }
-
-    // Apartman yöneticisinin daireye özel davet kodu üretmesi
-    if ($action === 'create_unit_invite' && !empty($currentUser['apartment_id']) && $currentUser['role'] === 'manager') {
-        $unitLabel = $_POST['unit_label'] ?? '';
-        $res       = create_unit_invitation((int) $currentUser['apartment_id'], $unitLabel);
-        if ($res['ok']) {
-            set_flash('success', $unitLabel . ' için davet kodu üretildi: ' . $res['token']);
-        } else {
-            set_flash('error', $res['error']);
-        }
-        redirect('apartment.php');
-    }
-
-    // Apartman yöneticisinin aylık su hedefini güncellemesi
-    if ($action === 'update_goal' && !empty($currentUser['apartment_id']) && $currentUser['role'] === 'manager') {
-        $goal = trim($_POST['monthly_goal_m3'] ?? '');
-        $val  = $goal !== '' ? (float) str_replace(',', '.', $goal) : null;
-        update_apartment_goal((int) $currentUser['apartment_id'], $val);
-        set_flash('success', 'Apartman aylık su hedefi güncellendi.');
         redirect('apartment.php');
     }
 }
 
-$year  = isset($_GET['year']) ? max(2020, min(2035, (int) $_GET['year'])) : (int) date('Y');
-$month = isset($_GET['month']) ? max(1, min(12, (int) $_GET['month'])) : (int) date('n');
+$year  = (int) date('Y');
+$month = (int) date('n');
 
 $aptData = !empty($currentUser['apartment_id'])
     ? get_apartment_overview((int) $currentUser['apartment_id'], $year, $month)
     : null;
 
+$myResidents   = get_household_residents((int) $currentUser['household_id']);
+$myUnitLabel   = format_unit_label($currentUser['unit_label'] ?? '', $currentUser['housing_type'] ?? 'apartment_unit');
+
 $pageTitle = !empty($currentUser['apartment_name'])
-    ? $currentUser['apartment_name'] . ' — Apartmanım — Debi'
-    : 'Apartman Bağlantısı — Debi';
+    ? $currentUser['apartment_name'] . ' — Apartman & Dairem — Debi'
+    : 'Apartman & Daire Bağlantısı — Debi';
 $activeNav = 'apartment';
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<div class="app-shell">
+<div class="app-shell app-shell-2col">
     <?php require_once __DIR__ . '/includes/sidebar_left.php'; ?>
 
     <main class="main-column">
         <?php if (empty($currentUser['apartment_id'])): ?>
-            <!-- DURUM A: Kullanıcı mahallede bireysel / müstakil katılımcı -->
-            <section class="panel-card page-hero-card">
-                <div class="section-kicker">BİREYSEL / MÜSTAKİL HANE</div>
-                <h1 class="page-title">Mahallede Bireysel Katılımcısınız</h1>
-                <p class="page-subtitle">
-                    Şu anda <strong><?= e($currentUser['neighborhood_name']) ?> (<?= e($currentUser['neighborhood_district'] . '/' . $currentUser['neighborhood_city']) ?>)</strong>
-                    mahallesinde <strong><?= e(housing_type_label($currentUser['housing_type'])) ?></strong> olarak yer alıyorsunuz.
-                    Dilerseniz bireysel olarak devam edebilir, dilerseniz aşağıdaki seçeneklerle bir apartmana dahil olabilirsiniz.
-                </p>
-            </section>
-
+            <!-- DURUM A: Kullanıcı henüz bir apartmana bağlı değil -->
             <div class="grid-2-cols">
                 <section class="panel-card">
-                    <h2 class="section-title">1. Davet Kodu ile Apartmana Katıl</h2>
+                    <h2 class="section-title">1. Davet Kodu ile Katıl</h2>
                     <p class="panel-desc">
-                        Apartman yöneticiniz Debi'de apartman hesabı açtıysa, size ilettiği davet kodunu girerek mevcut hesabınızı ve geçmiş su kayıtlarınızı kaybetmeden dairenize bağlanabilirsiniz.
+                        Apartman kodu (<code>DEBI-...</code>) ile kendi dairenizi açabilir veya daire kodu (<code>DAIRE-...</code>) ile mevcut bir daireye sakin olarak katılabilirsiniz.
                     </p>
                     <form method="post" action="apartment.php" class="form-stack">
                         <?= csrf_field() ?>
                         <input type="hidden" name="action" value="join_apartment">
 
                         <div class="form-group">
-                            <label for="invite_code">Apartman veya Daire Davet Kodu</label>
+                            <label for="invite_code">Davet Kodu</label>
                             <input type="text" id="invite_code" name="invite_code" required placeholder="Örn: DEBI-7K4M2 veya DAIRE-9P2X4">
                         </div>
 
                         <div class="form-group">
-                            <label for="join_unit_label">Daire Numaranız</label>
-                            <input type="text" id="join_unit_label" name="unit_label" required placeholder="Örn: Daire 4">
+                            <label for="join_unit_label">Daire Numaranız (Apartman kodu için)</label>
+                            <input type="text" id="join_unit_label" name="unit_label" placeholder="Örn: Daire 4 (Daire kodunda boş bırakın)">
                         </div>
 
-                        <button type="submit" class="btn btn-primary">Apartmana Bağlan</button>
+                        <button type="submit" class="btn btn-primary">Bağlan</button>
                     </form>
                 </section>
 
                 <section class="panel-card">
-                    <h2 class="section-title">2. Apartmanınızı Siz Oluşturun</h2>
+                    <h2 class="section-title">2. Yeni Apartman Oluştur</h2>
                     <p class="panel-desc">
-                        <strong><?= e($currentUser['neighborhood_name']) ?></strong> mahallesindeki apartmanınızı kaydedip yönetici olabilir ve komşularınıza daire davet kodu gönderebilirsiniz.
+                        <strong><?= e($currentUser['neighborhood_name']) ?></strong> mahallesindeki apartmanınızı kurup <strong>Apartman Yöneticisi</strong> olun.
                     </p>
                     <form method="post" action="apartment.php" class="form-stack">
                         <?= csrf_field() ?>
@@ -149,227 +130,157 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="address_detail">Sokak / Kapı No (İsteğe bağlı)</label>
-                            <input type="text" id="address_detail" name="address_detail" placeholder="Örn: Karanfil Sok. No: 9">
-                        </div>
-
-                        <button type="submit" class="btn btn-outline">Apartmanı Oluştur ve Yönetici Ol</button>
+                        <button type="submit" class="btn btn-outline">Apartmanı Oluştur</button>
                     </form>
                 </section>
             </div>
         <?php else: ?>
             <!-- DURUM B: Kullanıcı bir apartmana bağlı -->
             <?php
-            $apt         = $aptData['apartment'];
-            $units       = $aptData['units'];
-            $stats       = $aptData['stats'];
-            $invitations = $aptData['invitations'];
-            $avgDaily    = $stats['avg_daily_liters'] !== null ? (float) $stats['avg_daily_liters'] : null;
+            $apt      = $aptData['apartment'];
+            $units    = $aptData['units'];
+            $stats    = $aptData['stats'];
+            $avgDaily = $stats['avg_daily_liters'] !== null ? (float) $stats['avg_daily_liters'] : null;
             ?>
-            <section class="panel-card page-hero-card">
-                <div class="page-hero-top">
+
+            <!-- 1. KART: APARTMAN BİLGİSİ VE APARTMAN KODU -->
+            <section class="panel-card clear-role-section">
+                <div class="clear-section-top">
                     <div>
-                        <div class="section-kicker">
-                            <a href="neighborhood.php"><?= e($apt['neighborhood_name']) ?></a> &rsaquo; APARTMAN TOPLULUĞU
-                        </div>
-                        <h1 class="page-title"><?= e($apt['name']) ?></h1>
+                        <span class="clear-kicker">1. APARTMAN BİLGİSİ</span>
+                        <h1 class="page-title">🏢 <?= e($apt['name']) ?></h1>
                         <p class="page-subtitle">
-                            <?= e($apt['district'] . ' / ' . $apt['city']) ?>
-                            <?= !empty($apt['address_detail']) ? ' · ' . e($apt['address_detail']) : '' ?>
-                            · Yönetici: <strong><?= e($apt['manager_name'] ?? 'Belirtilmedi') ?></strong>
+                            <?= e($apt['neighborhood_name']) ?> &middot; <?= e($apt['district'] . ' / ' . $apt['city']) ?>
+                            &middot; Kayıtlı Daire: <strong><?= count($units) ?> / <?= (int) $apt['total_units'] ?></strong>
+                            <?php if ($avgDaily !== null): ?>
+                                &middot; Apartman Ortalaması: <strong><?= number_format($avgDaily, 1, ',', '.') ?> L / gün</strong>
+                            <?php endif; ?>
                         </p>
                     </div>
 
-                    <div class="invite-badge-card">
-                        <span class="invite-badge-title">Genel Apartman Davet Kodu</span>
-                        <div class="invite-badge-code">
-                            <code><?= e($apt['invite_code']) ?></code>
-                            <button type="button" class="btn-copy" data-copy="<?= e($apt['invite_code']) ?>">Kopyala</button>
-                        </div>
-                        <span class="invite-badge-hint">Komşularınız kayıt olurken bu kodu girebilir</span>
+                    <div>
+                        <?php if ($currentUser['role'] === 'manager'): ?>
+                            <span class="role-badge role-badge-apt">🏢 Apartman Yöneticisisiniz</span>
+                        <?php else: ?>
+                            <span class="role-badge">Apartman Yöneticisi: <?= e($apt['manager_name'] ?? 'Belirtilmedi') ?></span>
+                        <?php endif; ?>
                     </div>
                 </div>
 
-                <div class="stats-grid-4">
-                    <div class="stat-box">
-                        <span class="stat-label">Kayıtlı Daireler</span>
-                        <strong class="stat-value"><?= count($units) ?> / <?= (int) $apt['total_units'] ?></strong>
+                <div class="code-share-strip strip-apt">
+                    <div class="code-share-info">
+                        <strong>Apartman Davet Kodu (Yeni Daireler İçin)</strong>
+                        <span>Apartmandaki diğer komşuların kendi dairelerini oluşturup apartmana katılması için bu kodu paylaşın:</span>
                     </div>
-                    <div class="stat-box">
-                        <span class="stat-label">Veri Giren Daire</span>
-                        <strong class="stat-value"><?= (int) ($stats['logged_units_count'] ?? 0) ?> daire</strong>
-                        <span class="stat-sub"><?= e(turkish_month_name($month) . ' ' . $year) ?></span>
-                    </div>
-                    <div class="stat-box">
-                        <span class="stat-label">Apartman Ortalaması</span>
-                        <strong class="stat-value">
-                            <?= $avgDaily !== null ? number_format($avgDaily, 1, ',', '.') . ' L' : '—' ?>
-                        </strong>
-                        <span class="stat-sub">kişi başı / gün</span>
-                    </div>
-                    <div class="stat-box">
-                        <span class="stat-label">Apartman Aylık Toplam</span>
-                        <strong class="stat-value">
-                            <?= $stats['total_m3'] !== null ? number_format((float) $stats['total_m3'], 1, ',', '.') . ' m³' : '0 m³' ?>
-                        </strong>
-                        <?php if (!empty($apt['monthly_goal_m3'])): ?>
-                            <span class="stat-sub">Hedef: <?= number_format((float) $apt['monthly_goal_m3'], 0, ',', '.') ?> m³</span>
-                        <?php else: ?>
-                            <span class="stat-sub">Hedef belirlenmedi</span>
-                        <?php endif; ?>
+                    <div class="code-share-box">
+                        <code><?= e($apt['invite_code']) ?></code>
+                        <button type="button" class="btn btn-primary btn-sm btn-copy" data-copy="<?= e($apt['invite_code']) ?>">Kodu Kopyala</button>
                     </div>
                 </div>
             </section>
 
-            <?php if ($currentUser['role'] === 'manager'): ?>
-                <!-- Apartman Yöneticisi Paneli: Daire Daveti Üretme & Hedef Belirleme -->
-                <section class="panel-card manager-panel">
-                    <div class="panel-card-header">
-                        <h2 class="section-title">Apartman Yöneticisi Paneli — Daire Daveti &amp; Hedef</h2>
-                        <span class="tag tag-manager">Yönetici Yetkisi</span>
+            <!-- 2. KART: BENİM DAİREM VE DAİRE SAKİN KODU -->
+            <section class="panel-card clear-role-section">
+                <div class="clear-section-top">
+                    <div>
+                        <span class="clear-kicker">2. DAİREM &amp; EV SAKİNLERİ</span>
+                        <h2 class="page-title">🏠 <?= e($myUnitLabel) ?></h2>
+                        <p class="page-subtitle">
+                            Bu dairede toplam <strong><?= (int) $currentUser['resident_count'] ?> kişi</strong> yaşıyor
+                            &middot; Sistemde kayıtlı hesap: <strong><?= count($myResidents) ?></strong>
+                        </p>
                     </div>
 
-                    <div class="grid-2-cols">
-                        <div>
-                            <h3 class="sub-heading">Daireye Özel Davet Kodu Oluştur</h3>
-                            <p class="panel-desc">
-                                Genel apartman koduna (<code><?= e($apt['invite_code']) ?></code>) ek olarak, belirli bir daire için tek kullanımlık davet anahtarı üretebilirsiniz:
-                            </p>
-                            <form method="post" action="apartment.php" class="inline-action-form">
-                                <?= csrf_field() ?>
-                                <input type="hidden" name="action" value="create_unit_invite">
-                                <input type="text" name="unit_label" required placeholder="Örn: Daire 6">
-                                <button type="submit" class="btn btn-primary">Davet Üret</button>
-                            </form>
-                        </div>
+                    <div>
+                        <?php if ($isUnitManager): ?>
+                            <span class="role-badge role-badge-unit">🏠 <?= e($myUnitLabel) ?> Yöneticisisiniz</span>
+                        <?php else: ?>
+                            <span class="role-badge role-badge-resident">👤 <?= e($myUnitLabel) ?> Sakinisiniz</span>
+                        <?php endif; ?>
+                    </div>
+                </div>
 
-                        <div>
-                            <h3 class="sub-heading">Apartman Aylık Toplam Su Hedefi (m³)</h3>
-                            <p class="panel-desc">
-                                Apartmandaki tüm dairelerin toplam aylık tüketimi için hedef eşik belirleyin:
-                            </p>
-                            <form method="post" action="apartment.php" class="inline-action-form">
-                                <?= csrf_field() ?>
-                                <input type="hidden" name="action" value="update_goal">
-                                <input type="number" step="0.5" min="5" max="10000" name="monthly_goal_m3"
-                                       value="<?= e((string) ($apt['monthly_goal_m3'] ?? '')) ?>" placeholder="Örn: 120">
-                                <button type="submit" class="btn btn-outline">Hedefi Kaydet</button>
-                            </form>
+                <?php if ($isUnitManager && !empty($currentUser['household_invite_code'])): ?>
+                    <div class="code-share-strip strip-unit">
+                        <div class="code-share-info">
+                            <strong>Daire Sakin Kodu (Aynı Dairede Yaşayanlar İçin)</strong>
+                            <span>Aynı evde yaşadığınız eşinizi, aile üyenizi veya ev arkadaşınızı <strong><?= e($myUnitLabel) ?></strong> içerisine sakin olarak eklemek için bu kodu paylaşın:</span>
+                        </div>
+                        <div class="code-share-box">
+                            <code><?= e($currentUser['household_invite_code']) ?></code>
+                            <button type="button" class="btn btn-outline btn-sm btn-copy" data-copy="<?= e($currentUser['household_invite_code']) ?>">Kodu Kopyala</button>
                         </div>
                     </div>
+                <?php endif; ?>
 
-                    <?php if (!empty($invitations)): ?>
-                        <div class="invitations-table-wrap">
-                            <h3 class="sub-heading">Üretilen Daire Davet Kodları</h3>
-                            <div class="table-responsive">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Daire</th>
-                                            <th>Davet Kodu</th>
-                                            <th>Durum</th>
-                                            <th>Kayıt Bağlantısı / İşlem</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach ($invitations as $inv): ?>
-                                            <tr>
-                                                <td><strong><?= e($inv['unit_label']) ?></strong></td>
-                                                <td><code><?= e($inv['invite_token']) ?></code></td>
-                                                <td>
-                                                    <?php if ((int) $inv['is_used'] === 1): ?>
-                                                        <span class="metric-pill pill-good">Katıldı (<?= e($inv['used_by_name'] ?? 'Üye') ?>)</span>
-                                                    <?php else: ?>
-                                                        <span class="metric-pill pill-neutral">Bekliyor</span>
-                                                    <?php endif; ?>
-                                                </td>
-                                                <td>
-                                                    <?php if ((int) $inv['is_used'] === 0): ?>
-                                                        <button type="button" class="btn-copy" data-copy="<?= e($inv['invite_token']) ?>">Kodu Kopyala</button>
-                                                        <a href="register.php?mode=apartment_invite&amp;code=<?= urlencode($inv['invite_token']) ?>" class="link-subtle">Davet Linki</a>
-                                                    <?php else: ?>
-                                                        <span class="muted-text">Tamamlandı</span>
-                                                    <?php endif; ?>
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    <?php endif; ?>
-                </section>
-            <?php endif; ?>
+                <div class="unit-members-row">
+                    <span class="sub-label"><?= e($myUnitLabel) ?> Sakinleri:</span>
+                    <div class="unit-residents-list">
+                        <?php foreach ($myResidents as $resUser): ?>
+                            <?php $isOwner = ((int) ($resUser['owner_user_id'] ?? 0) === (int) $resUser['id']); ?>
+                            <a href="profile.php?id=<?= (int) $resUser['id'] ?>" class="unit-resident-chip">
+                                <?= render_avatar($resUser, 'avatar-xs') ?>
+                                <span class="unit-resident-name"><?= e($resUser['full_name']) ?></span>
+                                <span class="tag"><?= $isOwner ? 'Daire Yöneticisi' : 'Daire Sakini' ?></span>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </section>
 
-            <!-- Apartmandaki Daireler ve Su Tasarruf Sıralaması -->
+            <!-- 3. KART: APARTMANDAKİ DAİRELER LİSTESİ -->
             <section class="panel-card">
                 <div class="panel-card-header">
-                    <h2 class="section-title">Daireler ve Su Tüketim Tablosu (<?= e(turkish_month_name($month) . ' ' . $year) ?>)</h2>
-                    <form method="get" action="apartment.php" class="period-filter-form">
-                        <select name="month">
-                            <?php for ($m = 1; $m <= 12; $m++): ?>
-                                <option value="<?= $m ?>" <?= $m === $month ? 'selected' : '' ?>><?= e(turkish_month_name($m)) ?></option>
-                            <?php endfor; ?>
-                        </select>
-                        <select name="year">
-                            <?php for ($y = (int) date('Y'); $y >= 2024; $y--): ?>
-                                <option value="<?= $y ?>" <?= $y === $year ? 'selected' : '' ?>><?= $y ?></option>
-                            <?php endfor; ?>
-                        </select>
-                        <button type="submit" class="btn btn-outline btn-sm">Göster</button>
-                    </form>
+                    <h2 class="section-title">Apartmandaki Daireler (<?= e(turkish_month_name($month) . ' ' . $year) ?>)</h2>
                 </div>
 
                 <div class="table-responsive">
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th>Sıra</th>
                                 <th>Daire</th>
-                                <th>Sakin</th>
-                                <th>Kişi Sayısı</th>
-                                <th>Aylık Sayaç (m³)</th>
+                                <th>Daire Yöneticisi &amp; Sakinler</th>
+                                <th>Bu Ayki Sayaç</th>
                                 <th>Kişi Başı Günlük</th>
-                                <th>Durum</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($units as $idx => $unit): ?>
+                            <?php foreach ($units as $unit): ?>
                                 <?php
-                                $isMe      = (int) $unit['user_id'] === (int) $currentUser['id'];
+                                $isMyUnit  = (int) $unit['household_id'] === (int) $currentUser['household_id'];
                                 $unitDaily = $unit['daily_liters_per_person'] !== null ? (float) $unit['daily_liters_per_person'] : null;
-                                $isPioneer = ($unitDaily !== null && $avgDaily !== null && $unitDaily <= $avgDaily);
+                                $ownerId   = (int) ($unit['owner_user_id'] ?? 0);
+                                $uLabel    = format_unit_label($unit['unit_label'], 'apartment_unit');
                                 ?>
-                                <tr class="<?= $isMe ? 'row-highlight' : '' ?>">
-                                    <td><?= $unitDaily !== null ? '#' . ($idx + 1) : '—' ?></td>
-                                    <td><strong><?= e($unit['unit_label']) ?></strong></td>
+                                <tr class="<?= $isMyUnit ? 'row-highlight' : '' ?>">
                                     <td>
-                                        <a href="profile.php?id=<?= (int) $unit['user_id'] ?>" class="author-link">
-                                            <strong><?= e($unit['full_name']) ?></strong>
-                                        </a>
-                                        <?php if ($unit['role'] === 'manager'): ?>
-                                            <span class="tag tag-manager">Yönetici</span>
-                                        <?php endif; ?>
+                                        <strong><?= e($uLabel) ?></strong>
+                                        <div class="table-sub"><?= (int) $unit['resident_count'] ?> kişi</div>
                                     </td>
-                                    <td><?= (int) $unit['resident_count'] ?> kişi</td>
                                     <td>
-                                        <?= $unit['consumption_m3'] !== null ? number_format((float) $unit['consumption_m3'], 1, ',', '.') . ' m³' : '—' ?>
+                                        <div class="residents-stack">
+                                            <?php foreach ($unit['residents'] as $r): ?>
+                                                <div class="resident-cell">
+                                                    <a href="profile.php?id=<?= (int) $r['id'] ?>" class="author-link">
+                                                        <strong><?= e($r['full_name']) ?></strong>
+                                                    </a>
+                                                    <?php if ((int) $r['id'] === $ownerId): ?>
+                                                        <span class="tag">Daire Yöneticisi</span>
+                                                    <?php else: ?>
+                                                        <span class="tag">Sakin</span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <?= $unit['consumption_m3'] !== null ? number_format((float) $unit['consumption_m3'], 1, ',', '.') . ' m³' : '<span class="muted-text">Fatura girilmedi</span>' ?>
                                     </td>
                                     <td>
                                         <?php if ($unitDaily !== null): ?>
-                                            <strong><?= number_format($unitDaily, 1, ',', '.') ?> L / gün</strong>
+                                            <span class="metric-pill pill-good"><?= number_format($unitDaily, 1, ',', '.') ?> L / gün</span>
                                         <?php else: ?>
-                                            <span class="muted-text">Girilmedi</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <?php if ($unitDaily === null): ?>
-                                            <span class="muted-text">Bekleniyor</span>
-                                        <?php elseif ($isPioneer): ?>
-                                            <span class="metric-pill pill-good">Tasarruf Öncüsü</span>
-                                        <?php else: ?>
-                                            <span class="metric-pill pill-neutral">Ortalama Üstü</span>
+                                            <span class="muted-text">—</span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -380,9 +291,6 @@ require_once __DIR__ . '/includes/header.php';
             </section>
         <?php endif; ?>
     </main>
-
-    <?php require_once __DIR__ . '/includes/sidebar_right.php'; ?>
 </div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
-

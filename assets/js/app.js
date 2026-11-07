@@ -313,14 +313,59 @@ document.addEventListener('DOMContentLoaded', function () {
         daysInput.addEventListener('input', updateLiveDaily);
     }
 
-    // 8. Zaman Tünelinde "Profili & Haneyi Düzenle" Kutusunu Aç/Kapat
-    const toggleEditProfileBtn = document.getElementById('toggleEditProfileBtn');
+    // 8. Zaman Tünelinde "Profili Düzenle" Kutusunu Aç/Kapat ve Canlı Görsel Önizleme
+    const openEditBtns = document.querySelectorAll('.js-open-profile-edit');
     const editProfileSection = document.getElementById('editProfileSection');
-    if (toggleEditProfileBtn && editProfileSection) {
-        toggleEditProfileBtn.addEventListener('click', function () {
-            editProfileSection.hidden = !editProfileSection.hidden;
-            if (!editProfileSection.hidden) {
-                editProfileSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (openEditBtns.length > 0 && editProfileSection) {
+        openEditBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                editProfileSection.hidden = !editProfileSection.hidden;
+                if (!editProfileSection.hidden) {
+                    editProfileSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            });
+        });
+    }
+
+    const avatarPhotoInput = document.getElementById('avatar_photo_input');
+    const avatarPreviewEl = document.getElementById('avatarPreviewEl');
+    const avatarInitialsEl = document.getElementById('avatarInitialsEl');
+    const avatarFileName = document.getElementById('avatarFileName');
+    if (avatarPhotoInput) {
+        avatarPhotoInput.addEventListener('change', function () {
+            const file = avatarPhotoInput.files && avatarPhotoInput.files[0];
+            if (!file) return;
+            if (avatarFileName) {
+                avatarFileName.textContent = file.name;
+            }
+            if (avatarPreviewEl && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function (ev) {
+                    avatarPreviewEl.src = ev.target.result;
+                    avatarPreviewEl.hidden = false;
+                    if (avatarInitialsEl) avatarInitialsEl.hidden = true;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    const coverPhotoInput = document.getElementById('cover_photo_input');
+    const coverPickerThumb = document.getElementById('coverPickerThumb');
+    const coverFileName = document.getElementById('coverFileName');
+    if (coverPhotoInput) {
+        coverPhotoInput.addEventListener('change', function () {
+            const file = coverPhotoInput.files && coverPhotoInput.files[0];
+            if (!file) return;
+            if (coverFileName) {
+                coverFileName.textContent = file.name;
+            }
+            if (coverPickerThumb && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function (ev) {
+                    coverPickerThumb.style.backgroundImage = "url('" + ev.target.result + "')";
+                };
+                reader.readAsDataURL(file);
             }
         });
     }

@@ -36,7 +36,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('water.php');
         } else {
             set_flash('error', $res['error']);
-            // Hata varsa onay ekranını koru
             $scanResult = [
                 'ok'              => true,
                 'ai_used'         => false,
@@ -62,7 +61,7 @@ $activeNav = 'water';
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<div class="app-shell">
+<div class="app-shell app-shell-2col">
     <?php require_once __DIR__ . '/includes/sidebar_left.php'; ?>
 
     <main class="main-column">
@@ -176,7 +175,7 @@ require_once __DIR__ . '/includes/header.php';
 
                         <label class="checkbox-inline">
                             <input type="checkbox" name="share_on_feed" value="1" checked>
-                            <span>Fatura sonucunu mahalle akışında paylaş</span>
+                            <span>Fatura sonucunu sosyal akışta paylaş</span>
                         </label>
 
                         <div class="bill-confirm-actions">
@@ -322,8 +321,6 @@ require_once __DIR__ . '/includes/header.php';
             <?php endif; ?>
         </section>
     </main>
-
-    <?php require_once __DIR__ . '/includes/sidebar_right.php'; ?>
 </div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

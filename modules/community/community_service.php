@@ -1,10 +1,12 @@
 <?php
 /**
- * DEBI - Mahalle ve Apartman Topluluk Modülü
+ * DEBI - Apartman ve Daire (Hane) Topluluk Modülü
  */
 
 /**
- * Bireysel katılımcının sonradan davet koduyla bir apartmana katılması
+ * Mevcut kullanıcının:
+ * - Genel Apartman Kodu (DEBI-XXXXX) ile kendi dairesini apartmana bağlaması (Daire Yöneticisi olarak)
+ * - VEYA Daire Sakin Kodu (DAIRE-XXXXX) ile mevcut bir daireye Sakin olarak katılması
  */
 function join_apartment_for_existing_user(array $user, string $inviteCode, string $customUnitLabel = ''): array
 {
@@ -23,80 +25,104 @@ function join_apartment_for_existing_user(array $user, string $inviteCode, strin
     try {
         $pdo->beginTransaction();
 
-        $apartmentId    = null;
-        $neighborhoodId = null;
-        $unitLabel      = $customUnit !== '' ? $customUnit : $user['unit_label'];
-        $invitationId   = null;
-
-        // 1. Daireye özel davet kodu kontrolü
-        $invStmt = $pdo->prepare("
-            SELECT i.*, a.neighborhood_id
-            FROM invitations i
-            INNER JOIN apartments a ON a.id = i.apartment_id
-            WHERE i.invite_token = :token AND i.is_used = 0
+        // 1. Önce Daire Sakin Kodu (households.unit_invite_code -> DAIRE-XXXXX) kontrolü
+        $hhStmt = $pdo->prepare("
+            SELECT id, neighborhood_id, apartment_id, unit_label
+            FROM households
+            WHERE unit_invite_code = :code
             LIMIT 1
         ");
-        $invStmt->execute([':token' => $inviteCode]);
-        $inv = $invStmt->fetch();
+        $hhStmt->execute([':code' => $inviteCode]);
+        $targetHh = $hhStmt->fetch();
 
-        if ($inv) {
-            $apartmentId    = (int) $inv['apartment_id'];
-            $neighborhoodId = (int) $inv['neighborhood_id'];
-            $unitLabel      = $inv['unit_label'];
-            $invitationId   = (int) $inv['id'];
-        } else {
-            // 2. Apartman genel davet kodu kontrolü
-            $aptStmt = $pdo->prepare("
-                SELECT id, neighborhood_id
-                FROM apartments
-                WHERE invite_code = :code
-                LIMIT 1
-            ");
-            $aptStmt->execute([':code' => $inviteCode]);
-            $apt = $aptStmt->fetch();
-
-            if (!$apt) {
+        if ($targetHh) {
+            $targetHid = (int) $targetHh['id'];
+            if ($targetHid === (int) $user['household_id']) {
                 $pdo->rollBack();
-                return ['ok' => false, 'error' => 'Davet kodu bulunamadı veya daha önce kullanılmış.'];
+                return ['ok' => false, 'error' => 'Zaten bu dairede kayıtlısınız.'];
             }
 
-            if ($customUnit === '') {
-                $pdo->rollBack();
-                return ['ok' => false, 'error' => 'Genel apartman kodu ile katılırken daire numaranızı (Örn: Daire 3) yazmalısınız.'];
-            }
+            $targetNid = (int) $targetHh['neighborhood_id'];
+            $targetAid = !empty($targetHh['apartment_id']) ? (int) $targetHh['apartment_id'] : null;
 
-            $apartmentId    = (int) $apt['id'];
-            $neighborhoodId = (int) $apt['neighborhood_id'];
-            $unitLabel      = $customUnit;
+            // Kullanıcıyı hedef daireye Sakin olarak taşı
+            $pdo->prepare("
+                UPDATE users
+                SET household_id    = :hid,
+                    neighborhood_id = :nid,
+                    apartment_id    = :aid
+                WHERE id = :uid
+            ")->execute([
+                ':hid' => $targetHid,
+                ':nid' => $targetNid,
+                ':aid' => $targetAid,
+                ':uid' => (int) $user['id'],
+            ]);
+
+            // Dairedeki kayıtlı kişi sayısını güncelle
+            $cntStmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE household_id = :hid");
+            $cntStmt->execute([':hid' => $targetHid]);
+            $regMembers = (int) $cntStmt->fetchColumn();
+            $pdo->prepare("UPDATE households SET resident_count = GREATEST(resident_count, :cnt) WHERE id = :hid")
+                ->execute([':cnt' => $regMembers, ':hid' => $targetHid]);
+
+            $pdo->commit();
+            return ['ok' => true, 'joined_as' => 'resident', 'unit_label' => $targetHh['unit_label']];
         }
 
-        // Hane bilgilerini apartmana bağla
+        // 2. Genel Apartman Davet Kodu (apartments.invite_code -> DEBI-XXXXX) kontrolü
+        $aptStmt = $pdo->prepare("
+            SELECT id, neighborhood_id
+            FROM apartments
+            WHERE invite_code = :code
+            LIMIT 1
+        ");
+        $aptStmt->execute([':code' => $inviteCode]);
+        $apt = $aptStmt->fetch();
+
+        if (!$apt) {
+            $pdo->rollBack();
+            return ['ok' => false, 'error' => 'Davet kodu bulunamadı. Lütfen apartman kodunu (DEBI-...) veya daire sakin kodunu (DAIRE-...) kontrol edin.'];
+        }
+
+        if ($customUnit === '') {
+            $pdo->rollBack();
+            return ['ok' => false, 'error' => 'Apartman kodu ile katılırken daire numaranızı (Örn: Daire 3) yazmalısınız.'];
+        }
+
+        $apartmentId    = (int) $apt['id'];
+        $neighborhoodId = (int) $apt['neighborhood_id'];
+        $unitLabel      = $customUnit;
+
+        // Kullanıcının hanesini apartmana bağla ve kendisini Daire Yöneticisi olarak işaretle
         $updH = $pdo->prepare("
             UPDATE households
             SET neighborhood_id = :nid,
                 apartment_id    = :aid,
                 housing_type    = 'apartment_unit',
-                unit_label      = :label
+                unit_label      = :label,
+                owner_user_id   = COALESCE(owner_user_id, :uid)
             WHERE id = :hid
         ");
         $updH->execute([
             ':nid'   => $neighborhoodId,
             ':aid'   => $apartmentId,
             ':label' => $unitLabel,
+            ':uid'   => (int) $user['id'],
             ':hid'   => (int) $user['household_id'],
         ]);
 
-        // Kullanıcıyı apartmana bağla
+        // Aynı hanedeki tüm sakinleri de apartmana bağla
         $updU = $pdo->prepare("
             UPDATE users
             SET neighborhood_id = :nid,
                 apartment_id    = :aid
-            WHERE id = :uid
+            WHERE household_id = :hid
         ");
         $updU->execute([
             ':nid' => $neighborhoodId,
             ':aid' => $apartmentId,
-            ':uid' => (int) $user['id'],
+            ':hid' => (int) $user['household_id'],
         ]);
 
         // Geçmiş su kayıtlarını da apartman istatistiğine yansıt
@@ -112,25 +138,13 @@ function join_apartment_for_existing_user(array $user, string $inviteCode, strin
             ':hid' => (int) $user['household_id'],
         ]);
 
-        if ($invitationId) {
-            $updInv = $pdo->prepare("
-                UPDATE invitations
-                SET is_used = 1, used_by_user_id = :uid, used_at = NOW()
-                WHERE id = :id
-            ");
-            $updInv->execute([':uid' => (int) $user['id'], ':id' => $invitationId]);
-        }
-
         $pdo->commit();
-        if (function_exists('award_points')) {
-            award_points((int) $user['id'], (int) $user['household_id'], 'apartment_join', 50, '🏠 Apartmanına bağlandın!', 'apt_join_' . $user['id']);
-        }
-        return ['ok' => true];
+        return ['ok' => true, 'joined_as' => 'unit_manager', 'unit_label' => $unitLabel];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        return ['ok' => false, 'error' => 'Apartmana katılırken hata oluştu: ' . $e->getMessage()];
+        return ['ok' => false, 'error' => 'Bağlantı sırasında hata oluştu: ' . $e->getMessage()];
     }
 }
 
@@ -173,11 +187,15 @@ function create_apartment_for_existing_user(array $user, string $name, string $a
 
         $pdo->prepare("
             UPDATE households
-            SET apartment_id = :aid, housing_type = 'apartment_unit', unit_label = :label
+            SET apartment_id  = :aid,
+                housing_type  = 'apartment_unit',
+                unit_label    = :label,
+                owner_user_id = COALESCE(owner_user_id, :uid)
             WHERE id = :hid
         ")->execute([
             ':aid'   => $apartmentId,
             ':label' => $unitLabel,
+            ':uid'   => (int) $user['id'],
             ':hid'   => (int) $user['household_id'],
         ]);
 
@@ -191,6 +209,15 @@ function create_apartment_for_existing_user(array $user, string $name, string $a
         ]);
 
         $pdo->prepare("
+            UPDATE users
+            SET apartment_id = :aid
+            WHERE household_id = :hid
+        ")->execute([
+            ':aid' => $apartmentId,
+            ':hid' => (int) $user['household_id'],
+        ]);
+
+        $pdo->prepare("
             UPDATE water_logs
             SET apartment_id = :aid
             WHERE household_id = :hid
@@ -200,9 +227,6 @@ function create_apartment_for_existing_user(array $user, string $name, string $a
         ]);
 
         $pdo->commit();
-        if (function_exists('award_points')) {
-            award_points((int) $user['id'], (int) $user['household_id'], 'apartment_create', 100, '🏢 Mahallende apartmanını kurdun!', 'apt_create_' . $apartmentId);
-        }
         return ['ok' => true, 'apartment_id' => $apartmentId];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -213,27 +237,52 @@ function create_apartment_for_existing_user(array $user, string $name, string $a
 }
 
 /**
- * Apartman yöneticisinin belirli bir daire için tek kullanımlık davet kodu üretmesi
+ * Daire Yöneticisinin kendi dairesinin Sakin Davet Kodunu (DAIRE-XXXXX) yenilemesi
  */
-function create_unit_invitation(int $apartmentId, string $unitLabel): array
+function regenerate_household_invite_code(int $householdId, int $userId): array
 {
-    $unitLabel = trim($unitLabel);
-    if ($unitLabel === '') {
-        return ['ok' => false, 'error' => 'Lütfen davet oluşturulacak daire bilgisini girin (Örn: Daire 7).'];
+    $pdo  = db();
+    $stmt = $pdo->prepare("SELECT owner_user_id FROM households WHERE id = :hid LIMIT 1");
+    $stmt->execute([':hid' => $householdId]);
+    $ownerId = (int) $stmt->fetchColumn();
+
+    if ($ownerId !== 0 && $ownerId !== $userId) {
+        return ['ok' => false, 'error' => 'Yalnızca daire yöneticisi daire davet kodunu yenileyebilir.'];
     }
 
-    $token = generate_invite_code('DAIRE');
-    $stmt  = db()->prepare("
-        INSERT INTO invitations (apartment_id, unit_label, invite_token)
-        VALUES (:aid, :label, :token)
-    ");
-    $stmt->execute([
-        ':aid'   => $apartmentId,
-        ':label' => $unitLabel,
-        ':token' => $token,
+    $newCode = generate_invite_code('DAIRE');
+    $upd     = $pdo->prepare("UPDATE households SET unit_invite_code = :code, owner_user_id = :uid WHERE id = :hid");
+    $upd->execute([
+        ':code' => $newCode,
+        ':uid'  => $userId,
+        ':hid'  => $householdId,
     ]);
 
-    return ['ok' => true, 'token' => $token];
+    return ['ok' => true, 'code' => $newCode];
+}
+
+/**
+ * Belirli bir dairede (household) yaşayan kayıtlı sakinleri döndürür
+ */
+function get_household_residents(int $householdId): array
+{
+    $stmt = db()->prepare("
+        SELECT
+            u.id,
+            u.full_name,
+            u.role,
+            u.avatar_color,
+            u.avatar_photo,
+            h.owner_user_id
+        FROM users u
+        INNER JOIN households h ON h.id = u.household_id
+        WHERE u.household_id = :hid
+        ORDER BY
+            CASE WHEN h.owner_user_id = u.id THEN 0 ELSE 1 END ASC,
+            u.id ASC
+    ");
+    $stmt->execute([':hid' => $householdId]);
+    return $stmt->fetchAll();
 }
 
 /**
@@ -253,159 +302,7 @@ function update_apartment_goal(int $apartmentId, ?float $monthlyGoalM3): void
 }
 
 /**
- * Mahalle Detayları, Apartman Listesi ve Bireysel/Müstakil Katılımcılar
- */
-function get_neighborhood_overview(int $neighborhoodId, int $year, int $month): array
-{
-    $pdo = db();
-
-    // Mahalle temel bilgisi
-    $nStmt = $pdo->prepare("SELECT * FROM neighborhoods WHERE id = :id LIMIT 1");
-    $nStmt->execute([':id' => $neighborhoodId]);
-    $neighborhood = $nStmt->fetch() ?: [
-        'id'       => $neighborhoodId,
-        'city'     => '',
-        'district' => '',
-        'name'     => 'Mahallem',
-    ];
-
-    // Mahalledeki apartmanlar ve o ayki ortalama kişi başı günlük litre tüketimleri
-    $aptStmt = $pdo->prepare("
-        SELECT
-            a.id,
-            a.neighborhood_id,
-            a.name,
-            a.address_detail,
-            a.invite_code,
-            a.total_units,
-            a.monthly_goal_m3,
-            a.manager_user_id,
-            MAX(u.full_name) AS manager_name,
-            (SELECT COUNT(*) FROM households h WHERE h.apartment_id = a.id) AS registered_households,
-            AVG(w.daily_liters_per_person) AS avg_daily_liters,
-            SUM(w.consumption_m3) AS total_m3
-        FROM apartments a
-        LEFT JOIN users u ON u.id = a.manager_user_id
-        LEFT JOIN water_logs w ON w.apartment_id = a.id AND w.period_year = :y AND w.period_month = :m
-        WHERE a.neighborhood_id = :nid
-        GROUP BY
-            a.id, a.neighborhood_id, a.name, a.address_detail,
-            a.invite_code, a.total_units, a.monthly_goal_m3, a.manager_user_id
-        ORDER BY
-            CASE WHEN AVG(w.daily_liters_per_person) IS NULL THEN 1 ELSE 0 END ASC,
-            AVG(w.daily_liters_per_person) ASC,
-            a.name ASC
-    ");
-    $aptStmt->execute([
-        ':y'   => $year,
-        ':m'   => $month,
-        ':nid' => $neighborhoodId,
-    ]);
-    $apartments = $aptStmt->fetchAll();
-
-    // Mahallede apartmana bağlı OLMAYAN (Bireysel daire + Müstakil ev) haneler
-    $indStmt = $pdo->prepare("
-        SELECT
-            h.id AS household_id,
-            h.housing_type,
-            h.unit_label,
-            h.resident_count,
-            u.id AS user_id,
-            u.full_name,
-            u.avatar_color,
-            u.total_points,
-            w.consumption_m3,
-            w.daily_liters_per_person
-        FROM households h
-        INNER JOIN users u ON u.household_id = h.id
-        LEFT JOIN water_logs w ON w.household_id = h.id AND w.period_year = :y AND w.period_month = :m
-        WHERE h.neighborhood_id = :nid AND h.apartment_id IS NULL
-        ORDER BY
-            CASE WHEN w.daily_liters_per_person IS NULL THEN 1 ELSE 0 END ASC,
-            w.daily_liters_per_person ASC,
-            u.full_name ASC
-    ");
-    $indStmt->execute([
-        ':y'   => $year,
-        ':m'   => $month,
-        ':nid' => $neighborhoodId,
-    ]);
-    $individualHouseholds = $indStmt->fetchAll();
-
-    // Mahalle genel istatistikleri (Tüm haneler: apartman daireleri + bireysel + müstakil)
-    $statStmt = $pdo->prepare("
-        SELECT
-            (SELECT COUNT(*) FROM households WHERE neighborhood_id = :nid1) AS total_households,
-            (SELECT COUNT(*) FROM apartments WHERE neighborhood_id = :nid2) AS total_apartments,
-            AVG(w.daily_liters_per_person) AS avg_daily_liters,
-            SUM(w.consumption_m3) AS total_m3
-        FROM water_logs w
-        WHERE w.neighborhood_id = :nid3 AND w.period_year = :y AND w.period_month = :m
-    ");
-    $statStmt->execute([
-        ':nid1' => $neighborhoodId,
-        ':nid2' => $neighborhoodId,
-        ':nid3' => $neighborhoodId,
-        ':y'    => $year,
-        ':m'    => $month,
-    ]);
-    $stats = $statStmt->fetch() ?: [];
-
-    // Mahallede bu ay en az tüketen ilk 8 hane (Hem apartman daireleri hem bireysel/müstakil evler)
-    $leaderStmt = $pdo->prepare("
-        SELECT
-            w.daily_liters_per_person,
-            w.consumption_m3,
-            h.unit_label,
-            h.housing_type,
-            h.resident_count,
-            a.name AS apartment_name,
-            u.full_name,
-            u.avatar_color
-        FROM water_logs w
-        INNER JOIN households h ON h.id = w.household_id
-        INNER JOIN users u ON u.household_id = h.id
-        LEFT JOIN apartments a ON a.id = h.apartment_id
-        WHERE w.neighborhood_id = :nid AND w.period_year = :y AND w.period_month = :m
-        ORDER BY w.daily_liters_per_person ASC
-        LIMIT 8
-    ");
-    $leaderStmt->execute([
-        ':nid' => $neighborhoodId,
-        ':y'   => $year,
-        ':m'   => $month,
-    ]);
-    $leaderboard = $leaderStmt->fetchAll();
-
-    // Aktif mahalle su kesintisi / arıza bildirimleri (Tablo henüz yüklenmemişse hata vermemesi için güvenli)
-    $activeAlerts = [];
-    try {
-        $alertStmt = $pdo->prepare("
-            SELECT na.*, u.full_name AS author_name
-            FROM neighborhood_alerts na
-            INNER JOIN users u ON u.id = na.user_id
-            WHERE na.neighborhood_id = :nid AND na.is_active = 1
-            ORDER BY na.created_at DESC
-            LIMIT 3
-        ");
-        $alertStmt->execute([':nid' => $neighborhoodId]);
-        $activeAlerts = $alertStmt->fetchAll();
-    } catch (Throwable $e) {
-        $activeAlerts = [];
-    }
-
-    return [
-        'neighborhood'          => $neighborhood,
-        'apartments'            => $apartments,
-        'individual_households' => $individualHouseholds,
-        'stats'                 => $stats,
-        'leaderboard'           => $leaderboard,
-        'alerts'                => $activeAlerts,
-    ];
-}
-
-/**
- * Apartman Detayları, Kayıtlı Daireler ve Davet Listesi
+ * Apartman Detayları ve Kayıtlı Daireler (Her daire kendi sakin listesiyle birlikte)
  */
 function get_apartment_overview(int $apartmentId, int $year, int $month): array
 {
@@ -426,23 +323,19 @@ function get_apartment_overview(int $apartmentId, int $year, int $month): array
         return [];
     }
 
-    // Apartmandaki kayıtlı daireler ve bu ayki tüketimleri
+    // Apartmandaki kayıtlı daireler (Her household tek satırdır)
     $unitsStmt = $pdo->prepare("
         SELECT
             h.id AS household_id,
             h.unit_label,
             h.resident_count,
-            u.id AS user_id,
-            u.full_name,
-            u.role,
-            u.avatar_color,
-            u.total_points,
+            h.owner_user_id,
+            h.unit_invite_code,
             w.consumption_m3,
             w.daily_liters_per_person,
             w.bill_amount,
             w.notes
         FROM households h
-        INNER JOIN users u ON u.household_id = h.id
         LEFT JOIN water_logs w ON w.household_id = h.id AND w.period_year = :y AND w.period_month = :m
         WHERE h.apartment_id = :aid
         ORDER BY
@@ -456,6 +349,42 @@ function get_apartment_overview(int $apartmentId, int $year, int $month): array
         ':aid' => $apartmentId,
     ]);
     $units = $unitsStmt->fetchAll();
+
+    // Apartmandaki tüm kullanıcıları çekip kendi dairelerine (household_id) eşle
+    $resStmt = $pdo->prepare("
+        SELECT
+            u.id,
+            u.household_id,
+            u.full_name,
+            u.role,
+            u.avatar_color,
+            u.avatar_photo
+        FROM users u
+        WHERE u.apartment_id = :aid
+        ORDER BY u.id ASC
+    ");
+    $resStmt->execute([':aid' => $apartmentId]);
+    $allResidents = $resStmt->fetchAll();
+
+    $residentsByHousehold = [];
+    foreach ($allResidents as $r) {
+        $hid = (int) $r['household_id'];
+        $residentsByHousehold[$hid][] = $r;
+    }
+
+    foreach ($units as &$unit) {
+        $hid       = (int) $unit['household_id'];
+        $ownerId   = (int) ($unit['owner_user_id'] ?? 0);
+        $list      = $residentsByHousehold[$hid] ?? [];
+        // Daire yöneticisi ilk sırada görünsün
+        usort($list, static function (array $a, array $b) use ($ownerId): int {
+            $aOwner = ((int) $a['id'] === $ownerId) ? 0 : 1;
+            $bOwner = ((int) $b['id'] === $ownerId) ? 0 : 1;
+            return $aOwner <=> $bOwner ?: ((int) $a['id'] <=> (int) $b['id']);
+        });
+        $unit['residents'] = $list;
+    }
+    unset($unit);
 
     // Apartman bu ayki özet istatistik
     $statStmt = $pdo->prepare("
@@ -473,22 +402,9 @@ function get_apartment_overview(int $apartmentId, int $year, int $month): array
     ]);
     $stats = $statStmt->fetch() ?: [];
 
-    // Daire bazlı üretilmiş davet kodları
-    $invStmt = $pdo->prepare("
-        SELECT i.*, u.full_name AS used_by_name
-        FROM invitations i
-        LEFT JOIN users u ON u.id = i.used_by_user_id
-        WHERE i.apartment_id = :aid
-        ORDER BY i.is_used ASC, i.created_at DESC
-    ");
-    $invStmt->execute([':aid' => $apartmentId]);
-    $invitations = $invStmt->fetchAll();
-
     return [
-        'apartment'   => $apartment,
-        'units'       => $units,
-        'stats'       => $stats,
-        'invitations' => $invitations,
+        'apartment' => $apartment,
+        'units'     => $units,
+        'stats'     => $stats,
     ];
 }
-

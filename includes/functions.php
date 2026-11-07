@@ -115,6 +115,30 @@ function user_initials(string $fullName): string
     return mb_strtoupper($first . $last, 'UTF-8');
 }
 
+function avatar_initials(string $fullName): string
+{
+    return user_initials($fullName);
+}
+
+/**
+ * Kullanıcı Avatarı (Fotoğraf varsa <img>, yoksa baş harfli daire döndürür)
+ */
+function render_avatar(array $user, string $extraClass = ''): string
+{
+    $cls   = trim('avatar-circle ' . $extraClass);
+    $photo = trim((string) ($user['avatar_photo'] ?? ''));
+    $name  = (string) ($user['full_name'] ?? 'Üye');
+    $color = (string) ($user['avatar_color'] ?? '#1cb0f6');
+
+    if ($photo !== '') {
+        return '<img src="' . e($photo) . '" alt="' . e($name) . '" class="' . e($cls) . ' avatar-img">';
+    }
+
+    return '<span class="' . e($cls) . '" style="background-color: ' . e($color) . ';">'
+        . e(user_initials($name))
+        . '</span>';
+}
+
 /**
  * Göreli Zaman Formatı (Örn: 15 dk önce, 2 saat önce)
  */
@@ -187,5 +211,29 @@ function housing_type_label(string $type): string
         'detached_house'  => 'Müstakil Ev',
         default           => 'Hane',
     };
+}
+
+/**
+ * Kullanıcının kendi dairesinin (hanesinin) yöneticisi / kurucusu olup olmadığını döndürür
+ */
+function is_unit_manager(array $user): bool
+{
+    $ownerId = (int) ($user['household_owner_id'] ?? 0);
+    return $ownerId === 0 || $ownerId === (int) ($user['id'] ?? 0);
+}
+
+/**
+ * Daire / Hane etiketini okunaklı hale getirir (Örn: "5" -> "Daire 5")
+ */
+function format_unit_label(?string $label, string $housingType = 'apartment_unit'): string
+{
+    $label = trim((string) $label);
+    if ($label === '') {
+        return $housingType === 'detached_house' ? 'Müstakil Ev' : 'Daire';
+    }
+    if (preg_match('/^\d+$/', $label)) {
+        return ($housingType === 'detached_house' ? 'No: ' : 'Daire ') . $label;
+    }
+    return $label;
 }
 

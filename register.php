@@ -59,8 +59,8 @@ require_once __DIR__ . '/includes/header.php';
                 <span>Mahallede bireysel yer al</span>
             </button>
             <button type="button" class="mode-tab <?= $mode === 'apartment_invite' ? 'active' : '' ?>" data-mode-target="apartment_invite">
-                <strong>2. Apartman Davetli</strong>
-                <span>Davet kodu ile dairene katıl</span>
+                <strong>2. Davet Koduyla Katıl</strong>
+                <span>Apartman veya daire kodu ile katıl</span>
             </button>
             <button type="button" class="mode-tab <?= $mode === 'apartment_manager' ? 'active' : '' ?>" data-mode-target="apartment_manager">
                 <strong>3. Apartman Yöneticisi</strong>
@@ -194,24 +194,24 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </div>
 
-            <!-- MOD 2: Davet Kodu ile Apartmana Katılım Alanları -->
+            <!-- MOD 2: Davet Kodu ile Apartmana veya Daireye Katılım Alanları -->
             <div class="form-section mode-specific" data-mode-box="apartment_invite"
                  style="<?= $mode === 'apartment_invite' ? '' : 'display:none;' ?>">
-                <h3 class="form-section-title">Apartman Davet Bilgisi</h3>
+                <h3 class="form-section-title">Apartman veya Daire Davet Bilgisi</h3>
                 <p class="section-note">
-                    Apartman yöneticinizin paylaştığı genel apartman kodunu (<code>DEBI-XXXXX</code>) veya dairenize özel üretilen davet kodunu (<code>DAIRE-XXXXX</code>) girin. Apartmanınızın bağlı olduğu mahalleye otomatik dahil olursunuz.
+                    Apartman yöneticinizin paylaştığı <strong>Apartman Kodunu (<code>DEBI-XXXXX</code>)</strong> girerek kendi dairenizi oluşturup <strong>Daire Yöneticisi</strong> olabilir veya daire yöneticinizin paylaştığı <strong>Daire Sakin Kodunu (<code>DAIRE-XXXXX</code>)</strong> girerek o daireye <strong>Sakin</strong> olarak katılabilirsiniz.
                 </p>
                 <div class="form-grid-2">
                     <div class="form-group">
-                        <label for="invite_code">Davet Kodu</label>
+                        <label for="invite_code">Apartman veya Daire Davet Kodu</label>
                         <input type="text" id="invite_code" name="invite_code"
-                               value="<?= e($prefillInvite) ?>" placeholder="Örn: DEBI-7K4M2">
+                               value="<?= e($prefillInvite) ?>" placeholder="Örn: DEBI-7K4M2 veya DAIRE-9P2X4">
                     </div>
                     <div class="form-group">
-                        <label for="inv_unit_label">Daire Numaranız</label>
+                        <label for="inv_unit_label">Daire Numaranız (Apartman kodu için)</label>
                         <input type="text" id="inv_unit_label" name="unit_label"
                                value="<?= e($_POST['unit_label'] ?? '') ?>"
-                               placeholder="Örn: Daire 5"
+                               placeholder="Örn: Daire 5 (Daire sakin kodunda boş bırakılabilir)"
                                <?= $mode === 'apartment_invite' ? '' : 'disabled' ?>>
                     </div>
                 </div>

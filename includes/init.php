@@ -25,6 +25,8 @@ if (!empty($_SESSION['user_id'])) {
             h.housing_type,
             h.unit_label,
             h.resident_count,
+            h.owner_user_id AS household_owner_id,
+            h.unit_invite_code AS household_invite_code,
             n.city AS neighborhood_city,
             n.district AS neighborhood_district,
             n.name AS neighborhood_name,
