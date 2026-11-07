@@ -53,7 +53,7 @@ function render_event_card(array $event, array $currentUser, array $managedAtten
     $isAttendee = !empty($event['attendee_status']);
     $needsPhoto = $event['ended'] && $event['attendee_status'] === 'attended' && $event['photo_status'] !== 'approved';
     ?>
-    <article class="event-card">
+    <article class="event-card<?= $event['ended'] ? ' event-card-ended' : '' ?>">
         <div class="panel-card-header">
             <div>
                 <span class="event-scope-label"><?= $event['scope'] === 'public' ? 'Genel Debi' : 'Mahalle Etkinliği' ?></span>

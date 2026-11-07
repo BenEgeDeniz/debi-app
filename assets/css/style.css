@@ -525,6 +525,29 @@ code {
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
+.event-card-ended {
+    color: var(--text-secondary);
+    background: #f8fafc;
+    border-left-color: #94a3b8;
+}
+
+.event-card-ended .section-title,
+.event-card-ended .event-scope-label {
+    color: #64748b;
+}
+
+.event-card-ended .event-points {
+    color: #64748b;
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+}
+
+.event-card-ended > p,
+.event-card-ended .event-meta-row,
+.event-card-ended .panel-card-header > div:first-child > p {
+    color: #64748b;
+}
+
 .event-section {
     margin-bottom: 24px;
 }
