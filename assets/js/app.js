@@ -788,4 +788,105 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }
+
+    // 13. Oturum açılmış kullanıcı formlarında progressive AJAX gönderimi
+    // Sunucu normal HTML redirect döndürmeye devam eder; yalnızca ana içerik yenilenir.
+    document.addEventListener('submit', function (event) {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement) || event.defaultPrevented) return;
+        if ((form.method || 'get').toLowerCase() !== 'post') return;
+        if (form.hasAttribute('data-no-ajax') || form.classList.contains('reaction-form')) return;
+
+        const actionUrl = new URL(form.action || window.location.href, window.location.href);
+        const excludedPages = ['login.php', 'register.php', 'migration.php', 'migrate.php'];
+        if (actionUrl.origin !== window.location.origin || excludedPages.indexOf(actionUrl.pathname.split('/').pop()) !== -1) return;
+
+        const mainColumn = form.closest('.main-column');
+        if (!mainColumn) return;
+
+        event.preventDefault();
+        const preservedFields = [];
+        form.querySelectorAll('input[name], select[name], textarea[name]').forEach(function (field) {
+            if (field.type === 'file' || field.type === 'submit' || field.type === 'button') return;
+            preservedFields.push({
+                name: field.name,
+                type: field.type,
+                value: field.value,
+                checked: field.checked
+            });
+        });
+        const buttons = form.querySelectorAll('button, input[type="submit"]');
+        const originalLabels = [];
+        buttons.forEach(function (button) {
+            originalLabels.push(button.textContent || button.value || '');
+            button.disabled = true;
+            if (button.tagName === 'BUTTON') button.textContent = 'Gönderiliyor...';
+        });
+        form.setAttribute('aria-busy', 'true');
+
+        const showAjaxError = function (message) {
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-error ajax-form-error';
+            alert.textContent = message;
+            form.insertBefore(alert, form.firstChild);
+        };
+
+        fetch(actionUrl.href, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: new FormData(form),
+            credentials: 'same-origin'
+        })
+            .then(function (response) {
+                return response.text().then(function (html) {
+                    if (!response.ok) throw new Error('İşlem tamamlanamadı.');
+                    return { html: html, url: response.url };
+                });
+            })
+            .then(function (result) {
+                const parser = new DOMParser();
+                const documentFromResponse = parser.parseFromString(result.html, 'text/html');
+                const updatedMain = documentFromResponse.querySelector('.main-column');
+                if (!updatedMain) throw new Error('Sunucudan beklenen sayfa içeriği alınamadı.');
+
+                const responseUrl = new URL(result.url, window.location.href);
+                if (responseUrl.pathname !== window.location.pathname || responseUrl.search !== window.location.search) {
+                    window.history.replaceState({}, '', responseUrl.href);
+                }
+                mainColumn.replaceWith(updatedMain);
+                if (updatedMain.querySelector('.alert-error')) {
+                    preservedFields.forEach(function (savedField) {
+                        const matchingFields = updatedMain.querySelectorAll('[name="' + CSS.escape(savedField.name) + '"]');
+                        if (savedField.type === 'checkbox' || savedField.type === 'radio') return;
+                        matchingFields.forEach(function (field) {
+                            if (field.type !== 'file') field.value = savedField.value;
+                        });
+                    });
+                    preservedFields.filter(function (savedField) {
+                        return savedField.type === 'checkbox' || savedField.type === 'radio';
+                    }).forEach(function (savedField) {
+                        const matchingFields = updatedMain.querySelectorAll('[name="' + CSS.escape(savedField.name) + '"]');
+                        matchingFields.forEach(function (field) {
+                            field.checked = preservedFields.some(function (candidate) {
+                                return candidate.name === savedField.name
+                                    && candidate.type === savedField.type
+                                    && candidate.checked
+                                    && candidate.value === field.value;
+                            });
+                        });
+                    });
+                }
+                document.dispatchEvent(new CustomEvent('debi:content-updated'));
+            })
+            .catch(function (error) {
+                buttons.forEach(function (button, index) {
+                    button.disabled = false;
+                    if (button.tagName === 'BUTTON') {
+                        button.textContent = originalLabels[index];
+                    }
+                });
+                form.removeAttribute('aria-busy');
+                showAjaxError(error.message || 'İşlem sırasında bir hata oluştu. Lütfen tekrar deneyin.');
+            });
+    });
 });

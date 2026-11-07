@@ -775,6 +775,15 @@ code {
     font-weight: 700;
 }
 
+.ajax-form-error {
+    margin-bottom: 12px;
+}
+
+form[aria-busy="true"] {
+    opacity: 0.72;
+    pointer-events: none;
+}
+
 .panel-title {
     font-size: 0.94rem;
     font-weight: 800;
