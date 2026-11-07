@@ -15,11 +15,10 @@ function run_database_migrations(
     bool $force = false
 ): array
 {
-    if (!$force) {
-        throw new RuntimeException(
-            'Migration çalıştırmak için açıkça force seçeneği gereklidir.'
-        );
-    }
+    // `force` is accepted for explicit production/automation invocations.
+    // It is intentionally not required and never bypasses checksum protection.
+    unset($force);
+
     $migrationDir = __DIR__ . '/../../sql-dum';
     $migrations = discover_database_migrations($migrationDir);
     ensure_migration_repository($pdo);

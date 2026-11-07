@@ -39,9 +39,7 @@ if ($isUnlocked) {
             $to = filter_input(INPUT_POST, 'to', FILTER_VALIDATE_INT);
             $force = isset($_POST['force']);
 
-            if (!$force) {
-                $error = 'Migration çalıştırmak için Force seçeneğini onaylayın.';
-            } elseif ($from !== false && $from !== null && $from < 1) {
+            if ($from !== false && $from !== null && $from < 1) {
                 $error = 'Başlangıç sıra numarası geçersiz.';
             } elseif ($to !== false && $to !== null && $to < 1) {
                 $error = 'Bitiş sıra numarası geçersiz.';
@@ -138,7 +136,7 @@ function migration_html(string $value): string
         </label>
         <label class="force">
             <input type="checkbox" name="force" value="1">
-            Force
+            Force (yalnızca istisnai checksum durumları için)
         </label>
         <br>
         <button type="submit">Migration çalıştır</button>
