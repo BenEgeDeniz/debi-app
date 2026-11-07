@@ -14,6 +14,17 @@ if ($currentUser) {
 
 $inviteLookup = null;
 $error = null;
+$inviteBackRequested = ($_GET['back'] ?? '') === '1';
+if ($inviteBackRequested) {
+    unset(
+        $_SESSION['registration_invite_code'],
+        $_SESSION['registration_invite_type'],
+        $_SESSION['registration_invite_label'],
+        $_SESSION['registration_invite_unit_label'],
+        $_SESSION['registration_invite_apartment_name']
+    );
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'lookup_invite') {
     if (!verify_csrf()) {
         $error = 'Oturum doğrulaması başarısız oldu, lütfen sayfayı yenileyip tekrar deneyin.';
@@ -25,6 +36,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'looku
         } else {
             $_SESSION['registration_invite_code'] = strtoupper(trim((string) $_POST['invite_code']));
             $_SESSION['registration_invite_type'] = $lookup['type'];
+            $_SESSION['registration_invite_label'] = $lookup['label'];
+            $_SESSION['registration_invite_unit_label'] = $lookup['unit_label'] ?? '';
+            $_SESSION['registration_invite_apartment_name'] = $lookup['apartment_name'] ?? '';
             redirect('register.php?mode=apartment_invite');
         }
     }
@@ -47,6 +61,9 @@ $inviteVerified = $mode === 'apartment_invite'
     && !empty($_SESSION['registration_invite_code'])
     && $_SESSION['registration_invite_code'] === $prefillInvite;
 $inviteType = $_SESSION['registration_invite_type'] ?? null;
+$inviteLabel = $_SESSION['registration_invite_label'] ?? '';
+$inviteUnitLabel = $_SESSION['registration_invite_unit_label'] ?? '';
+$inviteApartmentName = $_SESSION['registration_invite_apartment_name'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf()) {
@@ -59,7 +76,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $res = register_user($_POST);
         if ($res['ok']) {
-            unset($_SESSION['registration_invite_code'], $_SESSION['registration_invite_type']);
+            unset(
+                $_SESSION['registration_invite_code'],
+                $_SESSION['registration_invite_type'],
+                $_SESSION['registration_invite_label'],
+                $_SESSION['registration_invite_unit_label'],
+                $_SESSION['registration_invite_apartment_name']
+            );
             session_regenerate_id(true);
             $_SESSION['user_id'] = $res['user_id'];
             set_flash('success', 'Debi ağına hoş geldiniz! Hane ve mahalle bağlantınız oluşturuldu.');
@@ -117,6 +140,19 @@ require_once __DIR__ . '/includes/header.php';
                 <button type="submit" class="btn btn-primary btn-block">Devam</button>
             </form>
         <?php elseif ($mode !== 'apartment_invite' || $inviteVerified): ?>
+        <?php if ($inviteVerified): ?>
+            <div class="alert alert-success">
+                <div>
+                    <strong><?= e($inviteLabel) ?> daveti doğrulandı.</strong>
+                    <?php if ($inviteType === 'resident'): ?>
+                        <br>Bu kod, <strong><?= e($inviteUnitLabel ?: 'mevcut dairenize') ?></strong> hanesine sakin olarak katılmanızı sağlar.
+                    <?php else: ?>
+                        <br><strong><?= e($inviteApartmentName ?: 'Bu apartman') ?></strong> için yeni bir daire yöneticisi hesabı oluşturacaksınız.
+                    <?php endif; ?>
+                </div>
+                <a href="register.php?mode=apartment_invite&amp;back=1" class="btn btn-outline btn-sm">Geri dön</a>
+            </div>
+        <?php endif; ?>
         <form method="post" action="register.php" class="form-stack" id="registerForm">
             <?= csrf_field() ?>
             <input type="hidden" name="register_mode" id="registerModeInput" value="<?= e($mode) ?>">
