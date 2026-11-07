@@ -125,7 +125,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $history   = get_household_water_history((int) $currentUser['household_id']);
-$pondState = get_household_pond_state((int) $currentUser['household_id']);
 
 $pageTitle = 'Su Faturası Takibi — Debi';
 $activeNav = 'water';
@@ -289,10 +288,6 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="panel-card-header">
                     <h1 class="section-title">Fatura Yükle</h1>
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                        <a href="index.php#daireGoleti" class="drop-motivation-badge" title="Daire Göleti">
-                            <span class="drop-badge-icon">💧</span>
-                            <strong><?= number_format((int) ($pondState['total_drops'] ?? 0), 0, ',', '.') ?> / <?= (int) ($pondState['target_drops'] ?? 100) ?></strong>
-                        </a>
                         <span class="tag"><?= e($currentUser['unit_label']) ?> · <?= (int) $currentUser['resident_count'] ?> kişi</span>
                     </div>
                 </div>

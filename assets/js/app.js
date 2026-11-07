@@ -858,6 +858,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (responseUrl.pathname !== window.location.pathname || responseUrl.search !== window.location.search) {
                     window.history.replaceState({}, '', responseUrl.href);
                 }
+                const currentTopbarPoints = document.querySelector('.topbar-drop-count');
+                const updatedTopbarPoints = documentFromResponse.querySelector('.topbar-drop-count');
+                if (currentTopbarPoints && updatedTopbarPoints) {
+                    currentTopbarPoints.textContent = updatedTopbarPoints.textContent;
+                }
                 mainColumn.replaceWith(updatedMain);
                 if (updatedMain.querySelector('.alert-error')) {
                     preservedFields.forEach(function (savedField) {
