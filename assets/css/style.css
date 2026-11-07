@@ -1282,6 +1282,124 @@ a.timeline-meta-item:hover {
     gap: 14px;
 }
 
+.apt-goal-inline-bar {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.apt-goal-inline-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.apt-goal-inline-text strong {
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: var(--text-main);
+}
+
+.apt-goal-inline-text span {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.unit-panel-grid {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 14px;
+    align-items: stretch;
+}
+
+.unit-residents-box,
+.unit-invite-box {
+    background-color: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 13px 15px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.unit-invite-box {
+    background-color: var(--bg-highlight);
+    border-color: #bae6fd;
+}
+
+.sub-label {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--text-muted);
+}
+
+.unit-residents-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.unit-resident-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 10px 5px 6px;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-pill);
+    color: var(--text-main);
+    text-decoration: none !important;
+    transition: border-color 0.15s ease;
+}
+
+.unit-resident-chip:hover {
+    border-color: var(--brand-primary);
+}
+
+.unit-resident-name {
+    font-size: 0.85rem;
+    font-weight: 800;
+}
+
+.unit-invite-head {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.unit-invite-head strong {
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: var(--brand-primary-dark);
+}
+
+.unit-invite-head span {
+    font-size: 0.77rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.unit-invite-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.residents-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
 .manager-tool-card {
     background-color: var(--bg-subtle);
     border: 1px solid var(--border-color);
@@ -2221,6 +2339,7 @@ a.timeline-meta-item:hover {
     .form-grid-4,
     .grid-2-cols,
     .manager-tools-grid,
+    .unit-panel-grid,
     .media-picker-grid,
     .friends-compact-grid,
     .bill-verify-layout {

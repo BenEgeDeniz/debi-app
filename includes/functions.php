@@ -213,3 +213,12 @@ function housing_type_label(string $type): string
     };
 }
 
+/**
+ * Kullanıcının kendi dairesinin (hanesinin) yöneticisi / kurucusu olup olmadığını döndürür
+ */
+function is_unit_manager(array $user): bool
+{
+    $ownerId = (int) ($user['household_owner_id'] ?? 0);
+    return $ownerId === 0 || $ownerId === (int) ($user['id'] ?? 0);
+}
+

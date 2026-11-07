@@ -48,7 +48,11 @@ $pendingFriendCnt = !empty($currentUser) && function_exists('count_incoming_frie
             <div class="panel-card-header">
                 <span class="panel-title">Hane Bilgisi</span>
                 <?php if ($currentUser['role'] === 'manager'): ?>
-                    <span class="tag tag-manager">Yönetici</span>
+                    <span class="tag tag-manager">Apt. Yöneticisi</span>
+                <?php elseif (is_unit_manager($currentUser)): ?>
+                    <span class="tag tag-manager">Daire Yöneticisi</span>
+                <?php else: ?>
+                    <span class="tag">Daire Sakini</span>
                 <?php endif; ?>
             </div>
             <div class="household-meta-list">
@@ -72,17 +76,19 @@ $pendingFriendCnt = !empty($currentUser) && function_exists('count_incoming_frie
                 </div>
             </div>
 
-            <?php if (!empty($currentUser['apartment_invite_code']) && $activeNav !== 'apartment'): ?>
+            <?php if (is_unit_manager($currentUser) && !empty($currentUser['household_invite_code']) && $activeNav !== 'apartment'): ?>
                 <div class="invite-mini-box">
-                    <span class="invite-mini-label">Apartman Davet Kodu</span>
+                    <span class="invite-mini-label">Daire Sakin Davet Kodu</span>
                     <div class="invite-code-row">
-                        <code id="sidebarInviteCode"><?= e($currentUser['apartment_invite_code']) ?></code>
-                        <button type="button" class="btn-copy" data-copy="<?= e($currentUser['apartment_invite_code']) ?>">Kopyala</button>
+                        <code><?= e($currentUser['household_invite_code']) ?></code>
+                        <button type="button" class="btn-copy" data-copy="<?= e($currentUser['household_invite_code']) ?>">Kopyala</button>
                     </div>
                 </div>
-            <?php elseif (empty($currentUser['apartment_id']) && !$isDetachedHome && $activeNav !== 'apartment'): ?>
+            <?php endif; ?>
+
+            <?php if (empty($currentUser['apartment_id']) && !$isDetachedHome && $activeNav !== 'apartment'): ?>
                 <div class="invite-mini-box">
-                    <a href="apartment.php" class="link-subtle">Apartman davet kodunuz var mı? &rarr;</a>
+                    <a href="apartment.php" class="link-subtle">Apartman veya daire kodunuz var mı? &rarr;</a>
                 </div>
             <?php endif; ?>
         </div>

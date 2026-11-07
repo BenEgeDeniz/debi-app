@@ -63,6 +63,35 @@ function ensure_gamification_schema(): void
                 run_sql_migration_file($pdo, $sql009);
             }
         }
+
+        // 6. 010_household_unit_manager_and_residents.sql kontrolü (households.owner_user_id ve unit_invite_code)
+        $hasUnitInvite = (bool) $pdo->query("SHOW COLUMNS FROM `households` LIKE 'unit_invite_code'")->fetchColumn();
+        if (!$hasUnitInvite) {
+            $sql010 = __DIR__ . '/../../sql-dum/010_household_unit_manager_and_residents.sql';
+            if (file_exists($sql010)) {
+                run_sql_migration_file($pdo, $sql010);
+            }
+        }
+
+        // Mevcut hanelerde owner_user_id veya unit_invite_code eksikse otomatik tamamla
+        $pdo->exec("
+            UPDATE households h
+            SET h.owner_user_id = (
+                SELECT MIN(u.id) FROM users u WHERE u.household_id = h.id
+            )
+            WHERE h.owner_user_id IS NULL
+        ");
+
+        $missingCodes = $pdo->query("SELECT id FROM households WHERE unit_invite_code IS NULL OR unit_invite_code = ''")->fetchAll();
+        if (!empty($missingCodes)) {
+            $updCode = $pdo->prepare("UPDATE households SET unit_invite_code = :code WHERE id = :id");
+            foreach ($missingCodes as $row) {
+                $updCode->execute([
+                    ':code' => generate_invite_code('DAIRE'),
+                    ':id'   => (int) $row['id'],
+                ]);
+            }
+        }
     } catch (Throwable $e) {
         // Sessizce geç
     }

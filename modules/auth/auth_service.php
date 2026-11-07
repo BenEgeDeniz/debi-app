@@ -2,9 +2,11 @@
 /**
  * DEBI - Kimlik Doğrulama ve Kayıt Modülü
  * Modlar:
- * 1) individual        -> Bireysel Daire veya Müstakil Ev olarak doğrudan Mahalleye katılım
- * 2) apartment_invite  -> Davet kodu ile mevcut Apartmana (ve onun Mahallesine) katılım
- * 3) apartment_manager -> Mahallede yeni Apartman oluşturup yönetici olarak katılım
+ * 1) individual        -> Bireysel Daire veya Müstakil Ev olarak katılım (Daire/Hane Yöneticisi olur)
+ * 2) apartment_invite  ->
+ *      a) Apartman Kodu (DEBI-XXXXX) ile apartmanda yeni daire açıp Daire Yöneticisi olarak katılım
+ *      b) Daire Sakin Kodu (DAIRE-XXXXX) ile mevcut bir daireye Sakin olarak katılım
+ * 3) apartment_manager -> Mahallede yeni Apartman oluşturup Apartman + Daire Yöneticisi olarak katılım
  */
 
 /**
@@ -82,21 +84,21 @@ function register_user(array $input): array
         return ['ok' => false, 'error' => 'Bu e-posta adresi ile daha önce kayıt olunmuş.'];
     }
 
-    $palette = ['#1b5670', '#2b6e46', '#7a4b2a', '#3b5968', '#4f6248', '#8a5a36'];
+    $palette = ['#0284c7', '#15803d', '#0f766e', '#3b5968', '#1e40af', '#8a5a36'];
     $avatarColor = $palette[array_rand($palette)];
 
     try {
         $pdo->beginTransaction();
 
-        $neighborhoodId = null;
-        $apartmentId    = null;
-        $housingType    = 'individual_unit';
-        $unitLabel      = 'Bireysel Hane';
-        $role           = 'resident';
-        $invitationId   = null;
+        $neighborhoodId      = null;
+        $apartmentId         = null;
+        $existingHouseholdId = null;
+        $housingType         = 'individual_unit';
+        $unitLabel           = 'Bireysel Hane';
+        $role                = 'resident';
 
         if ($mode === 'individual') {
-            // 1. Bireysel (Apartmanı olmayan daire) veya Müstakil Ev Katılımı
+            // 1. Bireysel Daire veya Müstakil Ev Katılımı (Kendi hanesinin Daire/Ev Yöneticisi olur)
             $city             = trim($input['city'] ?? '');
             $district         = trim($input['district'] ?? '');
             $neighborhoodName = trim($input['neighborhood_name'] ?? '');
@@ -105,7 +107,7 @@ function register_user(array $input): array
 
             if ($city === '' || $district === '' || $neighborhoodName === '') {
                 $pdo->rollBack();
-                return ['ok' => false, 'error' => 'Mahalleye katılmak için İl, İlçe ve Mahalle bilgilerini girin.'];
+                return ['ok' => false, 'error' => 'Lütfen İl, İlçe ve Mahalle bilgilerini seçin.'];
             }
 
             $neighborhoodId = find_or_create_neighborhood($pdo, $city, $district, $neighborhoodName);
@@ -117,34 +119,35 @@ function register_user(array $input): array
                 $unitLabel = ($housingType === 'detached_house') ? 'Müstakil Ev' : 'Bireysel Daire';
             }
         } elseif ($mode === 'apartment_invite') {
-            // 2. Davet Kodu ile Apartmana Katılım (Genel kod veya daireye özel token)
+            // 2. Davet Kodu ile Katılım:
+            //    a) Daire Sakin Kodu (DAIRE-XXXXX) -> Mevcut daireye "Sakin" olarak katılır
+            //    b) Apartman Kodu (DEBI-XXXXX)     -> Apartmanda kendi dairesini oluşturup "Daire Yöneticisi" olur
             $inviteCode  = strtoupper(trim($input['invite_code'] ?? ''));
             $customLabel = trim($input['unit_label'] ?? '');
 
             if ($inviteCode === '') {
                 $pdo->rollBack();
-                return ['ok' => false, 'error' => 'Lütfen apartman yöneticinizden aldığınız davet kodunu girin.'];
+                return ['ok' => false, 'error' => 'Lütfen apartman veya daire davet kodunu girin.'];
             }
 
-            // Önce daireye özel davet tablosuna bak
-            $invStmt = $pdo->prepare("
-                SELECT i.*, a.neighborhood_id
-                FROM invitations i
-                INNER JOIN apartments a ON a.id = i.apartment_id
-                WHERE i.invite_token = :token AND i.is_used = 0
+            // A) Önce Daire Sakin Davet Kodu (households.unit_invite_code) kontrolü
+            $hhStmt = $pdo->prepare("
+                SELECT id, neighborhood_id, apartment_id, housing_type, unit_label
+                FROM households
+                WHERE unit_invite_code = :code
                 LIMIT 1
             ");
-            $invStmt->execute([':token' => $inviteCode]);
-            $invitation = $invStmt->fetch();
+            $hhStmt->execute([':code' => $inviteCode]);
+            $existingHh = $hhStmt->fetch();
 
-            if ($invitation) {
-                $apartmentId    = (int) $invitation['apartment_id'];
-                $neighborhoodId = (int) $invitation['neighborhood_id'];
-                $unitLabel      = $invitation['unit_label'];
-                $invitationId   = (int) $invitation['id'];
-                $housingType    = 'apartment_unit';
+            if ($existingHh) {
+                $existingHouseholdId = (int) $existingHh['id'];
+                $neighborhoodId      = (int) $existingHh['neighborhood_id'];
+                $apartmentId         = !empty($existingHh['apartment_id']) ? (int) $existingHh['apartment_id'] : null;
+                $housingType         = $existingHh['housing_type'];
+                $unitLabel           = $existingHh['unit_label'];
             } else {
-                // Genel apartman davet koduna bak
+                // B) Genel Apartman Davet Kodu (apartments.invite_code) kontrolü
                 $aptStmt = $pdo->prepare("
                     SELECT id, neighborhood_id
                     FROM apartments
@@ -156,12 +159,12 @@ function register_user(array $input): array
 
                 if (!$apt) {
                     $pdo->rollBack();
-                    return ['ok' => false, 'error' => 'Geçersiz veya kullanılmış davet kodu. Lütfen kontrol edin.'];
+                    return ['ok' => false, 'error' => 'Geçersiz davet kodu. Lütfen apartman kodunu (DEBI-...) veya daire sakin kodunu (DAIRE-...) kontrol edin.'];
                 }
 
                 if ($customLabel === '') {
                     $pdo->rollBack();
-                    return ['ok' => false, 'error' => 'Lütfen daire numaranızı belirtin (Örn: Daire 4).'];
+                    return ['ok' => false, 'error' => 'Apartman davet kodu ile yeni daire oluştururken daire numaranızı (Örn: Daire 4) belirtmelisiniz.'];
                 }
 
                 $apartmentId    = (int) $apt['id'];
@@ -170,14 +173,14 @@ function register_user(array $input): array
                 $housingType    = 'apartment_unit';
             }
         } elseif ($mode === 'apartment_manager') {
-            // 3. Apartman Yöneticisi Olarak Yeni Apartman + Mahalle Kaydı
+            // 3. Apartman Yöneticisi Olarak Yeni Apartman + Kendi Dairesini Oluşturma
             $city             = trim($input['city'] ?? '');
             $district         = trim($input['district'] ?? '');
             $neighborhoodName = trim($input['neighborhood_name'] ?? '');
             $apartmentName    = trim($input['apartment_name'] ?? '');
             $addressDetail    = trim($input['address_detail'] ?? '');
             $totalUnits       = max(2, min(500, (int) ($input['total_units'] ?? 12)));
-            $customLabel      = trim($input['unit_label'] ?? 'Daire 1 (Yönetici)');
+            $customLabel      = trim($input['unit_label'] ?? 'Daire 1');
 
             if ($city === '' || $district === '' || $neighborhoodName === '' || $apartmentName === '') {
                 $pdo->rollBack();
@@ -186,7 +189,6 @@ function register_user(array $input): array
 
             $neighborhoodId = find_or_create_neighborhood($pdo, $city, $district, $neighborhoodName);
 
-            // Benzersiz davet kodu üret
             $inviteCode = generate_invite_code('DEBI');
             $aptIns = $pdo->prepare("
                 INSERT INTO apartments (neighborhood_id, name, address_detail, invite_code, total_units)
@@ -208,19 +210,25 @@ function register_user(array $input): array
             return ['ok' => false, 'error' => 'Geçersiz kayıt türü seçildi.'];
         }
 
-        // Hane (household) oluştur
-        $hhStmt = $pdo->prepare("
-            INSERT INTO households (neighborhood_id, apartment_id, housing_type, unit_label, resident_count)
-            VALUES (:nid, :aid, :htype, :label, :rcount)
-        ");
-        $hhStmt->execute([
-            ':nid'    => $neighborhoodId,
-            ':aid'    => $apartmentId,
-            ':htype'  => $housingType,
-            ':label'  => $unitLabel,
-            ':rcount' => $residentCount,
-        ]);
-        $householdId = (int) $pdo->lastInsertId();
+        // Eğer mevcut bir daireye sakin olarak katılmıyorsa yeni daire (household) oluştur
+        if ($existingHouseholdId !== null) {
+            $householdId = $existingHouseholdId;
+        } else {
+            $unitInviteCode = generate_invite_code('DAIRE');
+            $hhStmt = $pdo->prepare("
+                INSERT INTO households (neighborhood_id, apartment_id, housing_type, unit_label, resident_count, unit_invite_code)
+                VALUES (:nid, :aid, :htype, :label, :rcount, :ucode)
+            ");
+            $hhStmt->execute([
+                ':nid'    => $neighborhoodId,
+                ':aid'    => $apartmentId,
+                ':htype'  => $housingType,
+                ':label'  => $unitLabel,
+                ':rcount' => $residentCount,
+                ':ucode'  => $unitInviteCode,
+            ]);
+            $householdId = (int) $pdo->lastInsertId();
+        }
 
         // Kullanıcı (user) oluştur
         $userStmt = $pdo->prepare("
@@ -239,32 +247,29 @@ function register_user(array $input): array
         ]);
         $userId = (int) $pdo->lastInsertId();
 
+        // Yeni oluşturulan dairenin Daire Yöneticisi (owner_user_id) bu kullanıcıdır
+        if ($existingHouseholdId === null) {
+            $pdo->prepare("UPDATE households SET owner_user_id = :uid WHERE id = :hid")
+                ->execute([':uid' => $userId, ':hid' => $householdId]);
+        } else {
+            // Mevcut daireye sakin katıldıysa kişi sayısının kayıtlı sakin sayısından az olmamasını sağla
+            $cntStmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE household_id = :hid");
+            $cntStmt->execute([':hid' => $householdId]);
+            $regMembers = (int) $cntStmt->fetchColumn();
+            $pdo->prepare("UPDATE households SET resident_count = GREATEST(resident_count, :cnt) WHERE id = :hid")
+                ->execute([':cnt' => $regMembers, ':hid' => $householdId]);
+        }
+
         // Eğer apartman yöneticisiyse apartments.manager_user_id güncelle
         if ($role === 'manager' && $apartmentId) {
             $updApt = $pdo->prepare("UPDATE apartments SET manager_user_id = :uid WHERE id = :aid");
             $updApt->execute([':uid' => $userId, ':aid' => $apartmentId]);
         }
 
-        // Eğer özel davet kullanıldıysa işaretle
-        if ($invitationId) {
-            $updInv = $pdo->prepare("
-                UPDATE invitations
-                SET is_used = 1, used_by_user_id = :uid, used_at = NOW()
-                WHERE id = :id
-            ");
-            $updInv->execute([':uid' => $userId, ':id' => $invitationId]);
-        }
-
         $pdo->commit();
 
-        // Hoş geldin ve katılım Damla Puanlarını (DP) tanımla
         if (function_exists('award_points')) {
-            award_points($userId, $householdId, 'welcome_bonus', 50, '🎉 Debi mahalle ağına katıldın!', 'welcome_' . $userId);
-            if ($mode === 'apartment_manager' && $apartmentId) {
-                award_points($userId, $householdId, 'apartment_create', 100, '🏢 Mahallende apartmanını oluşturup yönetici oldun!', 'apt_create_' . $apartmentId);
-            } elseif ($mode === 'apartment_invite' && $apartmentId) {
-                award_points($userId, $householdId, 'apartment_join', 50, '🏠 Davet koduyla apartmanına katıldın!', 'apt_join_' . $userId);
-            }
+            award_points($userId, $householdId, 'welcome_bonus', 50, '🎉 Debi ağına katıldın!', 'welcome_' . $userId);
         }
 
         return ['ok' => true, 'user_id' => $userId];
@@ -296,4 +301,3 @@ function login_user(string $email, string $password): array
 
     return ['ok' => true, 'user_id' => (int) $user['id']];
 }
-
