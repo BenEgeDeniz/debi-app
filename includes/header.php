@@ -47,6 +47,11 @@ if (!empty($currentUser)) {
 
             <?php if (!empty($currentUser)): ?>
                 <div class="topbar-user">
+                    <a href="index.php#daireGoleti" class="topbar-drop-pill" title="Daire Göletinizdeki toplam damla">
+                        <span class="topbar-drop-icon">💧</span>
+                        <span class="topbar-drop-count"><?= number_format($headerPondDrops, 0, ',', '.') ?> Damla</span>
+                    </a>
+
                     <?php if ($pendingFriendCnt > 0): ?>
                         <a href="friends.php" class="topbar-notif-pill" title="Gelen Arkadaşlık İstekleri">
                             <span><?= $pendingFriendCnt ?> yeni istek</span>

@@ -59,23 +59,25 @@ function save_water_log(array $user, array $input): array
         return ['ok' => false, 'error' => 'Geçersiz dönem seçimi.'];
     }
 
-    $nextPeriod = get_next_water_period($user);
-    $registrationDate = new DateTime((string) ($user['created_at'] ?? 'now'));
-    $registrationPeriod = ((int) $registrationDate->format('Y') * 12) + (int) $registrationDate->format('n');
-    $selectedPeriod = ($year * 12) + $month;
-    $currentPeriod = ((int) date('Y') * 12) + (int) date('n');
-    if ($selectedPeriod < $registrationPeriod) {
-        return ['ok' => false, 'error' => 'Kayıt tarihinden önceki aylara ait faturalar yüklenemez.'];
-    }
-    if ($selectedPeriod > $currentPeriod) {
-        return ['ok' => false, 'error' => 'Gelecek aylara ait fatura yüklenemez.'];
-    }
+    if (empty($input['demo'])) {
+        $nextPeriod = get_next_water_period($user);
+        $registrationDate = new DateTime((string) ($user['created_at'] ?? 'now'));
+        $registrationPeriod = ((int) $registrationDate->format('Y') * 12) + (int) $registrationDate->format('n');
+        $selectedPeriod = ($year * 12) + $month;
+        $currentPeriod = ((int) date('Y') * 12) + (int) date('n');
+        if ($selectedPeriod < $registrationPeriod) {
+            return ['ok' => false, 'error' => 'Kayıt tarihinden önceki aylara ait faturalar yüklenemez.'];
+        }
+        if ($selectedPeriod > $currentPeriod) {
+            return ['ok' => false, 'error' => 'Gelecek aylara ait fatura yüklenemez.'];
+        }
 
-    $nextPeriodNumber = ((int) $nextPeriod['year'] * 12) + (int) $nextPeriod['month'];
-    if ($selectedPeriod !== $nextPeriodNumber) {
-        return ['ok' => false, 'error' => $selectedPeriod < $nextPeriodNumber
-            ? 'Bu dönem zaten kaydedilmiş veya daha eski bir dönem. Faturalar sırayla yüklenmelidir.'
-            : 'Faturalar aylık sırayla yüklenmelidir; aradaki ay atlanamaz.'];
+        $nextPeriodNumber = ((int) $nextPeriod['year'] * 12) + (int) $nextPeriod['month'];
+        if ($selectedPeriod !== $nextPeriodNumber) {
+            return ['ok' => false, 'error' => $selectedPeriod < $nextPeriodNumber
+                ? 'Bu dönem zaten kaydedilmiş veya daha eski bir dönem. Faturalar sırayla yüklenmelidir.'
+                : 'Faturalar aylık sırayla yüklenmelidir; aradaki ay atlanamaz.'];
+        }
     }
 
     if ($consumptionM3 <= 0 || $consumptionM3 > 500) {
