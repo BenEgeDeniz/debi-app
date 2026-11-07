@@ -330,52 +330,11 @@ require_once __DIR__ . '/includes/header.php';
 
 <script>
 (() => {
-    const form = document.getElementById('registerForm');
-    const modeInput = document.getElementById('registerModeInput');
-    const residentCountGroup = document.getElementById('residentCountGroup');
-    const residentCount = document.getElementById('resident_count');
-
-    const syncModeFields = (mode) => {
-        if (!residentCountGroup || !residentCount) {
-            return;
-        }
-        const inviteMode = mode === 'apartment_invite';
-        residentCountGroup.hidden = inviteMode;
-        residentCount.disabled = inviteMode;
-        residentCount.required = !inviteMode;
-        if (inviteMode) {
-            residentCount.value = '';
-        }
-    };
-
     document.querySelectorAll('[data-mode-target]').forEach((tab) => {
         tab.addEventListener('click', () => {
             const mode = tab.dataset.modeTarget;
-            if (!form) {
-                window.location.href = `register.php?mode=${encodeURIComponent(mode)}`;
-                return;
-            }
-            if (!modeInput) {
-                window.location.href = `register.php?mode=${encodeURIComponent(mode)}`;
-                return;
-            }
-            modeInput.value = mode;
-            syncModeFields(mode);
-            document.querySelectorAll('[data-mode-box]').forEach((box) => {
-                const active = box.dataset.modeBox === mode;
-                box.style.display = active ? '' : 'none';
-                box.querySelectorAll('input, select, textarea').forEach((input) => {
-                    input.disabled = !active;
-                });
-            });
-            document.querySelectorAll('[data-mode-target]').forEach((item) => {
-                item.classList.toggle('active', item === tab);
-            });
+            window.location.href = `register.php?mode=${encodeURIComponent(mode)}`;
         });
     });
-
-    if (modeInput) {
-        syncModeFields(modeInput.value);
-    }
 })();
 </script>
