@@ -55,6 +55,57 @@ function find_or_create_neighborhood(PDO $pdo, string $city, string $district, s
 }
 
 /**
+ * Davet kodunun türünü ve mevcut hedefini kayıt formuna döndürür.
+ */
+function lookup_registration_invite(string $inviteCode): array
+{
+    $inviteCode = strtoupper(trim($inviteCode));
+    if (!preg_match('/^(DEBI|DAIRE)-[A-Z0-9]+$/', $inviteCode, $matches)) {
+        return ['ok' => false, 'error' => 'Kod DEBI-... veya DAIRE-... biçiminde olmalı.'];
+    }
+
+    $pdo = db();
+    if ($matches[1] === 'DAIRE') {
+        $stmt = $pdo->prepare("
+            SELECT unit_label
+            FROM households
+            WHERE unit_invite_code = :code
+            LIMIT 1
+        ");
+        $stmt->execute([':code' => $inviteCode]);
+        $unitLabel = $stmt->fetchColumn();
+        if ($unitLabel === false) {
+            return ['ok' => false, 'error' => 'Bu daire davet kodu bulunamadı.'];
+        }
+        return [
+            'ok' => true,
+            'type' => 'resident',
+            'label' => 'Daire Sakini',
+            'unit_label' => (string) $unitLabel,
+        ];
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT name
+        FROM apartments
+        WHERE invite_code = :code
+        LIMIT 1
+    ");
+    $stmt->execute([':code' => $inviteCode]);
+    $apartmentName = $stmt->fetchColumn();
+    if ($apartmentName === false) {
+        return ['ok' => false, 'error' => 'Bu apartman davet kodu bulunamadı.'];
+    }
+
+    return [
+        'ok' => true,
+        'type' => 'manager',
+        'label' => 'Daire Yöneticisi',
+        'apartment_name' => (string) $apartmentName,
+    ];
+}
+
+/**
  * Kullanıcı Kayıt İşlemi
  */
 function register_user(array $input): array
@@ -171,6 +222,7 @@ function register_user(array $input): array
                 $neighborhoodId = (int) $apt['neighborhood_id'];
                 $unitLabel      = $customLabel;
                 $housingType    = 'apartment_unit';
+                $role           = 'manager';
             }
         } elseif ($mode === 'apartment_manager') {
             // 3. Apartman Yöneticisi Olarak Yeni Apartman + Kendi Dairesini Oluşturma

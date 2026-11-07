@@ -12,6 +12,27 @@ if ($currentUser) {
     redirect('index.php');
 }
 
+$inviteLookup = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'lookup_invite') {
+    header('Content-Type: application/json; charset=utf-8');
+    if (!verify_csrf()) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'Oturum doğrulaması başarısız.']);
+        exit;
+    }
+    try {
+        $lookup = lookup_registration_invite((string) ($_POST['invite_code'] ?? ''));
+        if ($lookup['ok']) {
+            $_SESSION['registration_invite_code'] = strtoupper(trim((string) $_POST['invite_code']));
+        }
+        echo json_encode($lookup);
+    } catch (Throwable $exception) {
+        http_response_code(500);
+        echo json_encode(['ok' => false, 'error' => 'Davet kodu sorgulanamadı.']);
+    }
+    exit;
+}
+
 $error = null;
 $mode  = $_POST['register_mode'] ?? ($_GET['mode'] ?? 'individual');
 if (!in_array($mode, ['individual', 'apartment_invite', 'apartment_manager'], true)) {
@@ -26,6 +47,11 @@ if ($prefillInvite !== '' && !isset($_POST['register_mode'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf()) {
         $error = 'Oturum doğrulaması başarısız oldu, lütfen sayfayı yenileyip tekrar deneyin.';
+    } elseif (
+        $mode === 'apartment_invite'
+        && strtoupper(trim((string) ($_POST['invite_code'] ?? ''))) !== ($_SESSION['registration_invite_code'] ?? '')
+    ) {
+        $error = 'Önce davet kodunu sorgulamanız gerekiyor.';
     } else {
         $res = register_user($_POST);
         if ($res['ok']) {
@@ -195,14 +221,16 @@ require_once __DIR__ . '/includes/header.php';
                         <input type="text" id="invite_code" name="invite_code"
                                value="<?= e($prefillInvite) ?>" placeholder="Örn: DEBI-7K4M2 veya DAIRE-9P2X4">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="inviteTargetBox" hidden>
                         <label for="inv_unit_label">Daire No (Apartman kodu için)</label>
                         <input type="text" id="inv_unit_label" name="unit_label"
                                value="<?= e($_POST['unit_label'] ?? '') ?>"
                                placeholder="Örn: Daire 5"
-                               <?= $mode === 'apartment_invite' ? '' : 'disabled' ?>>
+                               disabled>
                     </div>
                 </div>
+                <button type="button" class="btn btn-outline" id="lookupInviteButton">Kodu Sorgula</button>
+                <p id="inviteLookupResult" class="form-help" aria-live="polite"></p>
             </div>
 
             <!-- MOD 3: Apartman Yöneticisi Alanları -->
@@ -246,3 +274,73 @@ require_once __DIR__ . '/includes/header.php';
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
 
+<script>
+(() => {
+    const form = document.getElementById('registerForm');
+    const modeInput = document.getElementById('registerModeInput');
+    const inviteCode = document.getElementById('invite_code');
+    const lookupButton = document.getElementById('lookupInviteButton');
+    const targetBox = document.getElementById('inviteTargetBox');
+    const targetInput = document.getElementById('inv_unit_label');
+    const result = document.getElementById('inviteLookupResult');
+    const csrf = form.querySelector('input[name="csrf_token"]').value;
+
+    document.querySelectorAll('[data-mode-target]').forEach((tab) => {
+        tab.addEventListener('click', () => {
+            const mode = tab.dataset.modeTarget;
+            modeInput.value = mode;
+            document.querySelectorAll('[data-mode-box]').forEach((box) => {
+                const active = box.dataset.modeBox === mode;
+                box.style.display = active ? '' : 'none';
+                box.querySelectorAll('input, select, textarea').forEach((input) => {
+                    input.disabled = !active;
+                });
+            });
+            document.querySelectorAll('[data-mode-target]').forEach((item) => {
+                item.classList.toggle('active', item === tab);
+            });
+        });
+    });
+
+    lookupButton?.addEventListener('click', async () => {
+        const code = inviteCode.value.trim().toUpperCase();
+        if (!code) {
+            result.textContent = 'Önce davet kodunu girin.';
+            return;
+        }
+        lookupButton.disabled = true;
+        result.textContent = 'Kod sorgulanıyor...';
+        const body = new URLSearchParams({
+            action: 'lookup_invite',
+            invite_code: code,
+            csrf_token: csrf
+        });
+        try {
+            const response = await fetch('register.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body
+            });
+            const data = await response.json();
+            if (!data.ok) {
+                targetBox.hidden = true;
+                targetInput.disabled = true;
+                result.textContent = data.error;
+                return;
+            }
+            inviteCode.value = code;
+            targetBox.hidden = data.type !== 'manager';
+            targetInput.disabled = data.type !== 'manager';
+            targetInput.required = data.type === 'manager';
+            targetInput.value = data.unit_label || '';
+            result.textContent = data.type === 'manager'
+                ? `${data.apartment_name}: Daire Yöneticisi olarak devam edebilirsiniz.`
+                : `${data.unit_label}: Daire Sakini olarak devam edebilirsiniz.`;
+        } catch (error) {
+            result.textContent = 'Kod sorgulanırken beklenmeyen bir hata oluştu.';
+        } finally {
+            lookupButton.disabled = false;
+        }
+    });
+})();
+</script>
