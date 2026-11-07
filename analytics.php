@@ -52,9 +52,8 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="bill-ai-notice notice-ok" style="margin-bottom: 14px;">
                     <strong>Bilgi:</strong>
                     <?= $analytics['has_real_logs']
-                        ? 'Tek dönemlik faturanız bulunduğu için geçen ay referans değeriyle karşılaştırma gösteriliyor.'
-                        : 'Henüz fatura veriniz olmadığı için örnek tüketim verileri gösteriliyor.' ?>
-                    Aşağıdaki interaktif kontrollerle tüketim (m³) değişimini ve göletin yeşermesini canlı test edebilirsiniz.
+                        ? 'Tek dönemlik faturanız bulunduğu için referans karşılaştırma gösteriliyor.'
+                        : 'Fatura verileriniz eklendikçe grafik ve gölet otomatik güncellenir.' ?>
                 </div>
             <?php endif; ?>
 
@@ -121,34 +120,14 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </div>
 
-            <!-- İnteraktif Tüketim & Damla Simülasyon Kontrolleri -->
-            <div class="pond-controls-box">
-                <div class="pond-sliders-grid">
-                    <div class="pond-slider-group">
-                        <div class="pond-slider-label">
-                            <label for="simPrevM3Input"><?= e($prevMonthName) ?> Harcanan Su (m³)</label>
-                            <strong id="simPrevM3Label"><?= number_format($prevM3, 1, ',', '.') ?> m³</strong>
-                        </div>
-                        <input type="range" id="simPrevM3Input" min="4" max="30" step="0.5" value="<?= e((string) $prevM3) ?>">
-                    </div>
-
-                    <div class="pond-slider-group">
-                        <div class="pond-slider-label">
-                            <label for="simCurrM3Input"><?= e($currMonthName) ?> Harcanan Su (m³)</label>
-                            <strong id="simCurrM3Label"><?= number_format($currM3, 1, ',', '.') ?> m³</strong>
-                        </div>
-                        <input type="range" id="simCurrM3Input" min="4" max="30" step="0.5" value="<?= e((string) $currM3) ?>">
-                    </div>
-                </div>
-
-                <div class="pond-action-buttons">
-                    <button type="button" class="btn btn-primary btn-sm" id="btnDropWater">
-                        💧 Üstten Damla Gönder (+250 L Kurtar)
-                    </button>
-                    <button type="button" class="btn btn-outline btn-sm" id="btnResetRealData">
-                        Verilerime Sıfırla
-                    </button>
-                </div>
+            <!-- Önizleme ve Veri Temizleme Butonları -->
+            <div class="pond-action-buttons" style="margin-top: 14px;">
+                <button type="button" class="btn btn-primary btn-sm" id="btnAutoPlayStages">
+                    ▶ Aşamaları Göster (Önizleme)
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" id="btnResetRealData">
+                    Verileri Temizle / Sıfırla
+                </button>
             </div>
         </section>
     </main>

@@ -612,45 +612,6 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
-        if (simPrevInput) {
-            simPrevInput.addEventListener('input', function () {
-                const n = liveSeries.length;
-                const oldSaved = Math.max(0, liveSeries[n - 2].consumption_m3 - liveSeries[n - 1].consumption_m3);
-                liveSeries[n - 2].consumption_m3 = parseFloat(simPrevInput.value);
-                const newSaved = Math.max(0, liveSeries[n - 2].consumption_m3 - liveSeries[n - 1].consumption_m3);
-                updateAnalyticsAndPond(newSaved > oldSaved);
-            });
-        }
-
-        if (simCurrInput) {
-            simCurrInput.addEventListener('input', function () {
-                const n = liveSeries.length;
-                const oldSaved = Math.max(0, liveSeries[n - 2].consumption_m3 - liveSeries[n - 1].consumption_m3);
-                liveSeries[n - 1].consumption_m3 = parseFloat(simCurrInput.value);
-                const newSaved = Math.max(0, liveSeries[n - 2].consumption_m3 - liveSeries[n - 1].consumption_m3);
-                updateAnalyticsAndPond(newSaved > oldSaved);
-            });
-        }
-
-        if (btnDropWater) {
-            btnDropWater.addEventListener('click', function () {
-                if (autoPlayTimer) {
-                    clearInterval(autoPlayTimer);
-                    autoPlayTimer = null;
-                }
-                const n = liveSeries.length;
-                const nextCurr = Math.max(4, +(liveSeries[n - 1].consumption_m3 - 0.25).toFixed(2));
-                if (nextCurr === liveSeries[n - 1].consumption_m3) {
-                    liveSeries[n - 2].consumption_m3 = +(liveSeries[n - 2].consumption_m3 + 0.25).toFixed(2);
-                    if (simPrevInput) simPrevInput.value = liveSeries[n - 2].consumption_m3;
-                } else {
-                    liveSeries[n - 1].consumption_m3 = nextCurr;
-                    if (simCurrInput) simCurrInput.value = nextCurr;
-                }
-                updateAnalyticsAndPond(true);
-            });
-        }
-
         if (btnAutoPlay) {
             btnAutoPlay.addEventListener('click', function () {
                 if (autoPlayTimer) {
@@ -661,15 +622,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 const basePrev = Math.max(12, liveSeries[n - 2].consumption_m3);
                 liveSeries[n - 2].consumption_m3 = basePrev;
                 liveSeries[n - 1].consumption_m3 = basePrev;
-                if (simPrevInput) simPrevInput.value = basePrev;
-                if (simCurrInput) simCurrInput.value = basePrev;
                 updateAnalyticsAndPond(false);
 
                 let steps = 0;
                 autoPlayTimer = setInterval(function () {
                     steps++;
                     liveSeries[n - 1].consumption_m3 = Math.max(4, +(liveSeries[n - 1].consumption_m3 - 0.5).toFixed(2));
-                    if (simCurrInput) simCurrInput.value = liveSeries[n - 1].consumption_m3;
                     updateAnalyticsAndPond(true);
                     if (steps >= 7) {
                         clearInterval(autoPlayTimer);
@@ -687,9 +645,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 liveSeries = JSON.parse(JSON.stringify(baseSeries));
                 const n = liveSeries.length;
-                if (simPrevInput) simPrevInput.value = liveSeries[n - 2].consumption_m3;
-                if (simCurrInput) simCurrInput.value = liveSeries[n - 1].consumption_m3;
-                updateAnalyticsAndPond(true);
+                liveSeries[n - 1].consumption_m3 = liveSeries[n - 2].consumption_m3;
+                updateAnalyticsAndPond(false);
             });
         }
 
