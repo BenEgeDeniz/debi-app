@@ -9,6 +9,16 @@ $flash            = get_flash();
 $pendingFriendCnt = !empty($currentUser) && function_exists('count_incoming_friend_requests')
     ? count_incoming_friend_requests((int) $currentUser['id'])
     : 0;
+$headerPondDrops  = 0;
+$headerPondPct    = 0.0;
+if (!empty($currentUser)) {
+    if (!function_exists('get_household_pond_state')) {
+        require_once __DIR__ . '/../modules/water/water_service.php';
+    }
+    $headerPond      = get_household_pond_state((int) ($currentUser['household_id'] ?? 0));
+    $headerPondDrops = (int) ($headerPond['total_drops'] ?? 0);
+    $headerPondPct   = (float) ($headerPond['doluluk_yuzdesi'] ?? 0.0);
+}
 ?>
 <!DOCTYPE html>
 <html lang="tr">
@@ -47,13 +57,6 @@ $pendingFriendCnt = !empty($currentUser) && function_exists('count_incoming_frie
                         <?= render_avatar($currentUser, 'avatar-sm') ?>
                         <div class="user-chip-meta">
                             <span class="user-chip-name"><?= e($currentUser['full_name']) ?></span>
-                            <span class="user-chip-sub">
-                                <?php if (!empty($currentUser['apartment_id'])): ?>
-                                    <?= e($currentUser['apartment_name']) ?>
-                                <?php else: ?>
-                                    <?= e($currentUser['neighborhood_district']) ?>
-                                <?php endif; ?>
-                            </span>
                         </div>
                     </a>
                     <a href="logout.php" class="btn btn-outline btn-sm">Çıkış</a>

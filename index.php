@@ -116,27 +116,27 @@ require_once __DIR__ . '/includes/header.php';
                 <input type="hidden" name="return_scope" value="<?= e($scope) ?>">
                 <input type="hidden" name="category" value="tip">
 
-                <textarea name="content" rows="3" required
-                          placeholder="Arkadaşlarınızla veya apartmanınızla su tasarrufu deneyiminizi, fatura değişiminizi ya da sorunuzu paylaşın..."></textarea>
+                <textarea name="content" rows="2" required
+                          placeholder="Neler oluyor? Tasarruf ipucunu veya faturanı paylaş..."></textarea>
 
                 <div class="composer-bar-clean">
                     <div class="composer-bar-left">
                         <select name="visibility" class="composer-scope-select" aria-label="Görünürlük">
                             <option value="friends" <?= $scope === 'friends' ? 'selected' : '' ?>>
-                                Arkadaşlarım
+                                Arkadaşlar
                             </option>
                             <?php if (!empty($currentUser['apartment_id'])): ?>
                                 <option value="apartment" <?= $scope === 'apartment' ? 'selected' : '' ?>>
-                                    Apartmanım (<?= e($currentUser['apartment_name']) ?>)
+                                    <?= e($currentUser['apartment_name']) ?>
                                 </option>
                             <?php endif; ?>
                             <option value="public" <?= $scope === 'public' ? 'selected' : '' ?>>
-                                Genel Debi
+                                Genel
                             </option>
                         </select>
 
                         <label class="file-attach-label">
-                            <span>Fotoğraf Ekle</span>
+                            <span>📷 Fotoğraf</span>
                             <input type="file" name="post_image" accept="image/jpeg,image/png,image/webp">
                         </label>
                     </div>
@@ -151,45 +151,36 @@ require_once __DIR__ . '/includes/header.php';
             <div class="feed-tabs <?= $isDetachedHome ? 'feed-tabs-2' : '' ?>">
                 <a href="index.php?scope=friends" class="feed-tab <?= $scope === 'friends' ? 'active' : '' ?>">
                     <span>Arkadaşlar</span>
-                    <small>Arkadaş Çevrem</small>
                 </a>
                 <?php if (!$isDetachedHome): ?>
                     <a href="index.php?scope=apartment" class="feed-tab <?= $scope === 'apartment' ? 'active' : '' ?>">
-                        <span>Apartman</span>
-                        <small><?= !empty($currentUser['apartment_name']) ? e($currentUser['apartment_name']) : 'Katıl / Kur' ?></small>
+                        <span><?= !empty($currentUser['apartment_name']) ? e($currentUser['apartment_name']) : 'Apartman' ?></span>
                     </a>
                 <?php endif; ?>
                 <a href="index.php?scope=public" class="feed-tab <?= $scope === 'public' ? 'active' : '' ?>">
-                    <span>Genel Debi</span>
-                    <small>Tüm Topluluk</small>
+                    <span>Genel</span>
                 </a>
             </div>
         </div>
 
         <?php if ($scope === 'apartment' && empty($currentUser['apartment_id'])): ?>
             <div class="panel-card empty-state-card">
-                <h3>Henüz bir apartmana bağlı değilsiniz</h3>
-                <p>
-                    Davet kodunuzla apartmanınıza bağlanabilir veya kendi apartmanınızı oluşturarak komşularınızı davet edebilirsiniz.
-                </p>
-                <div class="action-row">
-                    <a href="apartment.php" class="btn btn-primary">Apartmana Katıl veya Oluştur</a>
-                    <a href="index.php?scope=friends" class="btn btn-outline">Arkadaşlar Akışına Dön</a>
+                <h3>Apartmana bağlı değilsiniz</h3>
+                <div class="action-row" style="margin-top: 10px;">
+                    <a href="apartment.php" class="btn btn-primary btn-sm">Apartmana Katıl / Kur</a>
                 </div>
             </div>
         <?php else: ?>
             <?php if (empty($posts)): ?>
                 <div class="panel-card empty-state-card">
                     <?php if ($scope === 'friends'): ?>
-                        <h3>Arkadaşlar akışınızda henüz paylaşım yok</h3>
-                        <p>Yeni arkadaşlar ekleyerek onların su tasarrufu paylaşımlarını takip edebilir veya Genel Debi akışına göz atabilirsiniz.</p>
-                        <div class="action-row">
-                            <a href="friends.php" class="btn btn-primary">Arkadaş Bul &amp; Ekle</a>
-                            <a href="index.php?scope=public" class="btn btn-outline">Genel Debi Akışı</a>
+                        <h3>Henüz paylaşım yok</h3>
+                        <div class="action-row" style="margin-top: 10px;">
+                            <a href="friends.php" class="btn btn-primary btn-sm">+ Arkadaş Ekle</a>
+                            <a href="index.php?scope=public" class="btn btn-outline btn-sm">Genel Akış</a>
                         </div>
                     <?php else: ?>
-                        <h3>Bu görünümde henüz paylaşım yok</h3>
-                        <p>İlk su tasarrufu notunu veya fatura değişimini yukarıdaki kutudan paylaşabilirsiniz.</p>
+                        <h3>Henüz paylaşım yok</h3>
                     <?php endif; ?>
                 </div>
             <?php else: ?>
@@ -240,13 +231,12 @@ require_once __DIR__ . '/includes/header.php';
                                     <input type="hidden" name="return_scope" value="<?= e($scope) ?>">
                                     <button type="submit" class="btn-action <?= (int) $post['user_reacted'] > 0 ? 'reacted' : '' ?>">
                                         <span class="drop-symbol">💧</span>
-                                        <span class="reaction-label">Damla Desteği</span>
-                                        <span class="reaction-count">(<?= (int) $post['reaction_count'] ?>)</span>
+                                        <span class="reaction-count"><?= (int) $post['reaction_count'] ?></span>
                                     </button>
                                 </form>
 
                                 <button type="button" class="btn-action js-toggle-comments" data-target="comments-<?= (int) $post['id'] ?>">
-                                    Yorumlar (<?= (int) $post['comment_count'] ?>)
+                                    💬 <?= (int) $post['comment_count'] ?>
                                 </button>
 
                                 <?php if ((int) $post['user_id'] === (int) $currentUser['id'] || ($currentUser['role'] === 'manager' && !empty($currentUser['apartment_id']) && (int) $post['apartment_id'] === (int) $currentUser['apartment_id'])): ?>

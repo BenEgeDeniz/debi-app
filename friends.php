@@ -3,6 +3,7 @@
  * DEBI - Arkadaşlarım ( Kompakt 2 Sütunlu Sayfalı Liste & Kişi Arama )
  */
 require_once __DIR__ . '/includes/init.php';
+require_once __DIR__ . '/modules/friends/apartment_suggestions.php';
 
 $currentUser = require_login();
 
@@ -51,6 +52,7 @@ $offset           = ($page - 1) * $perPage;
 $incomingRequests = get_incoming_friend_requests((int) $currentUser['id']);
 $myFriends        = get_user_friends((int) $currentUser['id'], $perPage, $offset);
 $searchResults    = $searchQuery !== '' ? search_users_for_friendship((int) $currentUser['id'], $searchQuery, 8) : [];
+$apartmentSuggestions = get_apartment_friend_suggestions($currentUser);
 
 $pageTitle = 'Arkadaşlar — Debi';
 $activeNav = 'friends';
@@ -64,8 +66,8 @@ require_once __DIR__ . '/includes/header.php';
         <!-- 1. Kişi Arama Çubuğu -->
         <section class="panel-card">
             <form method="get" action="friends.php" class="inline-action-form">
-                <input type="text" name="q" value="<?= e($searchQuery) ?>" placeholder="Arkadaş eklemek için isim veya apartman ara...">
-                <button type="submit" class="btn btn-primary btn-sm">Kişi Ara</button>
+                <input type="text" name="q" value="<?= e($searchQuery) ?>" placeholder="Kişi veya apartman ara...">
+                <button type="submit" class="btn btn-primary btn-sm">Ara</button>
                 <?php if ($searchQuery !== ''): ?>
                     <a href="friends.php" class="btn btn-outline btn-sm">Temizle</a>
                 <?php endif; ?>
@@ -75,7 +77,7 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="search-results-wrap">
                     <?php if (empty($searchResults)): ?>
                         <div class="empty-inline" style="margin-top: 12px; margin-bottom: 0;">
-                            "<?= e($searchQuery) ?>" aramasıyla eşleşen kullanıcı bulunamadı.
+                            Sonuç bulunamadı.
                         </div>
                     <?php else: ?>
                         <div class="friends-compact-grid" style="margin-top: 12px;">
@@ -86,9 +88,6 @@ require_once __DIR__ . '/includes/header.php';
                                         <?= render_avatar($u) ?>
                                         <div class="friend-compact-meta">
                                             <strong><?= e($u['full_name']) ?></strong>
-                                            <span>
-                                                <?= !empty($u['apartment_name']) ? e($u['apartment_name']) : e($u['district']) ?>
-                                            </span>
                                         </div>
                                     </a>
 
@@ -164,7 +163,58 @@ require_once __DIR__ . '/includes/header.php';
             </section>
         <?php endif; ?>
 
-        <!-- 3. Arkadaşlarım (Kompakt 2 Sütunlu Grid + Sayfalama) -->
+        <!-- 3. Apartman Arkadaş Önerileri -->
+        <?php if (!empty($apartmentSuggestions)): ?>
+            <section class="panel-card">
+                <div class="panel-card-header">
+                    <h2 class="section-title">Apartmandan Önerilenler (<?= count($apartmentSuggestions) ?>)</h2>
+                </div>
+
+                <div class="friends-compact-grid">
+                    <?php foreach ($apartmentSuggestions as $u): ?>
+                        <?php $relState = $u['relation']['state'] ?? 'none'; ?>
+                        <div class="friend-compact-card">
+                            <a href="profile.php?id=<?= (int) $u['id'] ?>" class="friend-compact-user">
+                                <?= render_avatar($u) ?>
+                                <div class="friend-compact-meta">
+                                    <strong><?= e($u['full_name']) ?></strong>
+                                    <span><?= e($u['unit_label']) ?></span>
+                                </div>
+                            </a>
+
+                            <?php if ($relState === 'accepted'): ?>
+                                <span class="tag">Arkadaş</span>
+                            <?php elseif ($relState === 'pending_sent'): ?>
+                                <form method="post" action="friends.php">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="remove_friend">
+                                    <input type="hidden" name="target_user_id" value="<?= (int) $u['id'] ?>">
+                                    <input type="hidden" name="return_url" value="friends.php">
+                                    <button type="submit" class="btn btn-outline btn-sm">İptal</button>
+                                </form>
+                            <?php elseif ($relState === 'pending_received'): ?>
+                                <form method="post" action="friends.php">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="accept_request">
+                                    <input type="hidden" name="target_user_id" value="<?= (int) $u['id'] ?>">
+                                    <button type="submit" class="btn btn-primary btn-sm">Kabul Et</button>
+                                </form>
+                            <?php else: ?>
+                                <form method="post" action="friends.php">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="send_request">
+                                    <input type="hidden" name="target_user_id" value="<?= (int) $u['id'] ?>">
+                                    <input type="hidden" name="return_url" value="friends.php">
+                                    <button type="submit" class="btn btn-primary btn-sm">+ Ekle</button>
+                                </form>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+        <?php endif; ?>
+
+        <!-- 4. Arkadaşlarım (Kompakt 2 Sütunlu Grid + Sayfalama) -->
         <section class="panel-card">
             <div class="panel-card-header">
                 <h1 class="section-title">Arkadaşlarım (<?= $totalFriends ?>)</h1>
@@ -172,7 +222,7 @@ require_once __DIR__ . '/includes/header.php';
 
             <?php if (empty($myFriends)): ?>
                 <div class="empty-inline">
-                    Henüz ekli arkadaşınız bulunmuyor. Yukarıdaki arama kutusundan arkadaşlarınızı bulup ekleyebilirsiniz.
+                    Henüz arkadaşınız yok. Yukarıdan arkadaş ekleyebilirsiniz.
                 </div>
             <?php else: ?>
                 <div class="friends-compact-grid">
@@ -182,9 +232,6 @@ require_once __DIR__ . '/includes/header.php';
                                 <?= render_avatar($fr) ?>
                                 <div class="friend-compact-meta">
                                     <strong><?= e($fr['full_name']) ?></strong>
-                                    <span>
-                                        <?= !empty($fr['apartment_name']) ? e($fr['apartment_name']) : e($fr['district']) ?>
-                                    </span>
                                 </div>
                             </div>
                             <?php if ($fr['daily_liters_per_person'] !== null): ?>

@@ -1,63 +1,77 @@
 <?php
 /**
- * DEBI - Sağ Özet Sütunu (Fatura Özeti & Arkadaşlar / Apartman Sıralaması)
+ * DEBI - Sağ Özet Sütunu (Debi Puanlı Daire Göleti & 3'lü Puan Sıralaması: Arkadaş / Apartman / Genel)
  */
 require_once __DIR__ . '/../modules/water/water_service.php';
+require_once __DIR__ . '/../modules/community/community_service.php';
 
 $quickWater    = $currentUser ? get_quick_water_summary($currentUser) : null;
 $pondAnalytics = $currentUser ? get_household_water_analytics($currentUser) : null;
-$leaders       = $currentUser ? get_friends_and_apartment_leaderboard($currentUser, 6) : [];
 $incomingReqs  = $currentUser ? get_incoming_friend_requests((int) $currentUser['id']) : [];
+
+$friendLeaders = $currentUser ? get_friends_drops_leaderboard($currentUser, 6) : [];
+$aptLeaders    = (!empty($currentUser['apartment_id'])) ? get_apartment_drops_leaderboard($currentUser, 6) : [];
+$genLeaders    = $currentUser ? get_general_apartments_drops_leaderboard(6) : [];
 ?>
 <aside class="sidebar-right">
     <?php if ($currentUser && $quickWater): ?>
         <?php if (!empty($incomingReqs)): ?>
             <div class="panel-card">
-                <div class="panel-card-header">
-                    <span class="panel-title">Arkadaşlık İstekleri (<?= count($incomingReqs) ?>)</span>
-                    <a href="friends.php" class="link-subtle">Tümü</a>
+                <div class="panel-card-header" style="margin-bottom: 8px;">
+                    <span class="panel-title">👋 <?= count($incomingReqs) ?> İstek</span>
                 </div>
-                <p class="panel-desc">Size arkadaşlık isteği gönderen kullanıcılar var.</p>
-                <a href="friends.php" class="btn btn-primary btn-sm btn-block">İstekleri Görüntüle</a>
+                <a href="friends.php" class="btn btn-primary btn-sm btn-block">İstekleri Gör</a>
             </div>
         <?php endif; ?>
 
-        <!-- 0. Debi Puan Göleti (Tıklandığında Analiz Sayfası Açılır) -->
+        <!-- 0. Debi Puanlı Daire Göleti Kartı -->
         <?php if ($pondAnalytics): ?>
             <?php
-            $sidePondStage = $pondAnalytics['pond_stage'] ?? 'dry';
-            $sidePondImg   = brand_asset_path('pond_' . $sidePondStage);
-            $sidePondData  = $pondAnalytics['collective_pond'] ?? [
-                'golet_mevcut_su_m3' => 0,
-                'golet_hedef_m3'     => 500,
-                'golet_toplam_puan'  => 0,
-                'doluluk_yuzdesi'    => 0,
+            $sidePondData  = $pondAnalytics['household_pond'] ?? [
+                'total_drops'     => 0,
+                'target_drops'    => 100,
+                'saved_m3'        => 0.0,
+                'saved_liters'    => 0,
+                'doluluk_yuzdesi' => 0.0,
+                'stage'           => 'dry',
+                'stage_title'     => 'Kurumuş',
+                'next_stage_hint' => 'Yarı doluya 30 💧 kaldı',
             ];
+            $sidePondStage = $sidePondData['stage'] ?? 'dry';
+            $sidePondImg   = brand_asset_path('pond_' . $sidePondStage);
+            $sidePct       = (float) ($sidePondData['doluluk_yuzdesi'] ?? 0.0);
+            $sideUnitName  = format_unit_label($currentUser['unit_label'] ?? '', $currentUser['housing_type'] ?? 'apartment_unit');
             ?>
-            <a href="analytics.php" class="panel-card sidebar-pond-card" title="Su Analizi ve Debi Puan Göleti sayfasını aç">
+            <div class="panel-card sidebar-pond-card" id="daireGoleti">
                 <div class="panel-card-header">
-                    <span class="panel-title">Debi Puan Göleti</span>
-                    <span class="panel-period">+<?= number_format((int) $sidePondData['golet_toplam_puan'], 0, ',', '.') ?> Debi Puanı</span>
+                    <div>
+                        <span class="panel-title">Debi Puanı Göleti</span>
+                        <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted);">
+                            <?= e($sideUnitName) ?> &middot; <?= e($sidePondData['stage_title'] ?? '') ?>
+                        </div>
+                    </div>
                 </div>
+
                 <div class="sidebar-pond-visual">
-                    <img src="<?= e($sidePondImg) ?>" alt="Debi Puan Göleti" class="sidebar-pond-img">
+                    <img src="<?= e($sidePondImg) ?>" alt="Debi Puanı Daire Göleti" class="sidebar-pond-img">
                 </div>
+
                 <div class="sidebar-pond-footer">
-                    <div class="comp-row" style="margin-top: 8px; margin-bottom: 4px;">
-                        <span>Ortak Havuz Doluluğu (%<?= number_format((float) $sidePondData['doluluk_yuzdesi'], 1, ',', '.') ?>)</span>
-                        <strong><?= number_format((float) $sidePondData['golet_mevcut_su_m3'], 1, ',', '.') ?> / <?= number_format((float) $sidePondData['golet_hedef_m3'], 0, ',', '.') ?> m³</strong>
+                    <div class="comp-row" style="margin-top: 8px; margin-bottom: 5px; font-size: 0.78rem;">
+                        <span><?= e($sidePondData['next_stage_hint'] ?? '') ?></span>
+                        <strong>%<?= number_format($sidePct, 0, ',', '.') ?></strong>
                     </div>
-                    <div class="progress-track">
-                        <div class="progress-fill fill-green" style="width: <?= min(100, max(2, (float) $sidePondData['doluluk_yuzdesi'])) ?>%;"></div>
+                    <div class="progress-track" style="height: 9px;">
+                        <div class="progress-fill fill-green" style="width: <?= min(100, max(3, $sidePct)) ?>%;"></div>
                     </div>
                 </div>
-            </a>
+            </div>
         <?php endif; ?>
 
         <!-- 1. Bu Ayki Fatura & Debi Özeti -->
         <div class="panel-card">
             <div class="panel-card-header">
-                <span class="panel-title">Fatura &amp; Debi Özeti</span>
+                <span class="panel-title">Bu Ay</span>
                 <span class="panel-period"><?= e($quickWater['period_label']) ?></span>
             </div>
 
@@ -70,19 +84,19 @@ $incomingReqs  = $currentUser ? get_incoming_friend_requests((int) $currentUser[
                 <div class="metric-highlight metric-with-mascot <?= $statusClass ?>">
                     <?= render_mascot($mascotPose, 'mascot-sm', 'Su Durumu Maskotu') ?>
                     <div>
-                        <div class="metric-big"><?= number_format($myDaily, 1, ',', '.') ?> <small>L / kişi·gün</small></div>
+                        <div class="metric-big"><?= number_format($myDaily, 1, ',', '.') ?> <small>L / gün</small></div>
                         <div class="metric-sub">
-                            Bu ayki faturanız: <strong><?= number_format((float) $quickWater['my_log']['consumption_m3'], 1, ',', '.') ?> m³</strong>
+                            <strong><?= number_format((float) $quickWater['my_log']['consumption_m3'], 1, ',', '.') ?> m³</strong>
                         </div>
                     </div>
                 </div>
             <?php else: ?>
                 <div class="empty-mini">
                     <div class="empty-mini-mascot">
-                        <?= render_mascot('thinking', 'mascot-sm', 'Debi Düşünen Maskot') ?>
+                        <?= render_mascot('thinking', 'mascot-sm', 'Debi Maskotu') ?>
                     </div>
-                    <p>Bu ayın su faturasını henüz yüklemediniz. Fotoğrafını yükleyerek yapay zeka ile okutabilirsiniz.</p>
-                    <a href="water.php" class="btn btn-primary btn-sm btn-block">Fatura Fotoğrafı Yükle</a>
+                    <p>Bu ay fatura girilmedi.</p>
+                    <a href="water.php" class="btn btn-primary btn-sm btn-block">+ Fatura Ekle</a>
                 </div>
             <?php endif; ?>
 
@@ -90,9 +104,9 @@ $incomingReqs  = $currentUser ? get_incoming_friend_requests((int) $currentUser[
                 <div class="comparison-bars">
                     <div class="comp-item">
                         <div class="comp-row">
-                            <span>Apartman Ortalaması</span>
+                            <span>Apartman Ort.</span>
                             <strong>
-                                <?= $quickWater['apartment_avg'] !== null ? number_format($quickWater['apartment_avg'], 1, ',', '.') . ' L' : 'Veri yok' ?>
+                                <?= $quickWater['apartment_avg'] !== null ? number_format($quickWater['apartment_avg'], 1, ',', '.') . ' L' : '—' ?>
                             </strong>
                         </div>
                         <?php if ($quickWater['apartment_avg'] !== null): ?>
@@ -104,40 +118,109 @@ $incomingReqs  = $currentUser ? get_incoming_friend_requests((int) $currentUser[
                     </div>
                 </div>
             <?php endif; ?>
-
-            <a href="analytics.php" class="btn btn-outline btn-sm btn-block" style="margin-top: 10px;">
-                Su Analizi &amp; Debi Puan Göleti &rarr;
-            </a>
         </div>
 
-        <!-- 2. Arkadaşlar & Apartman En Az Tüketenler -->
-        <div class="panel-card">
-            <div class="panel-card-header">
-                <span class="panel-title">Çevremde En Az Tüketenler</span>
-                <a href="friends.php" class="link-subtle">Arkadaşlar</a>
+        <!-- 2. Debi Puan Sıralaması: Arkadaş / Apartman / Genel -->
+        <div class="panel-card sidebar-leaderboard-card">
+            <div class="panel-card-header" style="margin-bottom: 8px;">
+                <span class="panel-title">🏆 Puan Sıralaması</span>
             </div>
-            <?php if (!empty($leaders)): ?>
-                <ol class="leaderboard-list">
-                    <?php foreach ($leaders as $idx => $row): ?>
-                        <li class="leaderboard-item <?= (int) $row['user_id'] === (int) $currentUser['id'] ? 'leaderboard-me' : '' ?>">
-                            <span class="rank-num"><?= $idx + 1 ?></span>
-                            <div class="rank-info">
-                                <div class="rank-name">
-                                    <a href="profile.php?id=<?= (int) $row['user_id'] ?>" class="author-link">
-                                        <?= e($row['full_name']) ?>
-                                    </a>
+
+            <!-- 3'lü Sekme Çubuğu -->
+            <div class="lb-switch-tabs" role="tablist">
+                <button type="button" class="lb-switch-tab js-lb-tab active" data-target="lbFriends">
+                    Arkadaş
+                </button>
+                <?php if (!empty($currentUser['apartment_id'])): ?>
+                    <button type="button" class="lb-switch-tab js-lb-tab" data-target="lbApartment">
+                        Apartman
+                    </button>
+                <?php endif; ?>
+                <button type="button" class="lb-switch-tab js-lb-tab" data-target="lbGeneral">
+                    Genel
+                </button>
+            </div>
+
+            <!-- 1. Arkadaş Daire Puanları -->
+            <div class="lb-panel js-lb-panel" id="lbFriends">
+                <?php if (!empty($friendLeaders)): ?>
+                    <ol class="leaderboard-list">
+                        <?php foreach ($friendLeaders as $idx => $row): ?>
+                            <?php $isMe = (int) $row['user_id'] === (int) $currentUser['id']; ?>
+                            <li class="leaderboard-item <?= $isMe ? 'leaderboard-me' : '' ?>">
+                                <span class="rank-num"><?= $idx + 1 ?></span>
+                                <div class="rank-info">
+                                    <div class="rank-name">
+                                        <a href="profile.php?id=<?= (int) $row['user_id'] ?>" class="author-link">
+                                            <?= e($row['full_name']) ?><?= $isMe ? ' <small style="opacity:0.75;">(Sen)</small>' : '' ?>
+                                        </a>
+                                    </div>
+                                    <div class="rank-sub">
+                                        <?= !empty($row['apartment_name']) ? e($row['apartment_name'] . ' · ' . $row['unit_label']) : e($row['unit_label']) ?>
+                                    </div>
                                 </div>
-                                <div class="rank-sub">
-                                    <?= !empty($row['apartment_name']) ? e($row['apartment_name'] . ' · ' . $row['unit_label']) : e($row['unit_label']) ?>
-                                </div>
-                            </div>
-                            <span class="rank-val"><?= number_format((float) $row['daily_liters_per_person'], 1, ',', '.') ?> L</span>
-                        </li>
-                    <?php endforeach; ?>
-                </ol>
-            <?php else: ?>
-                <p class="muted-note">Arkadaş çevrenizde bu ay henüz fatura verisi girilmedi.</p>
+                                <span class="rank-val" title="Daire Toplam Puanı">💧 <?= number_format((int) $row['total_drops'], 0, ',', '.') ?> Puan</span>
+                            </li>
+                        <?php endforeach; ?>
+                    </ol>
+                <?php else: ?>
+                    <p class="muted-note">Henüz ekli arkadaşınız yok.</p>
+                <?php endif; ?>
+            </div>
+
+            <!-- 2. Apartman Daire Puanları -->
+            <?php if (!empty($currentUser['apartment_id'])): ?>
+                <div class="lb-panel js-lb-panel" id="lbApartment" style="display: none;">
+                    <?php if (!empty($aptLeaders)): ?>
+                        <ol class="leaderboard-list">
+                            <?php foreach ($aptLeaders as $idx => $row): ?>
+                                <?php $isMyUnit = (int) $row['household_id'] === (int) $currentUser['household_id']; ?>
+                                <li class="leaderboard-item <?= $isMyUnit ? 'leaderboard-me' : '' ?>">
+                                    <span class="rank-num"><?= $idx + 1 ?></span>
+                                    <div class="rank-info">
+                                        <div class="rank-name">
+                                            <strong><?= e(format_unit_label($row['unit_label'], $row['housing_type'])) ?></strong>
+                                            <?= $isMyUnit ? ' <small style="opacity:0.75;">(Daireniz)</small>' : '' ?>
+                                        </div>
+                                        <div class="rank-sub">
+                                            <?= e($row['display_name']) ?>
+                                        </div>
+                                    </div>
+                                    <span class="rank-val" title="Daire Toplam Puanı">💧 <?= number_format((int) $row['total_drops'], 0, ',', '.') ?> Puan</span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ol>
+                    <?php else: ?>
+                        <p class="muted-note">Apartmanda henüz puanlı daire yok.</p>
+                    <?php endif; ?>
+                </div>
             <?php endif; ?>
+
+            <!-- 3. Genel Apartman Puan Toplamları Sıralaması -->
+            <div class="lb-panel js-lb-panel" id="lbGeneral" style="display: none;">
+                <?php if (!empty($genLeaders)): ?>
+                    <ol class="leaderboard-list">
+                        <?php foreach ($genLeaders as $idx => $row): ?>
+                            <?php $isMyApt = !empty($currentUser['apartment_id']) && (int) $row['apartment_id'] === (int) $currentUser['apartment_id']; ?>
+                            <li class="leaderboard-item <?= $isMyApt ? 'leaderboard-me' : '' ?>">
+                                <span class="rank-num"><?= $idx + 1 ?></span>
+                                <div class="rank-info">
+                                    <div class="rank-name">
+                                        <strong><?= e($row['apartment_name']) ?></strong>
+                                        <?= $isMyApt ? ' <small style="opacity:0.75;">(Apartmanınız)</small>' : '' ?>
+                                    </div>
+                                    <div class="rank-sub">
+                                        <?= e($row['district'] . ' / ' . $row['city']) ?> &middot; <?= (int) $row['daire_count'] ?> Daire
+                                    </div>
+                                </div>
+                                <span class="rank-val" title="Apartman Toplam Daire Puanları">💧 <?= number_format((int) $row['total_drops'], 0, ',', '.') ?> Puan</span>
+                            </li>
+                        <?php endforeach; ?>
+                    </ol>
+                <?php else: ?>
+                    <p class="muted-note">Henüz apartman kaydı yok.</p>
+                <?php endif; ?>
+            </div>
         </div>
     <?php endif; ?>
 </aside>

@@ -41,28 +41,24 @@ require_once __DIR__ . '/includes/header.php';
             <?= render_mascot('smile', 'auth-hero-mascot', 'Debi Damla Maskotu') ?>
         </div>
 
-        <div class="auth-kicker">YEREL SU TASARRUFU AĞI</div>
-        <h1>Mahallenizde ve apartmanınızda su tüketimini birlikte takip edin</h1>
+        <h1>Su tasarrufunu sosyal ağa dönüştürün</h1>
         <p>
-            Debi; apartman dairelerini, müstakil evleri ve mahallede bireysel yer almak isteyen komşuları ortak bir su tasarrufu ağında buluşturur.
+            Faturanızı yapay zeka ile okutun, arkadaşlarınız ve komşularınızla su tüketiminizi takip edin, daire göletinizi canlandırın.
         </p>
         <div class="auth-feature-cards">
             <div class="auth-feat-item">
                 <div>
-                    <strong>Ortak Mahalle Çatısı</strong>
-                    <span>Apartmanlar ve bireysel evler kendi mahallesinde buluşur.</span>
+                    <strong>💧 Daire Göleti &amp; Damla Ödülleri</strong>
                 </div>
             </div>
             <div class="auth-feat-item">
                 <div>
-                    <strong>Yapay Zeka ile Su Faturası Okuma</strong>
-                    <span>Faturanızın fotoğrafını yükleyin, tüketim verileriniz otomatik çıkarılsın.</span>
+                    <strong>📸 Yapay Zeka ile Fatura Okuma</strong>
                 </div>
             </div>
             <div class="auth-feat-item">
                 <div>
-                    <strong>Adil Hane Kıyaslaması</strong>
-                    <span>Kişi sayısına göre hesaplanan günlük litre ortalamasıyla mahallenizi takip edin.</span>
+                    <strong>🏢 Apartman &amp; Arkadaş Akışı</strong>
                 </div>
             </div>
         </div>
@@ -70,7 +66,6 @@ require_once __DIR__ . '/includes/header.php';
 
     <div class="auth-card">
         <h2 class="auth-card-title">Giriş Yap</h2>
-        <p class="auth-card-subtitle">Hesabınıza giriş yaparak mahalle ve apartman akışınıza ulaşın.</p>
 
         <?php if ($error): ?>
             <div class="alert alert-error">

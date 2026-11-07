@@ -45,7 +45,14 @@
     box-sizing: border-box;
 }
 
-html, body {
+html {
+    height: 100%;
+}
+
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
     margin: 0;
     padding: 0;
     background-color: var(--bg-page);
@@ -458,6 +465,8 @@ code {
    ANA UYGULAMA İSKELETİ (APP SHELL)
    ========================================================== */
 .app-shell {
+    flex: 1 0 auto;
+    width: 100%;
     max-width: 1240px;
     margin: 20px auto 44px auto;
     padding: 0 20px;
@@ -487,6 +496,351 @@ code {
     gap: 12px;
     flex-wrap: wrap;
     margin-bottom: 12px;
+}
+
+.page-heading-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+.page-heading-row > .btn {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.page-heading-row .page-title,
+.page-heading-row .page-subtitle {
+    margin-top: 0;
+}
+
+.event-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--brand-primary);
+    border-radius: var(--radius-md);
+    padding: 18px 20px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.event-card-ended {
+    color: var(--text-secondary);
+    background: #f8fafc;
+    border-left-color: #94a3b8;
+}
+
+.event-card-ended .section-title,
+.event-card-ended .event-scope-label {
+    color: #64748b;
+}
+
+.event-card-ended .event-points {
+    color: #64748b;
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+}
+
+.event-card-ended > p,
+.event-card-ended .event-meta-row,
+.event-card-ended .panel-card-header > div:first-child > p {
+    color: #64748b;
+}
+
+.event-section {
+    margin-bottom: 24px;
+}
+
+.event-section > .panel-card-header {
+    margin-bottom: 12px;
+}
+
+.event-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.event-list .event-card {
+    margin: 0;
+}
+
+.event-card > p {
+    margin-top: 0;
+    margin-bottom: 12px;
+}
+
+.event-info-box {
+    padding: 14px 16px;
+    color: var(--text-secondary);
+    background: var(--brand-primary-bg);
+    border: 1px solid #bae6fd;
+    border-radius: var(--radius-sm);
+    font-size: 0.84rem;
+}
+
+.event-info-box strong {
+    color: var(--brand-primary-dark);
+}
+
+.event-info-box p {
+    margin: 5px 0 0;
+}
+
+.event-card .section-title {
+    margin-bottom: 4px;
+}
+
+.event-scope-label {
+    color: var(--brand-primary-dark);
+    font-size: 0.74rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.event-points {
+    min-width: 62px;
+    text-align: center;
+    color: var(--brand-primary-dark);
+    background: var(--brand-primary-bg);
+    border: 1px solid #bae6fd;
+    border-radius: var(--radius-sm);
+    padding: 7px 10px;
+}
+
+.event-points strong,
+.event-points span {
+    display: block;
+}
+
+.event-points strong {
+    font-size: 1.3rem;
+}
+
+.event-points span {
+    font-size: 0.7rem;
+    font-weight: 900;
+}
+
+.event-card .panel-card-header > div:first-child > p {
+    margin: 4px 0 0;
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+}
+
+.event-meta-row,
+.event-action-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+}
+
+.event-meta-row {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.event-reason {
+    margin-top: 12px;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+
+.event-reason summary {
+    color: var(--brand-primary-dark);
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.event-reason p {
+    margin-top: 6px;
+    margin-bottom: 0;
+}
+
+.event-participation,
+.event-attendance {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin-top: 16px;
+    padding: 14px;
+    background: var(--bg-subtle);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+}
+
+.event-form-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.event-form-heading span,
+.event-form-heading h3 {
+    margin: 0;
+    font-size: 0.98rem;
+    font-weight: 800;
+}
+
+.event-form-heading small {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.event-photo-form {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.event-file-input {
+    display: flex;
+    align-items: center;
+    min-height: 36px;
+    padding: 0 11px;
+    color: var(--text-secondary);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.event-file-input input[type="file"] {
+    max-width: 190px;
+    margin-left: 8px;
+    font: inherit;
+    color: var(--text-secondary);
+}
+
+.event-attendee-list {
+    display: grid;
+    gap: 6px;
+    padding: 2px 0;
+}
+
+.event-attendee-option {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 10px;
+    color: var(--text-main);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.event-attendee-option:has(input:checked) {
+    color: var(--brand-primary-dark);
+    background: var(--brand-primary-bg);
+    border-color: #bae6fd;
+}
+
+.event-attendee-option input {
+    accent-color: var(--brand-primary);
+}
+
+@media (max-width: 600px) {
+    .event-photo-form {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .event-file-input input[type="file"] {
+        min-width: 0;
+        max-width: 100%;
+    }
+}
+
+.event-attendance-locked {
+    margin-top: 16px;
+    padding: 12px 14px;
+    color: var(--text-secondary);
+    background: var(--bg-subtle);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-sm);
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+
+.ajax-form-error {
+    margin-bottom: 12px;
+}
+
+.ajax-form-success {
+    margin-bottom: 12px;
+}
+
+.bill-points-rule-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    color: var(--text-secondary);
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.bill-points-rule-box strong {
+    color: var(--text-main);
+    font-size: 0.84rem;
+}
+
+.bill-points-rule-box small {
+    color: var(--brand-primary-dark);
+    font-weight: 800;
+}
+
+.ai-verify-text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.ai-verify-text small {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.review-pending-tag {
+    color: #92400e;
+    background: #fef3c7;
+    border-color: #fcd34d;
+}
+
+.admin-review-list {
+    display: grid;
+    gap: 16px;
+}
+
+.admin-review-card {
+    margin-bottom: 0;
+}
+
+.admin-review-card .form-help {
+    margin: 4px 0 0;
+}
+
+form[aria-busy="true"] {
+    opacity: 0.72;
+    pointer-events: none;
 }
 
 .panel-title {
@@ -1835,8 +2189,13 @@ a.timeline-meta-item:hover {
     border-color: var(--brand-primary);
 }
 
-.bill-dropzone input[type="file"] {
-    display: none;
+.bill-dropzone .bill-file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .bill-dropzone-content {
@@ -1869,6 +2228,10 @@ a.timeline-meta-item:hover {
     flex-direction: column;
     align-items: center;
     gap: 8px;
+}
+
+.bill-selected-preview[hidden] {
+    display: none;
 }
 
 .bill-selected-preview img {
@@ -2058,6 +2421,41 @@ a.timeline-meta-item:hover {
     background-color: var(--brand-green);
 }
 
+.lb-switch-tabs {
+    display: flex;
+    background-color: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+    gap: 3px;
+    margin-bottom: 10px;
+}
+
+.lb-switch-tab {
+    flex: 1;
+    padding: 5px 6px;
+    font-family: inherit;
+    font-size: 0.77rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s ease;
+}
+
+.lb-switch-tab:hover {
+    color: var(--text-main);
+}
+
+.lb-switch-tab.active {
+    background-color: var(--bg-surface);
+    color: var(--brand-primary-dark);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
 .leaderboard-list {
     list-style: none;
     margin: 0;
@@ -2226,6 +2624,8 @@ a.timeline-meta-item:hover {
    GİRİŞ & KAYIT SAYFALARI (AUTH LAYOUT)
    ========================================================== */
 .auth-layout {
+    flex: 1 0 auto;
+    width: 100%;
     max-width: 1000px;
     margin: 34px auto;
     padding: 0 20px;
@@ -2480,7 +2880,8 @@ a.timeline-meta-item:hover {
     border-top: 1px solid var(--border-color);
     background-color: var(--bg-surface);
     padding: 18px 20px;
-    margin-top: 44px;
+    margin-top: auto;
+    flex-shrink: 0;
 }
 
 .footer-inner {
@@ -2536,6 +2937,16 @@ a.timeline-meta-item:hover {
 
     .sidebar-left {
         display: none;
+    }
+
+    .page-heading-row {
+        align-items: stretch;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .page-heading-row > .btn {
+        align-self: flex-end;
     }
 
     .sidebar-right,
@@ -2954,24 +3365,15 @@ a.timeline-meta-item:hover {
 
 .sidebar-pond-card {
     display: block;
-    text-decoration: none !important;
     color: var(--text-main);
-    transition: border-color 0.18s ease, transform 0.18s ease;
-    cursor: pointer;
-}
-
-.sidebar-pond-card:hover {
-    border-color: var(--brand-primary);
-    transform: translateY(-1px);
-    text-decoration: none !important;
 }
 
 .sidebar-pond-visual {
-    margin-top: 6px;
-    padding: 10px;
+    margin-top: 8px;
+    padding: 12px 10px;
     border-radius: var(--radius-sm);
-    background: linear-gradient(180deg, #f0f9ff 0%, #f8fafc 100%);
-    border: 1px solid var(--border-color);
+    background: linear-gradient(180deg, #e0f2fe 0%, #f0f9ff 65%, #f8fafc 100%);
+    border: 1px solid #bae6fd;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2979,9 +3381,322 @@ a.timeline-meta-item:hover {
 
 .sidebar-pond-img {
     width: 100%;
-    max-width: 220px;
+    max-width: 230px;
     height: auto;
     object-fit: contain;
+}
+
+/* ==========================================================
+   MOTİVASYON DAMLA ROZETLERİ & DAİRE GÖLETİ KUTLAMA MODALI
+   ========================================================== */
+.topbar-drop-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 13px;
+    border-radius: var(--radius-pill);
+    background: linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%);
+    border: 1.5px solid #38bdf8;
+    color: #0369a1;
+    font-size: 0.85rem;
+    font-weight: 900;
+    text-decoration: none !important;
+    box-shadow: 0 2px 6px rgba(14, 165, 233, 0.14);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.topbar-drop-pill:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(14, 165, 233, 0.22);
+    text-decoration: none !important;
+}
+
+.topbar-drop-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.drop-motivation-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: var(--radius-pill);
+    background: linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%);
+    border: 1.5px solid #38bdf8;
+    color: #0369a1;
+    font-size: 0.83rem;
+    font-weight: 800;
+    text-decoration: none !important;
+}
+
+.drop-motivation-badge strong {
+    font-weight: 900;
+    color: #0c4a6e;
+}
+
+.role-badge-drops {
+    background: linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%);
+    border-color: #38bdf8;
+    color: #0369a1;
+    text-decoration: none !important;
+    font-weight: 900;
+}
+
+.sidebar-drop-hero {
+    margin-top: 4px;
+    margin-bottom: 8px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, #f0f9ff 0%, #ecfdf5 100%);
+    border: 1px solid #bae6fd;
+}
+
+.sidebar-drop-hero-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sidebar-drop-big {
+    font-size: 1.3rem;
+    font-weight: 900;
+    color: #0369a1;
+    line-height: 1.2;
+}
+
+.sidebar-drop-big small {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.sidebar-drop-sub {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--brand-green-dark);
+}
+
+.ai-verify-reward-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, #ecfdf5 0%, #e0f2fe 100%);
+    border: 1.5px solid #34d399;
+    margin-bottom: 16px;
+    transition: all 0.2s ease;
+}
+
+.ai-verify-reward-banner.is-modified {
+    background: var(--brand-amber-bg);
+    border-color: #fcd34d;
+}
+
+.ai-verify-icon {
+    font-size: 1.35rem;
+    line-height: 1.1;
+    flex-shrink: 0;
+}
+
+.ai-verify-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.85rem;
+}
+
+.ai-verify-text strong {
+    font-weight: 900;
+    color: #065f46;
+}
+
+.ai-verify-reward-banner.is-modified .ai-verify-text strong {
+    color: var(--brand-amber-dark);
+}
+
+.ai-verify-text span {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+/* Tam Ekran Karartmalı Daire Göleti Kutlama Modalı */
+.pond-celebration-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(6, 17, 33, 0.88);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: pondOverlayFadeIn 0.28s ease-out forwards;
+}
+
+.pond-celebration-overlay.is-closing {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+@keyframes pondOverlayFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.pond-celebration-card {
+    width: 100%;
+    max-width: 580px;
+    background: #ffffff;
+    border: 2px solid #38bdf8;
+    border-radius: var(--radius-lg);
+    padding: 24px 24px 22px 24px;
+    text-align: center;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45), 0 0 40px rgba(14, 165, 233, 0.28);
+    animation: pondCardPopIn 0.34s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pondCardPopIn {
+    from {
+        transform: translateY(20px) scale(0.94);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+.pond-cel-kicker {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: var(--radius-pill);
+    background-color: #e0f2fe;
+    color: #0369a1;
+    font-size: 0.75rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+}
+
+.pond-cel-title {
+    font-size: 1.75rem;
+    font-weight: 900;
+    color: #0f172a;
+    margin: 0 0 6px 0;
+}
+
+.pond-cel-sub {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 0 auto 12px auto;
+    max-width: 480px;
+}
+
+.pond-cel-reasons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.pond-cel-reason-pill {
+    padding: 4px 11px;
+    border-radius: var(--radius-pill);
+    background-color: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #065f46;
+    font-size: 0.79rem;
+    font-weight: 800;
+}
+
+.pond-cel-arena {
+    position: relative;
+    padding: 46px 16px 18px 16px;
+    background: linear-gradient(180deg, #dbeafe 0%, #f0f9ff 65%, #f8fafc 100%);
+    border: 1.5px solid #bae6fd;
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+}
+
+.pond-cel-drop-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 200px;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.cel-water-drop {
+    font-size: 1.85rem;
+}
+
+.pond-cel-visual-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 340px;
+    width: 100%;
+    z-index: 2;
+}
+
+.pond-cel-stage-img {
+    width: 100%;
+    max-width: 320px;
+    height: auto;
+    object-fit: contain;
+    transition: transform 0.28s ease, opacity 0.22s ease;
+}
+
+.pond-cel-meter-box {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background-color: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    text-align: left;
+}
+
+.pond-cel-meter-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.88rem;
+    font-weight: 800;
+    margin-bottom: 6px;
+}
+
+.pond-cel-stage-status {
+    margin-top: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.pond-cel-stage-status strong {
+    color: var(--text-main);
+}
+
+.pond-cel-actions {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 @media (max-width: 768px) {
@@ -2993,5 +3708,12 @@ a.timeline-meta-item:hover {
     .pond-sliders-grid {
         grid-template-columns: 1fr;
     }
-}
 
+    .pond-celebration-card {
+        padding: 18px 14px;
+    }
+
+    .pond-cel-title {
+        font-size: 1.4rem;
+    }
+}

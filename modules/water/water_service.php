@@ -6,6 +6,33 @@
 /**
  * Aylık Su Tüketim Kaydı Ekleme / Güncelleme
  */
+function get_next_water_period(array $user): array
+{
+    $registrationDate = new DateTime((string) ($user['created_at'] ?? 'now'));
+    $registrationPeriod = ((int) $registrationDate->format('Y') * 12) + (int) $registrationDate->format('n');
+    $periodStmt = db()->prepare("
+        SELECT period_year, period_month
+        FROM water_logs
+        WHERE household_id = :hid
+          AND ((period_year * 12) + period_month) >= :registration_period
+        ORDER BY period_year DESC, period_month DESC
+        LIMIT 1
+    ");
+    $periodStmt->execute([
+        ':hid' => (int) $user['household_id'],
+        ':registration_period' => $registrationPeriod,
+    ]);
+    $latestPeriod = $periodStmt->fetch();
+    $nextPeriod = $latestPeriod
+        ? ((int) $latestPeriod['period_year'] * 12) + (int) $latestPeriod['period_month'] + 1
+        : $registrationPeriod;
+
+    return [
+        'year' => intdiv($nextPeriod - 1, 12),
+        'month' => (($nextPeriod - 1) % 12) + 1,
+    ];
+}
+
 function save_water_log(array $user, array $input): array
 {
     $year          = (int) ($input['period_year'] ?? date('Y'));
@@ -32,6 +59,25 @@ function save_water_log(array $user, array $input): array
         return ['ok' => false, 'error' => 'Geçersiz dönem seçimi.'];
     }
 
+    $nextPeriod = get_next_water_period($user);
+    $registrationDate = new DateTime((string) ($user['created_at'] ?? 'now'));
+    $registrationPeriod = ((int) $registrationDate->format('Y') * 12) + (int) $registrationDate->format('n');
+    $selectedPeriod = ($year * 12) + $month;
+    $currentPeriod = ((int) date('Y') * 12) + (int) date('n');
+    if ($selectedPeriod < $registrationPeriod) {
+        return ['ok' => false, 'error' => 'Kayıt tarihinden önceki aylara ait faturalar yüklenemez.'];
+    }
+    if ($selectedPeriod > $currentPeriod) {
+        return ['ok' => false, 'error' => 'Gelecek aylara ait fatura yüklenemez.'];
+    }
+
+    $nextPeriodNumber = ((int) $nextPeriod['year'] * 12) + (int) $nextPeriod['month'];
+    if ($selectedPeriod !== $nextPeriodNumber) {
+        return ['ok' => false, 'error' => $selectedPeriod < $nextPeriodNumber
+            ? 'Bu dönem zaten kaydedilmiş veya daha eski bir dönem. Faturalar sırayla yüklenmelidir.'
+            : 'Faturalar aylık sırayla yüklenmelidir; aradaki ay atlanamaz.'];
+    }
+
     if ($consumptionM3 <= 0 || $consumptionM3 > 500) {
         return ['ok' => false, 'error' => 'Lütfen geçerli bir su tüketim miktarı (m³) girin (Örn: 9.5).'];
     }
@@ -44,173 +90,86 @@ function save_water_log(array $user, array $input): array
     $residentCount = max(1, (int) ($user['resident_count'] ?? 2));
     // 1 m3 = 1000 Litre. Faturadaki okuma gün sayısı ve kişi sayısına göre günlük litre:
     $dailyLitersPerPerson = round(($consumptionM3 * 1000) / ($readingDays * $residentCount), 1);
-
-    if (function_exists('ensure_gamification_schema')) {
-        ensure_gamification_schema();
-    }
+    $aiVerified           = !empty($input['ai_verified']) ? 1 : 0;
+    $aiUsed               = !empty($input['ai_used']);
+    $reviewStatus         = (!$aiUsed || $aiVerified === 1) ? 'approved' : 'pending';
 
     $pdo = db();
-
-    // 1. Veri Girişi: "Geçen Ayki Tüketim (m3)" alınır (Formdan girildiyse formdan, yoksa önceki ay kaydından)
-    $prevInputRaw = trim((string) ($input['previous_consumption_m3'] ?? ''));
-    $gecenAyM3    = $prevInputRaw !== '' ? (float) str_replace(',', '.', $prevInputRaw) : 0.0;
-
-    if ($gecenAyM3 <= 0) {
-        $prevM = $month === 1 ? 12 : $month - 1;
-        $prevY = $month === 1 ? $year - 1 : $year;
-        $prevStmt = $pdo->prepare("
-            SELECT consumption_m3
-            FROM water_logs
-            WHERE household_id = :hid
-              AND (period_year < :y1 OR (period_year = :y2 AND period_month < :m))
-            ORDER BY period_year DESC, period_month DESC
-            LIMIT 1
-        ");
-        $prevStmt->execute([
-            ':hid' => (int) $user['household_id'],
-            ':y1'  => $year,
-            ':y2'  => $year,
-            ':m'   => $month,
-        ]);
-        $foundPrev = $prevStmt->fetchColumn();
-        if ($foundPrev !== false && (float) $foundPrev > 0) {
-            $gecenAyM3 = (float) $foundPrev;
-        }
-    }
-
-    // 2. Fark Hesabı: tasarruf_m3 = gecen_ay_m3 - bu_ay_m3
-    $tasarrufM3      = 0.0;
-    $kurtarilanLitre = 0;
-    $tasarrufYuzdesi = 0.0;
-    $earnedPoints    = 0;
-
-    if ($gecenAyM3 > 0) {
-        $farkM3 = round($gecenAyM3 - $consumptionM3, 2);
-        if ($farkM3 > 0) {
-            $tasarrufM3      = $farkM3;
-            $kurtarilanLitre = (int) round($tasarrufM3 * 1000);
-            $tasarrufYuzdesi = round(($tasarrufM3 / $gecenAyM3) * 100, 2);
-
-            // 3. Puan (Damla) Dönüşümü: %10 ve üzeri tasarruf barajı geçildiyse sabit +10 Debi Puanı
-            if ($tasarrufYuzdesi >= 10.0) {
-                $earnedPoints = 10;
-            }
-        }
-    }
-
-    // Aynı dönem daha önce kaydedildiyse eski tasarruf ve puanı kontrol et (mükerrer gölet eklemesini önlemek için)
-    $oldLogStmt = $pdo->prepare("
-        SELECT saved_m3, saved_liters, earned_points
-        FROM water_logs
-        WHERE household_id = :hid AND period_year = :y AND period_month = :m
-        LIMIT 1
-    ");
-    $oldLogStmt->execute([
-        ':hid' => (int) $user['household_id'],
-        ':y'   => $year,
-        ':m'   => $month,
-    ]);
-    $oldLog = $oldLogStmt->fetch() ?: null;
 
     $stmt = $pdo->prepare("
         INSERT INTO water_logs (
             household_id, user_id, neighborhood_id, apartment_id,
             period_year, period_month, consumption_m3,
-            previous_consumption_m3, saved_m3, saved_liters, saving_pct, earned_points,
+            previous_consumption_m3, saved_m3, saved_liters, saving_pct, earned_points, ai_verified,
             resident_count_snapshot, daily_liters_per_person,
-            bill_amount, bill_image_path, provider_name, reading_days, notes
+            bill_amount, bill_image_path, provider_name, reading_days, notes, review_status,
+            reviewed_by_user_id, reviewed_at, review_note
         ) VALUES (
             :hid, :uid, :nid, :aid,
             :y, :m, :m3,
-            :prevm3, :savedm3, :savedl, :savepct, :pts,
+            NULL, 0.00, 0, 0.00, 0, :aiver,
             :rcount, :daily,
-            :bill, :bimg, :prov, :days, :notes
+            :bill, :bimg, :prov, :days, :notes, :review_status,
+            NULL, NULL, NULL
         )
         ON DUPLICATE KEY UPDATE
             user_id                 = VALUES(user_id),
             consumption_m3          = VALUES(consumption_m3),
-            previous_consumption_m3 = VALUES(previous_consumption_m3),
-            saved_m3                = VALUES(saved_m3),
-            saved_liters            = VALUES(saved_liters),
-            saving_pct              = VALUES(saving_pct),
-            earned_points           = VALUES(earned_points),
+            ai_verified             = GREATEST(ai_verified, VALUES(ai_verified)),
             resident_count_snapshot = VALUES(resident_count_snapshot),
             daily_liters_per_person = VALUES(daily_liters_per_person),
             bill_amount             = VALUES(bill_amount),
             bill_image_path         = COALESCE(VALUES(bill_image_path), bill_image_path),
             provider_name           = VALUES(provider_name),
             reading_days            = VALUES(reading_days),
-            notes                   = VALUES(notes)
+            notes                   = VALUES(notes),
+            review_status           = VALUES(review_status),
+            reviewed_by_user_id     = NULL,
+            reviewed_at             = NULL,
+            review_note             = NULL
     ");
 
     $stmt->execute([
-        ':hid'     => (int) $user['household_id'],
-        ':uid'     => (int) $user['id'],
-        ':nid'     => (int) $user['neighborhood_id'],
-        ':aid'     => !empty($user['apartment_id']) ? (int) $user['apartment_id'] : null,
-        ':y'       => $year,
-        ':m'       => $month,
-        ':m3'      => $consumptionM3,
-        ':prevm3'  => $gecenAyM3 > 0 ? $gecenAyM3 : null,
-        ':savedm3' => $tasarrufM3,
-        ':savedl'  => $kurtarilanLitre,
-        ':savepct' => $tasarrufYuzdesi,
-        ':pts'     => $earnedPoints,
-        ':rcount'  => $residentCount,
-        ':daily'   => $dailyLitersPerPerson,
-        ':bill'    => $billVal,
-        ':bimg'    => $billImagePath !== '' ? $billImagePath : null,
-        ':prov'    => $providerName !== '' ? $providerName : null,
-        ':days'    => $readingDays,
-        ':notes'   => $notes !== '' ? $notes : null,
+        ':hid'    => (int) $user['household_id'],
+        ':uid'    => (int) $user['id'],
+        ':nid'    => (int) $user['neighborhood_id'],
+        ':aid'    => !empty($user['apartment_id']) ? (int) $user['apartment_id'] : null,
+        ':y'      => $year,
+        ':m'      => $month,
+        ':m3'     => $consumptionM3,
+        ':aiver'  => $aiVerified,
+        ':rcount' => $residentCount,
+        ':daily'  => $dailyLitersPerPerson,
+        ':bill'   => $billVal,
+        ':bimg'   => $billImagePath !== '' ? $billImagePath : null,
+        ':prov'   => $providerName !== '' ? $providerName : null,
+        ':days'   => $readingDays,
+        ':notes'  => $notes !== '' ? $notes : null,
+        ':review_status' => $reviewStatus,
     ]);
 
     $monthName = turkish_month_name($month) . ' ' . $year;
 
-    // 4. Gölette Birikme (Kolektif Havuz) & Kullanıcı Cüzdanına Puan Aktarımı
-    $deltaM3     = $tasarrufM3 - (float) ($oldLog['saved_m3'] ?? 0);
-    $deltaLiters = $kurtarilanLitre - (int) ($oldLog['saved_liters'] ?? 0);
-    $deltaPoints = $earnedPoints - (int) ($oldLog['earned_points'] ?? 0);
-
-    $pdo->exec("
-        INSERT IGNORE INTO collective_pond (id, golet_mevcut_su_m3, golet_mevcut_litre, golet_toplam_puan, golet_hedef_m3)
-        VALUES (1, 0.00, 0, 0, 500.00)
-    ");
-
-    $updPond = $pdo->prepare("
-        UPDATE collective_pond
-        SET golet_mevcut_su_m3 = GREATEST(0, golet_mevcut_su_m3 + :dm3),
-            golet_mevcut_litre = GREATEST(0, CAST(golet_mevcut_litre AS SIGNED) + :dlit),
-            golet_toplam_puan  = GREATEST(0, CAST(golet_toplam_puan AS SIGNED) + :dpts)
-        WHERE id = 1
-    ");
-    $updPond->execute([
-        ':dm3'  => $deltaM3,
-        ':dlit' => $deltaLiters,
-        ':dpts' => $deltaPoints,
-    ]);
-
-    $pointsAwarded = 0;
-    if ($earnedPoints > 0 && function_exists('award_points')) {
-        $pointsAwarded = award_points(
-            (int) $user['id'],
-            (int) $user['household_id'],
-            'bill_saving_10pct',
-            $earnedPoints,
-            "💧 {$monthName} faturasında %{$tasarrufYuzdesi} ({$kurtarilanLitre} L) su tasarrufu ile +{$earnedPoints} Debi Puanı!",
-            "bill_saving_{$year}_{$month}"
-        );
-    }
+    // Kronolojik olarak gerçek faturalar arasındaki tasarruf farkını ve daire göletini güncelle
+    $calc = recalculate_household_water_savings((int) $user['household_id'], (int) $user['id'], $year, $month);
+    $gecenAyM3       = $calc['previous_m3'];
+    $tasarrufM3      = $calc['saved_m3'];
+    $kurtarilanLitre = $calc['saved_liters'];
+    $tasarrufYuzdesi = $calc['saving_pct'];
+    $earnedPoints    = $calc['points_awarded'];
+    $dropReasons     = $calc['drop_reasons'] ?? [];
 
     // Seçilen akışta (Arkadaşlar / Apartman / Genel Debi) fatura paylaşımı oluştur
     if ($feedScope !== 'none') {
         $provTag  = $providerName !== '' ? " ({$providerName})" : '';
-        $postText = "{$monthName} dönemi{$provTag} su faturamızı kaydettik: {$consumptionM3} m³.";
+        $postText = "💧 {$monthName}{$provTag}: {$consumptionM3} m³ ({$dailyLitersPerPerson} L/gün).";
         if ($kurtarilanLitre > 0) {
-            $postText .= " Önceki aya göre {$kurtarilanLitre} L (%{$tasarrufYuzdesi}) su kurtararak Debi Puan Göleti'ne katkıda bulunduk!";
+            $postText .= " {$kurtarilanLitre} L (%{$tasarrufYuzdesi}) tasarruf · +{$earnedPoints} puan!";
+        } elseif ($earnedPoints > 0) {
+            $postText .= " +{$earnedPoints} puan!";
         }
         if ($notes !== '') {
-            $postText .= " Notumuz: " . $notes;
+            $postText .= " — " . $notes;
         }
 
         $pStmt = $pdo->prepare("
@@ -228,13 +187,217 @@ function save_water_log(array $user, array $input): array
 
     return [
         'ok'               => true,
+        'period_label'     => $monthName,
+        'consumption_m3'   => $consumptionM3,
         'daily_liters'     => $dailyLitersPerPerson,
         'previous_m3'      => $gecenAyM3,
         'saved_m3'         => $tasarrufM3,
         'saved_liters'     => $kurtarilanLitre,
         'saving_pct'       => $tasarrufYuzdesi,
         'points_awarded'   => $earnedPoints,
+        'ai_verified'      => $aiVerified === 1,
+        'drop_reasons'     => $dropReasons,
     ];
+}
+
+/**
+ * Hanenin yüklediği gerçek fatura kayıtlarını kronolojik sırayla karşılaştırarak
+ * Fatura tasarruf metriklerini, puan geçmişini ve ortak hane bakiyesini senkronize eder.
+ */
+function recalculate_household_water_savings(int $householdId, int $userId = 0, ?int $targetYear = null, ?int $targetMonth = null): array
+{
+    $emptyResult = [
+        'previous_m3'    => null,
+        'saved_m3'       => 0.0,
+        'saved_liters'   => 0,
+        'saving_pct'     => 0.0,
+        'points_awarded' => 0,
+        'drop_reasons'   => [],
+    ];
+
+    if ($householdId <= 0) {
+        return $emptyResult;
+    }
+
+    try {
+        $pdo = db();
+        $typeStmt = $pdo->prepare("SELECT housing_type FROM households WHERE id = :hid LIMIT 1");
+        $typeStmt->execute([':hid' => $householdId]);
+        $housingType = (string) $typeStmt->fetchColumn();
+        if (!in_array($housingType, ['apartment_unit', 'detached_house'], true)) {
+            $pdo->prepare("UPDATE water_logs SET earned_points = 0 WHERE household_id = :hid")
+                ->execute([':hid' => $householdId]);
+            return $emptyResult;
+        }
+
+        $stmt = $pdo->prepare("
+            SELECT id, user_id, period_year, period_month, consumption_m3, created_at,
+                   previous_consumption_m3, saved_m3, saved_liters, saving_pct, earned_points, ai_verified,
+                   review_status, points_credited
+            FROM water_logs
+            WHERE household_id = :hid
+            ORDER BY period_year ASC, period_month ASC
+        ");
+        $stmt->execute([':hid' => $householdId]);
+        $rows = $stmt->fetchAll();
+
+        $updStmt = $pdo->prepare("
+            UPDATE water_logs
+            SET previous_consumption_m3 = :prevm3,
+                saved_m3                = :savedm3,
+                saved_liters            = :savedl,
+                saving_pct              = :savepct,
+                earned_points           = :pts
+            WHERE id = :id
+        ");
+
+        $matchedResult    = null;
+        $latestResult     = $emptyResult;
+        $totalRows        = count($rows);
+        $invoicePointRows = [];
+        $previousApprovedM3 = null;
+
+        for ($i = 0; $i < $totalRows; $i++) {
+            $cur        = $rows[$i];
+            $curM3      = round((float) $cur['consumption_m3'], 2);
+            $isApproved = ($cur['review_status'] ?? 'approved') === 'approved';
+            $pointsAlreadyCredited = (int) ($cur['points_credited'] ?? 0) === 1;
+
+            $prevM3       = null;
+            $savedM3      = 0.0;
+            $savedLiters  = 0;
+            $savingPct    = 0.0;
+            $earnedPoints = 0;
+            $dropReasons  = [];
+
+            // İnceleme bekleyen veya reddedilen faturalar puan kazanamaz.
+            if ($isApproved && $previousApprovedM3 !== null) {
+                $prevM3 = $previousApprovedM3;
+                if ($prevM3 > 0) {
+                    $diff = round($prevM3 - $curM3, 2);
+                    if ($diff > 0) {
+                        $savedM3      = $diff;
+                        $savedLiters  = (int) round($savedM3 * 1000);
+                        $savingPct    = round(($savedM3 / $prevM3) * 100, 2);
+                        $earnedPoints = max(1, (int) round($savedM3 * 10));
+                        $dropReasons[] = '📉 ' . number_format($savedM3, 2, ',', '.') . ' ton azalma · +' . $earnedPoints . ' puan';
+                    } elseif ($diff === 0.0) {
+                        $earnedPoints = 10;
+                        $dropReasons[] = '↔️ Tüketim aynı kaldı · +10 puan';
+                    } else {
+                        $earnedPoints = 2;
+                        $dropReasons[] = '📈 Tüketim arttı · fatura yükleme +2 puan';
+                    }
+                } else {
+                    $earnedPoints = 10;
+                    $dropReasons[] = '✨ İlk karşılaştırılabilir fatura · +10 puan';
+                }
+            } elseif ($isApproved) {
+                $earnedPoints = 10;
+                $dropReasons[] = '✨ İlk fatura yükleme · +10 puan';
+            } else {
+                $dropReasons[] = '⏳ Fatura değerleri admin incelemesi bekliyor; henüz puan verilmedi.';
+            }
+
+            $oldPrev = $cur['previous_consumption_m3'] !== null ? round((float) $cur['previous_consumption_m3'], 2) : null;
+            if (
+                $oldPrev !== $prevM3 ||
+                round((float) ($cur['saved_m3'] ?? 0), 2) !== $savedM3 ||
+                (int) ($cur['saved_liters'] ?? 0) !== $savedLiters ||
+                round((float) ($cur['saving_pct'] ?? 0), 2) !== $savingPct ||
+                (!$pointsAlreadyCredited && (int) ($cur['earned_points'] ?? 0) !== $earnedPoints)
+            ) {
+                $updStmt->execute([
+                    ':prevm3'  => $prevM3,
+                    ':savedm3' => $savedM3,
+                    ':savedl'  => $savedLiters,
+                    ':savepct' => $savingPct,
+                    ':pts'     => $pointsAlreadyCredited ? (int) $cur['earned_points'] : $earnedPoints,
+                    ':id'      => (int) $cur['id'],
+                ]);
+            }
+
+            $displayPoints = $pointsAlreadyCredited ? (int) $cur['earned_points'] : $earnedPoints;
+            if ($earnedPoints > 0 && !$pointsAlreadyCredited) {
+                $targetUid = $userId > 0 ? $userId : (int) ($cur['user_id'] ?? 0);
+                if ($targetUid > 0) {
+                    $mLabel = turkish_month_name((int) $cur['period_month']) . ' ' . (int) $cur['period_year'];
+                    $invoicePointRows[] = [
+                        'log_id'  => (int) $cur['id'],
+                        'user_id' => $targetUid,
+                        'year'    => (int) $cur['period_year'],
+                        'month'   => (int) $cur['period_month'],
+                        'points'  => $earnedPoints,
+                        'label'   => "💧 {$mLabel} faturasından +{$earnedPoints} puan",
+                    ];
+                }
+            }
+
+            $rowResult = [
+                'previous_m3'    => $prevM3,
+                'saved_m3'       => $savedM3,
+                'saved_liters'   => $savedLiters,
+                'saving_pct'     => $savingPct,
+                'points_awarded' => $displayPoints,
+                'drop_reasons'   => $dropReasons,
+            ];
+            $latestResult = $rowResult;
+            if ($targetYear !== null && $targetMonth !== null && (int) $cur['period_year'] === $targetYear && (int) $cur['period_month'] === $targetMonth) {
+                $matchedResult = $rowResult;
+            }
+            if ($isApproved) {
+                $previousApprovedM3 = $curM3;
+            }
+        }
+
+        $pdo->beginTransaction();
+        // Puan kararı yalnızca water_logs.points_credited ve hane bakiyesiyle
+        // verilir. point_logs yalnızca sonradan görüntülenebilecek audit kaydıdır.
+        $creditMarkerStmt = $pdo->prepare("
+            UPDATE water_logs
+            SET points_credited = 1
+            WHERE id = :id AND points_credited = 0
+        ");
+        $creditBalanceStmt = $pdo->prepare("
+            UPDATE households
+            SET total_points = total_points + :points
+            WHERE id = :hid
+        ");
+        $insertLogStmt = $pdo->prepare("
+            INSERT INTO point_logs (
+                user_id, household_id, action_code, points, description, ref_key
+            ) VALUES (
+                :uid, :hid, 'bill_drops_earned', :points, :description, :ref_key
+            )
+        ");
+        foreach ($invoicePointRows as $pointRow) {
+            $refKey = 'bill_drops_log_' . $pointRow['log_id'];
+            $creditMarkerStmt->execute([':id' => $pointRow['log_id']]);
+            if ($creditMarkerStmt->rowCount() !== 1) {
+                continue;
+            }
+            $creditBalanceStmt->execute([
+                ':points' => $pointRow['points'],
+                ':hid' => $householdId,
+            ]);
+            $insertLogStmt->execute([
+                ':uid'         => $pointRow['user_id'],
+                ':hid'         => $householdId,
+                ':points'      => $pointRow['points'],
+                ':description' => $pointRow['label'],
+                ':ref_key'     => $refKey,
+            ]);
+        }
+
+        $pdo->commit();
+
+        return $matchedResult ?? $latestResult;
+    } catch (Throwable $e) {
+        if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        return $emptyResult;
+    }
 }
 
 /**
@@ -251,6 +414,77 @@ function get_household_water_history(int $householdId): array
     ");
     $stmt->execute([':hid' => $householdId]);
     return $stmt->fetchAll();
+}
+
+function get_pending_water_log_reviews(): array
+{
+    $stmt = db()->query("
+        SELECT w.*, u.full_name, h.unit_label
+        FROM water_logs w
+        INNER JOIN users u ON u.id = w.user_id
+        INNER JOIN households h ON h.id = w.household_id
+        WHERE w.review_status = 'pending'
+        ORDER BY w.created_at ASC
+    ");
+    return $stmt->fetchAll();
+}
+
+function review_water_log(array $admin, int $logId, array $input): array
+{
+    if (empty($admin['is_admin'])) {
+        return ['ok' => false, 'error' => 'Bu işlem için admin yetkisi gerekiyor.'];
+    }
+
+    $stmt = db()->prepare("SELECT * FROM water_logs WHERE id = :id LIMIT 1");
+    $stmt->execute([':id' => $logId]);
+    $log = $stmt->fetch();
+    if (!$log || $log['review_status'] !== 'pending') {
+        return ['ok' => false, 'error' => 'İncelenecek fatura bulunamadı.'];
+    }
+
+    $consumption = (float) str_replace(',', '.', trim((string) ($input['consumption_m3'] ?? $log['consumption_m3'])));
+    $readingDays = max(1, min(90, (int) ($input['reading_days'] ?? $log['reading_days'])));
+    if ($consumption <= 0 || $consumption > 500) {
+        return ['ok' => false, 'error' => 'Geçerli bir tüketim değeri girin.'];
+    }
+
+    $residentStmt = db()->prepare("SELECT resident_count FROM households WHERE id = :hid LIMIT 1");
+    $residentStmt->execute([':hid' => (int) $log['household_id']]);
+    $residentCount = max(1, (int) $residentStmt->fetchColumn());
+    $daily = round(($consumption * 1000) / ($readingDays * $residentCount), 1);
+    $status = ($input['decision'] ?? '') === 'reject' ? 'rejected' : 'approved';
+
+    db()->prepare("
+        UPDATE water_logs
+        SET consumption_m3 = :m3, reading_days = :days, daily_liters_per_person = :daily,
+            review_status = :status, reviewed_by_user_id = :admin_id,
+            reviewed_at = NOW(), review_note = :note
+        WHERE id = :id
+    ")->execute([
+        ':m3' => $consumption,
+        ':days' => $readingDays,
+        ':daily' => $daily,
+        ':status' => $status,
+        ':admin_id' => (int) $admin['id'],
+        ':note' => trim((string) ($input['review_note'] ?? '')) ?: null,
+        ':id' => $logId,
+    ]);
+
+    if ($status === 'approved') {
+        recalculate_household_water_savings(
+            (int) $log['household_id'],
+            (int) $log['user_id'],
+            (int) $log['period_year'],
+            (int) $log['period_month']
+        );
+    }
+
+    return [
+        'ok' => true,
+        'message' => $status === 'approved'
+            ? 'Fatura onaylandı ve puanlar yeniden hesaplandı.'
+            : 'Fatura reddedildi; puan verilmedi.',
+    ];
 }
 
 /**
@@ -354,235 +588,209 @@ function toggle_household_habit(int $householdId, int $habitId, int $userId = 0)
         $ins = $pdo->prepare("INSERT INTO household_habits (household_id, habit_id) VALUES (:hid, :hab)");
         $ins->execute([':hid' => $householdId, ':hab' => $habitId]);
 
-        if ($userId > 0 && function_exists('award_points')) {
-            $hSt = $pdo->prepare("SELECT title FROM saving_habits WHERE id = :id LIMIT 1");
-            $hSt->execute([':id' => $habitId]);
-            $hTitle = $hSt->fetchColumn() ?: 'Tasarruf Alışkanlığı';
-            return award_points(
-                $userId,
-                $householdId,
-                'habit_adopt',
-                40,
-                '🛠️ Yeni alışkanlık: ' . $hTitle,
-                'habit_' . $habitId
-            );
-        }
         return 0;
     }
 }
 
 /**
- * Ortak Kolektif Havuz / Debi Puan Göleti Durumunu Döndürür
- * Hedef kapasite: 500 m³. Doluluk yüzdesi: (golet_mevcut_su_m3 / golet_hedef_m3) * 100
+ * Ortak hane puanı ve fatura tasarrufu özetini döndürür.
  */
-function get_collective_pond_state(): array
+function get_household_pond_state(int $householdId): array
 {
-    if (function_exists('ensure_gamification_schema')) {
-        ensure_gamification_schema();
+    $defaultState = [
+        'household_id'       => $householdId,
+        'total_drops'        => 0,
+        'target_drops'       => 100,
+        'saved_m3'           => 0.0,
+        'saved_liters'       => 0,
+        'doluluk_yuzdesi'    => 0.0,
+        'stage'              => 'dry',
+        'stage_title'        => 'Kurumuş',
+        'next_stage_hint'    => 'Sonraki seviye: 30 💧 kaldı',
+        'golet_mevcut_su_m3' => 0.0,
+        'golet_mevcut_litre' => 0,
+        'golet_toplam_puan'  => 0,
+        'golet_hedef_m3'     => 100.0,
+    ];
+
+    if ($householdId <= 0) {
+        return $defaultState;
     }
 
-    $pdo = db();
     try {
-        $pdo->exec("
-            INSERT IGNORE INTO collective_pond (id, golet_mevcut_su_m3, golet_mevcut_litre, golet_toplam_puan, golet_hedef_m3)
-            VALUES (1, 0.00, 0, 0, 500.00)
-        ");
-
-        $row = $pdo->query("SELECT * FROM collective_pond WHERE id = 1 LIMIT 1")->fetch();
-        if (!$row) {
-            $row = [
-                'golet_mevcut_su_m3' => 0.0,
-                'golet_mevcut_litre' => 0,
-                'golet_toplam_puan'  => 0,
-                'golet_hedef_m3'     => 500.0,
-            ];
+        $typeStmt = db()->prepare("SELECT housing_type FROM households WHERE id = :hid LIMIT 1");
+        $typeStmt->execute([':hid' => $householdId]);
+        if (!in_array($typeStmt->fetchColumn(), ['apartment_unit', 'detached_house'], true)) {
+            return $defaultState;
         }
 
-        // Tablodaki toplamlarla senkronize tut
-        $sumRow = $pdo->query("
-            SELECT
-                COALESCE(SUM(saved_m3), 0) AS sum_m3,
-                COALESCE(SUM(saved_liters), 0) AS sum_liters,
-                COALESCE(SUM(earned_points), 0) AS sum_pts
-            FROM water_logs
-        ")->fetch();
+        // Fatura istatistiklerini ve ortak bakiyeyi senkronize et
+        recalculate_household_water_savings($householdId);
 
-        $mevcutM3    = max((float) $row['golet_mevcut_su_m3'], (float) ($sumRow['sum_m3'] ?? 0));
-        $mevcutLitre = max((int) $row['golet_mevcut_litre'], (int) ($sumRow['sum_liters'] ?? 0));
-        $toplamPuan  = max((int) $row['golet_toplam_puan'], (int) ($sumRow['sum_pts'] ?? 0));
-        $hedefM3     = max(1.0, (float) ($row['golet_hedef_m3'] ?? 500.0));
-        $dolulukPct  = min(100.0, round(($mevcutM3 / $hedefM3) * 100, 1));
+        $pdo = db();
+        $statsStmt = $pdo->prepare("
+            SELECT
+                total_points,
+                COALESCE(SUM(saved_m3), 0) AS saved_m3,
+                COALESCE(SUM(saved_liters), 0) AS saved_liters
+            FROM households h
+            LEFT JOIN water_logs wl ON wl.household_id = h.id
+            WHERE h.id = :hid
+            GROUP BY h.id, h.total_points
+        ");
+        $statsStmt->execute([':hid' => $householdId]);
+        $stats = $statsStmt->fetch() ?: [];
+
+        $totalDrops  = (int) ($stats['total_points'] ?? 0);
+        $targetDrops = 100;
+        $savedM3     = round((float) ($stats['saved_m3'] ?? 0.0), 2);
+        $savedLiters = (int) ($stats['saved_liters'] ?? 0);
+        $dolulukPct  = min(100.0, round(($totalDrops / $targetDrops) * 100, 1));
+
+        if ($totalDrops >= 70) {
+            $stage          = 'full';
+            $stageTitle     = 'Tam Dolu';
+            $nextStageHint  = 'Tam dolu 🌟';
+        } elseif ($totalDrops >= 30) {
+            $stage          = 'half';
+            $stageTitle     = 'Yarı Dolu';
+            $remaining      = max(1, 70 - $totalDrops);
+            $nextStageHint  = "Tam doluya {$remaining} 💧 kaldı";
+        } else {
+            $stage          = 'dry';
+            $stageTitle     = 'Kurumuş';
+            $remaining      = max(1, 30 - $totalDrops);
+            $nextStageHint  = "Yarı doluya {$remaining} 💧 kaldı";
+        }
 
         return [
-            'golet_mevcut_su_m3' => round($mevcutM3, 2),
-            'golet_mevcut_litre' => $mevcutLitre,
-            'golet_toplam_puan'  => $toplamPuan,
-            'golet_hedef_m3'     => round($hedefM3, 2),
+            'household_id'       => $householdId,
+            'total_drops'        => $totalDrops,
+            'target_drops'       => $targetDrops,
+            'saved_m3'           => $savedM3,
+            'saved_liters'       => $savedLiters,
             'doluluk_yuzdesi'    => $dolulukPct,
+            'stage'              => $stage,
+            'stage_title'        => $stageTitle,
+            'next_stage_hint'    => $nextStageHint,
+            'golet_mevcut_su_m3' => $savedM3,
+            'golet_mevcut_litre' => $savedLiters,
+            'golet_toplam_puan'  => $totalDrops,
+            'golet_hedef_m3'     => (float) $targetDrops,
         ];
     } catch (Throwable $e) {
-        return [
-            'golet_mevcut_su_m3' => 0.0,
-            'golet_mevcut_litre' => 0,
-            'golet_toplam_puan'  => 0,
-            'golet_hedef_m3'     => 500.0,
-            'doluluk_yuzdesi'    => 0.0,
-        ];
+        return $defaultState;
     }
 }
 
 /**
- * Su Analizi Sayfası İçin Aylık/Yıllık m³ Zaman Çizelgesi ve Debi Puan Göleti Verileri
+ * Su Analizi Sayfası İçin Aylık/Yıllık m³ Zaman Çizelgesi ve Daire Göleti Verileri
+ * Yalnızca kullanıcının yüklediği gerçek fatura kayıtlarını (water_logs) kullanır; sahte ay/yıl üretmez.
  */
 function get_household_water_analytics(array $user): array
 {
-    $rawHistory = get_household_water_history((int) ($user['household_id'] ?? 0));
+    $householdId = (int) ($user['household_id'] ?? 0);
+    $userId      = (int) ($user['id'] ?? 0);
+
+    // Dairenin gerçek fatura tasarruf ve damla toplamlarını senkronize et
+    $pondState = get_household_pond_state($householdId);
+
+    $rawHistory    = get_household_water_history($householdId);
     $chronological = array_reverse($rawHistory);
-    $hasRealLogs = !empty($chronological);
-    $isSample = false;
+    $hasRealLogs   = !empty($chronological);
 
     $series = [];
-    $count = count($chronological);
-
-    if ($count >= 2) {
-        $slice = array_slice($chronological, -6);
-        foreach ($slice as $row) {
-            $mName = turkish_month_name((int) $row['period_month']);
-            $series[] = [
-                'xlab'            => $mName,
-                'period_label'    => $mName . ' ' . $row['period_year'],
-                'consumption_m3'  => round((float) $row['consumption_m3'], 2),
-                'daily_liters'    => round((float) $row['daily_liters_per_person'], 1),
-            ];
-        }
-    } elseif ($count === 1) {
-        $only = $chronological[0];
-        $curM = (int) $only['period_month'];
-        $curY = (int) $only['period_year'];
-        $prevM = $curM === 1 ? 12 : $curM - 1;
-        $prevY = $curM === 1 ? $curY - 1 : $curY;
-        $curM3 = round((float) $only['consumption_m3'], 2);
-        $prevM3 = !empty($only['previous_consumption_m3']) && (float) $only['previous_consumption_m3'] > 0
-            ? round((float) $only['previous_consumption_m3'], 2)
-            : round($curM3 + 2.2, 2);
-        $isSample = empty($only['previous_consumption_m3']);
-
+    $slice  = array_slice($chronological, -12);
+    foreach ($slice as $row) {
+        $mName = turkish_month_name((int) $row['period_month']);
+        $yr    = (int) $row['period_year'];
         $series[] = [
-            'xlab'           => turkish_month_name($prevM),
-            'period_label'   => turkish_month_name($prevM) . ' ' . $prevY,
-            'consumption_m3' => $prevM3,
-            'daily_liters'   => round((float) $only['daily_liters_per_person'] * ($prevM3 / max(0.5, $curM3)), 1),
+            'xlab'           => $mName . ' ' . $yr,
+            'short_xlab'     => $mName,
+            'period_label'   => $mName . ' ' . $yr,
+            'period_year'    => $yr,
+            'period_month'   => (int) $row['period_month'],
+            'consumption_m3' => round((float) $row['consumption_m3'], 2),
+            'daily_liters'   => round((float) $row['daily_liters_per_person'], 1),
+            'earned_points'  => (int) ($row['earned_points'] ?? 0),
+            'ai_verified'    => (int) ($row['ai_verified'] ?? 0) === 1,
         ];
-        $series[] = [
-            'xlab'           => turkish_month_name($curM),
-            'period_label'   => turkish_month_name($curM) . ' ' . $curY,
-            'consumption_m3' => $curM3,
-            'daily_liters'   => round((float) $only['daily_liters_per_person'], 1),
-        ];
-    } else {
-        $isSample = true;
-        $nowM = (int) date('n');
-        $nowY = (int) date('Y');
-        $sampleM3 = [14.8, 13.9, 13.2, 10.4];
-        for ($i = 3; $i >= 0; $i--) {
-            $ts = mktime(0, 0, 0, $nowM - $i, 1, $nowY);
-            $m = (int) date('n', $ts);
-            $y = (int) date('Y', $ts);
-            $mName = turkish_month_name($m);
-            $m3Val = $sampleM3[3 - $i];
-            $series[] = [
-                'xlab'           => $mName,
-                'period_label'   => $mName . ' ' . $y,
-                'consumption_m3' => $m3Val,
-                'daily_liters'   => round(($m3Val * 1000) / (30 * max(1, (int) ($user['resident_count'] ?? 3))), 1),
-            ];
-        }
     }
 
-    // 1. Puanlama Yöntemi Hesabı (Fatura Farkı -> %10 Barajlı Puan ve Gölet Birikimi)
-    $n = count($series);
-    $prevMonthM3     = (float) $series[$n - 2]['consumption_m3'];
-    $currMonthM3     = (float) $series[$n - 1]['consumption_m3'];
-    $diffM3          = round($prevMonthM3 - $currMonthM3, 2);
-    $savedM3         = $diffM3 > 0 ? $diffM3 : 0.0;
-    $savedLiters     = $savedM3 > 0 ? (int) round($savedM3 * 1000) : 0;
-    $savingPct       = ($prevMonthM3 > 0 && $savedM3 > 0) ? round(($savedM3 / $prevMonthM3) * 100, 1) : 0.0;
-    $earnedPoints    = ($savingPct >= 10.0) ? 10 : 0;
+    // Yalnızca en az 2 gerçek fatura dönemi varsa karşılaştırma yapılır
+    $n               = count($series);
+    $hasComparison   = ($n >= 2);
+    $prevMonthLabel  = 'Önceki Fatura';
+    $currMonthLabel  = 'Son Fatura';
+    $prevMonthM3     = null;
+    $currMonthM3     = null;
+    $diffM3          = 0.0;
+    $savedM3         = 0.0;
+    $savedLiters     = 0;
+    $savingPct       = 0.0;
+    $earnedPoints    = 0;
 
-    $pondState = get_collective_pond_state();
-    // Eğer veritabanında henüz kayıt yoksa örnek tasarrufu gölet başlangıç değerinde göster
-    if (!$hasRealLogs && $pondState['golet_mevcut_su_m3'] <= 0) {
-        $pondState['golet_mevcut_su_m3'] = $savedM3;
-        $pondState['golet_mevcut_litre'] = $savedLiters;
-        $pondState['golet_toplam_puan']  = $earnedPoints;
-        $pondState['doluluk_yuzdesi']    = round(($savedM3 / $pondState['golet_hedef_m3']) * 100, 1);
+    if ($n >= 2) {
+        $prevItem       = $series[$n - 2];
+        $currItem       = $series[$n - 1];
+        $prevMonthLabel = $prevItem['period_label'];
+        $currMonthLabel = $currItem['period_label'];
+        $prevMonthM3    = (float) $prevItem['consumption_m3'];
+        $currMonthM3    = (float) $currItem['consumption_m3'];
+        $diffM3         = round($prevMonthM3 - $currMonthM3, 2);
+        $savedM3        = $diffM3 > 0 ? $diffM3 : 0.0;
+        $savedLiters    = $savedM3 > 0 ? (int) round($savedM3 * 1000) : 0;
+        $savingPct      = ($prevMonthM3 > 0 && $savedM3 > 0) ? round(($savedM3 / $prevMonthM3) * 100, 1) : 0.0;
+        $earnedPoints   = (int) ($currItem['earned_points'] ?? 0);
+    } elseif ($n === 1) {
+        $currItem       = $series[0];
+        $currMonthLabel = $currItem['period_label'];
+        $currMonthM3    = (float) $currItem['consumption_m3'];
+        $earnedPoints   = (int) ($currItem['earned_points'] ?? 0);
     }
 
-    if ($pondState['doluluk_yuzdesi'] >= 66.0 || $savedLiters >= 3000) {
-        $pondStage = 'full';
-    } elseif ($pondState['doluluk_yuzdesi'] >= 20.0 || $savedLiters >= 1000) {
-        $pondStage = 'half';
-    } else {
-        $pondStage = 'dry';
-    }
-
-    // Yıllık (Yearly) Seri Hesaplaması
+    // Yıllık (Yearly) Seri Hesaplaması — yalnızca gerçek kayıtlı yılları döndürür
     $yearlyStmt = db()->prepare("
-        SELECT period_year, SUM(consumption_m3) AS total_m3, AVG(daily_liters_per_person) AS avg_daily
+        SELECT period_year, SUM(consumption_m3) AS total_m3, AVG(daily_liters_per_person) AS avg_daily, COUNT(*) AS bill_count
         FROM water_logs
         WHERE household_id = :hid
         GROUP BY period_year
         ORDER BY period_year ASC
         LIMIT 6
     ");
-    $yearlyStmt->execute([':hid' => (int) ($user['household_id'] ?? 0)]);
+    $yearlyStmt->execute([':hid' => $householdId]);
     $yearlyRows = $yearlyStmt->fetchAll();
 
     $yearlySeries = [];
-    if (count($yearlyRows) >= 2) {
-        foreach ($yearlyRows as $yRow) {
-            $yr = (string) $yRow['period_year'];
-            $yearlySeries[] = [
-                'xlab'           => $yr,
-                'period_label'   => $yr . ' Yılı',
-                'consumption_m3' => round((float) $yRow['total_m3'], 1),
-                'daily_liters'   => round((float) $yRow['avg_daily'], 1),
-            ];
-        }
-    } else {
-        $curYear = (int) date('Y');
-        $baseYearly = max(90.0, round($currMonthM3 * 12, 1));
-        $sampleYears = [
-            $curYear - 3 => round($baseYearly + 18.5, 1),
-            $curYear - 2 => round($baseYearly + 11.2, 1),
-            $curYear - 1 => round($baseYearly + 4.8, 1),
-            $curYear     => $baseYearly,
+    foreach ($yearlyRows as $yRow) {
+        $yr   = (string) $yRow['period_year'];
+        $bCnt = (int) ($yRow['bill_count'] ?? 1);
+        $yearlySeries[] = [
+            'xlab'           => $yr . ' (' . $bCnt . ' fatura)',
+            'period_label'   => $yr . ' Yılı (' . $bCnt . ' fatura)',
+            'consumption_m3' => round((float) $yRow['total_m3'], 1),
+            'daily_liters'   => round((float) $yRow['avg_daily'], 1),
         ];
-        foreach ($sampleYears as $yr => $ym3) {
-            $yearlySeries[] = [
-                'xlab'           => (string) $yr,
-                'period_label'   => $yr . ' Yılı',
-                'consumption_m3' => $ym3,
-                'daily_liters'   => round(($ym3 * 1000) / (365 * max(1, (int) ($user['resident_count'] ?? 3))), 1),
-            ];
-        }
     }
 
     return [
-        'has_real_logs'   => $hasRealLogs,
-        'is_sample'       => $isSample,
-        'series'          => $series,
-        'yearly_series'   => $yearlySeries,
-        'prev_m3'         => $prevMonthM3,
-        'curr_m3'         => $currMonthM3,
-        'diff_m3'         => $diffM3,
-        'saved_m3'        => $savedM3,
-        'saved_liters'    => $savedLiters,
-        'saving_pct'      => $savingPct,
-        'earned_points'   => $earnedPoints,
-        'collective_pond' => $pondState,
-        'pond_stage'      => $pondStage,
+        'has_real_logs'      => $hasRealLogs,
+        'has_comparison'     => $hasComparison,
+        'bill_count'         => $n,
+        'is_sample'          => false,
+        'series'             => $series,
+        'yearly_series'      => $yearlySeries,
+        'prev_label'         => $prevMonthLabel,
+        'curr_label'         => $currMonthLabel,
+        'prev_m3'            => $prevMonthM3,
+        'curr_m3'            => $currMonthM3,
+        'diff_m3'            => $diffM3,
+        'saved_m3'           => $savedM3,
+        'saved_liters'       => $savedLiters,
+        'saving_pct'         => $savingPct,
+        'earned_points'      => $earnedPoints,
+        'user_wallet_points' => (int) $pondState['total_drops'],
+        'household_pond'     => $pondState,
+        'pond_stage'         => $pondState['stage'],
     ];
 }
-
-

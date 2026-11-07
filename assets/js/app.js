@@ -89,7 +89,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const btn = form.querySelector('.btn-action');
             const countSpan = form.querySelector('.reaction-count');
 
-            fetch(form.action, {
+            const actionUrl = form.getAttribute('action') || window.location.href;
+            fetch(actionUrl, {
                 method: 'POST',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'
@@ -105,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             btn.classList.toggle('reacted', !!data.reacted);
                         }
                         if (countSpan) {
-                            countSpan.textContent = '(' + data.count + ')';
+                            countSpan.textContent = data.count;
                         }
                     } else {
                         form.submit();
@@ -386,18 +387,15 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 9. Su Analizi Çizgi Tablosu (xlab / ylab) ve İnteraktif Debi Göleti (debi-pond) Widget'ı
+    // 9. Su Analizi Çizgi Tablosu (xlab / ylab)
     const analyticsCfg = window.DEBI_ANALYTICS_DATA;
     const svgChart = document.getElementById('waterLineChart');
-    const pondImg = document.getElementById('pondStageImg');
 
-    if (analyticsCfg && svgChart && pondImg) {
+    if (analyticsCfg && svgChart) {
         const baseMonthly = JSON.parse(JSON.stringify(analyticsCfg.series || []));
-        const baseYearly = JSON.parse(JSON.stringify(analyticsCfg.yearlySeries || analyticsCfg.series || []));
+        const baseYearly = JSON.parse(JSON.stringify(analyticsCfg.yearlySeries || []));
         let currentMode = 'monthly';
         let liveSeries = JSON.parse(JSON.stringify(baseMonthly));
-        let currentStageKey = '';
-        let autoPlayTimer = null;
 
         const kpiPrevLabel = document.getElementById('kpiPrevLabel');
         const kpiCurrLabel = document.getElementById('kpiCurrLabel');
@@ -406,66 +404,13 @@ document.addEventListener('DOMContentLoaded', function () {
         const kpiCurrM3 = document.getElementById('kpiCurrM3');
         const kpiDiffM3 = document.getElementById('kpiDiffM3');
         const kpiEarnedPoints = document.getElementById('kpiEarnedPoints');
-        const userWalletPointsText = document.getElementById('userWalletPointsText');
         const modeBtns = document.querySelectorAll('.js-chart-mode');
-
-        const pondDropLayer = document.getElementById('pondDropLayer');
-        const pondRippleRing = document.getElementById('pondRippleRing');
-        const pondCurrentM3Text = document.getElementById('pondCurrentM3Text');
-        const pondCurrentLitersText = document.getElementById('pondCurrentLitersText');
-        const pondTargetM3Text = document.getElementById('pondTargetM3Text');
-        const pondFillPctText = document.getElementById('pondFillPctText');
-        const pondMeterFill = document.getElementById('pondMeterFill');
-        const pondTotalPointsVal = document.getElementById('pondTotalPointsVal');
-
-        const btnAutoPlay = document.getElementById('btnAutoPlayStages');
-        const btnResetReal = document.getElementById('btnResetRealData');
-
-        const basePond = analyticsCfg.collectivePond || {
-            golet_mevcut_su_m3: 0,
-            golet_mevcut_litre: 0,
-            golet_toplam_puan: 0,
-            golet_hedef_m3: 500,
-            doluluk_yuzdesi: 0
-        };
-        const baseSavedM3 = Number(analyticsCfg.savedM3 || 0);
-        const baseEarnedPts = Number(analyticsCfg.earnedPoints || 0);
-        const baseWalletPts = Number(analyticsCfg.walletPoints || 0);
 
         function formatTR(num, decimals) {
             return Number(num).toLocaleString('tr-TR', {
                 minimumFractionDigits: decimals,
                 maximumFractionDigits: decimals
             });
-        }
-
-        function spawnFallingDrops(count) {
-            if (!pondDropLayer) return;
-            const total = Math.min(8, Math.max(1, count));
-            for (let i = 0; i < total; i++) {
-                setTimeout(function () {
-                    const drop = document.createElement('span');
-                    drop.className = 'falling-water-drop';
-                    drop.textContent = '💧';
-                    const offset = (Math.random() * 120) - 60;
-                    drop.style.left = 'calc(50% + ' + Math.round(offset) + 'px)';
-                    pondDropLayer.appendChild(drop);
-
-                    setTimeout(function () {
-                        if (pondRippleRing) {
-                            pondRippleRing.classList.remove('ripple-active');
-                            void pondRippleRing.offsetWidth;
-                            pondRippleRing.classList.add('ripple-active');
-                        }
-                    }, 520);
-
-                    setTimeout(function () {
-                        if (drop.parentNode) {
-                            drop.parentNode.removeChild(drop);
-                        }
-                    }, 750);
-                }, i * 130);
-            }
         }
 
         function renderLineChart(dataPoints) {
@@ -477,16 +422,24 @@ document.addEventListener('DOMContentLoaded', function () {
             const padB = 58;
             const plotW = W - padL - padR;
             const plotH = H - padT - padB;
+            const n = Array.isArray(dataPoints) ? dataPoints.length : 0;
+
+            if (n === 0) {
+                svgChart.innerHTML =
+                    '<rect x="' + padL + '" y="' + padT + '" width="' + plotW + '" height="' + plotH + '" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-dasharray="6 6" stroke-width="1.5"/>' +
+                    '<text x="' + (W / 2) + '" y="' + (H / 2 - 4) + '" text-anchor="middle" fill="#334155" font-size="14" font-weight="800">Fatura verisi yok</text>' +
+                    '<text x="' + (W / 2) + '" y="' + (H / 2 + 18) + '" text-anchor="middle" fill="#64748b" font-size="12" font-weight="600">Fatura yüklediğinizde grafik burada görüntülenir.</text>';
+                return;
+            }
 
             let maxM3 = 10;
-            let minM3 = 0;
+            const minM3 = 0;
             dataPoints.forEach(function (pt) {
                 if (pt.consumption_m3 > maxM3) maxM3 = pt.consumption_m3;
             });
             maxM3 = Math.ceil(maxM3 * 1.2);
             if (maxM3 % 2 !== 0) maxM3 += 1;
 
-            const n = dataPoints.length;
             const coords = dataPoints.map(function (pt, idx) {
                 const x = n > 1 ? padL + (idx / (n - 1)) * plotW : padL + plotW / 2;
                 const y = padT + plotH - ((pt.consumption_m3 - minM3) / Math.max(1, maxM3 - minM3)) * plotH;
@@ -505,9 +458,16 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             // Axis Titles (ylab & xlab)
-            const modeLabel = currentMode === 'yearly' ? 'Yıllık' : 'Aylık';
-            svgHtml += '<text x="12" y="' + (padT + plotH / 2) + '" transform="rotate(-90 12 ' + (padT + plotH / 2) + ')" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">Kullanılan Su (m³)</text>';
-            svgHtml += '<text x="' + (padL + plotW / 2) + '" y="' + (H - 8) + '" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">Zaman (' + modeLabel + ')</text>';
+            const modeLabel = currentMode === 'yearly' ? 'Yıl' : 'Ay';
+            svgHtml += '<text x="12" y="' + (padT + plotH / 2) + '" transform="rotate(-90 12 ' + (padT + plotH / 2) + ')" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">m³</text>';
+            svgHtml += '<text x="' + (padL + plotW / 2) + '" y="' + (H - 8) + '" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">' + modeLabel + '</text>';
+
+            // Tek veri noktası varsa yatay referans çizgisi ve bilgi notu göster
+            if (coords.length === 1) {
+                const c0 = coords[0];
+                svgHtml += '<line x1="' + padL + '" y1="' + c0.y.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + c0.y.toFixed(1) + '" stroke="#0ea5e9" stroke-dasharray="6 6" stroke-width="2" opacity="0.65"/>';
+                svgHtml += '<text x="' + (padL + plotW / 2) + '" y="' + (padT + 14) + '" text-anchor="middle" fill="#64748b" font-size="11.5" font-weight="700">Tek fatura (' + c0.pt.period_label + ') · Karşılaştırma için 2. fatura bekleniyor</text>';
+            }
 
             // Area under line
             if (coords.length > 1) {
@@ -535,17 +495,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 const dotColor = isLast ? '#16a34a' : (isPrev ? '#0284c7' : '#0ea5e9');
 
                 // X-axis label (xlab)
-                svgHtml += '<text x="' + c.x.toFixed(1) + '" y="' + (padT + plotH + 24) + '" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="800">' + c.pt.xlab + '</text>';
+                svgHtml += '<text x="' + c.x.toFixed(1) + '" y="' + (padT + plotH + 24) + '" text-anchor="middle" fill="#0f172a" font-size="12" font-weight="800">' + c.pt.xlab + '</text>';
 
                 // Data circle
                 svgHtml += '<circle cx="' + c.x.toFixed(1) + '" cy="' + c.y.toFixed(1) + '" r="6.5" fill="#ffffff" stroke="' + dotColor + '" stroke-width="3.5"/>';
 
                 // Value pill above point
                 const valText = formatTR(c.pt.consumption_m3, 1) + ' m³';
-                const boxW = 64;
+                const boxW = 68;
                 const boxH = 22;
                 const bx = c.x - boxW / 2;
-                const by = c.y - 32;
+                const by = Math.max(6, c.y - 32);
                 svgHtml += '<rect x="' + bx.toFixed(1) + '" y="' + by.toFixed(1) + '" width="' + boxW + '" height="' + boxH + '" rx="6" fill="#0f172a"/>';
                 svgHtml += '<text x="' + c.x.toFixed(1) + '" y="' + (by + 15).toFixed(1) + '" text-anchor="middle" fill="#ffffff" font-size="11.5" font-weight="800">' + valText + '</text>';
             });
@@ -553,91 +513,80 @@ document.addEventListener('DOMContentLoaded', function () {
             svgChart.innerHTML = svgHtml;
         }
 
-        function updateAnalyticsAndPond(withDrops) {
-            const n = liveSeries.length;
-            const prevPt = liveSeries[n - 2];
-            const currPt = liveSeries[n - 1];
-            const prevM3 = Number(prevPt.consumption_m3 || 0);
-            const currM3 = Number(currPt.consumption_m3 || 0);
+        function updateAnalyticsView() {
+            const n = Array.isArray(liveSeries) ? liveSeries.length : 0;
+            let kazanilanDamla = 0;
 
-            // 1. Puanlama Yöntemi (Fatura Farkı -> Puan ve Gölet Birikimi)
-            const diffM3 = +(prevM3 - currM3).toFixed(2);
-            const tasarrufM3 = diffM3 > 0 ? diffM3 : 0;
-            const kurtarilanLitre = Math.round(tasarrufM3 * 1000);
-            const tasarrufYuzdesi = (tasarrufM3 > 0 && prevM3 > 0)
-                ? +((tasarrufM3 / prevM3) * 100).toFixed(2)
-                : 0;
-            const kazanilanPuan = tasarrufYuzdesi >= 10.0 ? 10 : 0;
+            if (n >= 2) {
+                const prevPt = liveSeries[n - 2];
+                const currPt = liveSeries[n - 1];
+                const prevM3 = Number(prevPt.consumption_m3 || 0);
+                const currM3 = Number(currPt.consumption_m3 || 0);
+                const diffM3 = +(prevM3 - currM3).toFixed(2);
+                const tasarrufM3 = diffM3 > 0 ? diffM3 : 0;
+                const kurtarilanLitre = Math.round(tasarrufM3 * 1000);
+                const tasarrufYuzdesi = (tasarrufM3 > 0 && prevM3 > 0)
+                    ? +((tasarrufM3 / prevM3) * 100).toFixed(1)
+                    : 0;
 
-            if (kpiPrevLabel) {
-                kpiPrevLabel.textContent = prevPt.xlab + (currentMode === 'yearly' ? ' Tüketimi' : ' Tüketimi (Geçen Ay)');
-            }
-            if (kpiCurrLabel) {
-                kpiCurrLabel.textContent = currPt.xlab + (currentMode === 'yearly' ? ' Tüketimi' : ' Tüketimi (Bu Ay)');
-            }
-            if (kpiDiffLabel) {
-                kpiDiffLabel.textContent = (currentMode === 'yearly' ? 'Yıllık' : 'Tasarruf') + ' Farkı & Oranı';
-            }
-            if (kpiPrevM3) kpiPrevM3.textContent = formatTR(prevM3, 1) + ' m³';
-            if (kpiCurrM3) kpiCurrM3.textContent = formatTR(currM3, 1) + ' m³';
-            if (kpiDiffM3) {
-                if (tasarrufM3 > 0) {
-                    kpiDiffM3.textContent = formatTR(tasarrufM3, 1) + ' m³ (' + formatTR(kurtarilanLitre, 0) + ' L · %' + formatTR(tasarrufYuzdesi, 1) + ')';
-                    kpiDiffM3.style.color = 'var(--brand-green-dark)';
+                if (currentMode === 'monthly' && currPt.earned_points !== undefined) {
+                    kazanilanDamla = Number(currPt.earned_points || 0);
                 } else {
-                    kpiDiffM3.textContent = '0,0 m³ (0 L · %0,0)';
-                    kpiDiffM3.style.color = diffM3 < 0 ? 'var(--brand-danger-dark)' : 'var(--text-main)';
+                    kazanilanDamla = (tasarrufM3 > 0 ? 10 : 0) + (tasarrufYuzdesi >= 10.0 ? 10 : 0);
+                }
+
+                if (kpiPrevLabel) kpiPrevLabel.textContent = prevPt.period_label || prevPt.xlab;
+                if (kpiCurrLabel) kpiCurrLabel.textContent = currPt.period_label || currPt.xlab;
+                if (kpiDiffLabel) kpiDiffLabel.textContent = currentMode === 'yearly' ? 'Yıllık Değişim' : 'Tasarruf';
+                if (kpiPrevM3) kpiPrevM3.textContent = formatTR(prevM3, 1) + ' m³';
+                if (kpiCurrM3) kpiCurrM3.textContent = formatTR(currM3, 1) + ' m³';
+
+                if (kpiDiffM3) {
+                    if (tasarrufM3 > 0) {
+                        kpiDiffM3.textContent = formatTR(tasarrufM3, 1) + ' m³ (%' + formatTR(tasarrufYuzdesi, 1) + ')';
+                        kpiDiffM3.style.color = 'var(--brand-green-dark)';
+                    } else if (diffM3 < 0) {
+                        kpiDiffM3.textContent = '+' + formatTR(Math.abs(diffM3), 1) + ' m³ artış';
+                        kpiDiffM3.style.color = 'var(--brand-danger-dark)';
+                    } else {
+                        kpiDiffM3.textContent = 'Değişim yok';
+                        kpiDiffM3.style.color = 'var(--text-main)';
+                    }
+                }
+            } else if (n === 1) {
+                const onlyPt = liveSeries[0];
+                const onlyM3 = Number(onlyPt.consumption_m3 || 0);
+                kazanilanDamla = currentMode === 'monthly' ? Number(onlyPt.earned_points || 0) : 0;
+
+                if (kpiPrevLabel) kpiPrevLabel.textContent = currentMode === 'yearly' ? 'Önceki Yıl' : 'Önceki Fatura';
+                if (kpiCurrLabel) kpiCurrLabel.textContent = onlyPt.period_label || onlyPt.xlab;
+                if (kpiDiffLabel) kpiDiffLabel.textContent = 'Tasarruf';
+                if (kpiPrevM3) kpiPrevM3.textContent = '—';
+                if (kpiCurrM3) kpiCurrM3.textContent = formatTR(onlyM3, 1) + ' m³';
+                if (kpiDiffM3) {
+                    kpiDiffM3.textContent = currentMode === 'yearly' ? 'En az 2 yıl' : 'En az 2 fatura';
+                    kpiDiffM3.style.color = 'var(--text-muted)';
+                }
+            } else {
+                if (kpiPrevLabel) kpiPrevLabel.textContent = 'Önceki Fatura';
+                if (kpiCurrLabel) kpiCurrLabel.textContent = 'Son Fatura';
+                if (kpiDiffLabel) kpiDiffLabel.textContent = 'Tasarruf';
+                if (kpiPrevM3) kpiPrevM3.textContent = '—';
+                if (kpiCurrM3) kpiCurrM3.textContent = '—';
+                if (kpiDiffM3) {
+                    kpiDiffM3.textContent = 'Veri yok';
+                    kpiDiffM3.style.color = 'var(--text-muted)';
                 }
             }
+
             if (kpiEarnedPoints) {
-                kpiEarnedPoints.textContent = kazanilanPuan > 0
-                    ? '+' + kazanilanPuan + ' Puan 💧'
-                    : '0 Puan';
-                kpiEarnedPoints.style.color = kazanilanPuan > 0 ? 'var(--brand-green-dark)' : 'var(--text-main)';
+                kpiEarnedPoints.textContent = kazanilanDamla > 0
+                    ? '+' + kazanilanDamla + ' Damla 💧'
+                    : '0 Damla';
+                kpiEarnedPoints.style.color = kazanilanDamla > 0 ? 'var(--brand-green-dark)' : 'var(--text-main)';
             }
-
-            // Ortak Gölet (Kolektif Havuz) Simülasyon & Gerçek Değer Hesabı
-            const targetPondM3 = Math.max(1, Number(basePond.golet_hedef_m3 || 500));
-            const baseOtherM3 = Math.max(0, Number(basePond.golet_mevcut_su_m3 || 0) - baseSavedM3);
-            const baseOtherPts = Math.max(0, Number(basePond.golet_toplam_puan || 0) - baseEarnedPts);
-            const baseOtherWallet = Math.max(0, baseWalletPts - baseEarnedPts);
-
-            const livePondM3 = +(baseOtherM3 + tasarrufM3).toFixed(2);
-            const livePondLiters = Math.round(livePondM3 * 1000);
-            const livePondPts = baseOtherPts + kazanilanPuan;
-            const liveWalletPts = baseOtherWallet + kazanilanPuan;
-            const dolulukYuzdesi = Math.min(100, +((livePondM3 / targetPondM3) * 100).toFixed(1));
-
-            if (pondCurrentM3Text) pondCurrentM3Text.textContent = formatTR(livePondM3, 2) + ' m³';
-            if (pondCurrentLitersText) pondCurrentLitersText.textContent = formatTR(livePondLiters, 0) + ' L';
-            if (pondTargetM3Text) pondTargetM3Text.textContent = formatTR(targetPondM3, 0) + ' m³';
-            if (pondFillPctText) pondFillPctText.textContent = '%' + formatTR(dolulukYuzdesi, 1) + ' Doluluk';
-            if (pondMeterFill) pondMeterFill.style.width = Math.min(100, Math.max(2, dolulukYuzdesi)) + '%';
-            if (pondTotalPointsVal) pondTotalPointsVal.textContent = formatTR(livePondPts, 0) + ' Puan';
-            if (userWalletPointsText) userWalletPointsText.textContent = formatTR(liveWalletPts, 0) + ' Debi Puanı';
 
             renderLineChart(liveSeries);
-
-            // Gölet görsel aşaması (Kurumuş -> Yarı Dolu -> Tam Dolu)
-            let stageKey = 'dry';
-            if (dolulukYuzdesi >= 60 || kurtarilanLitre >= 3000) {
-                stageKey = 'full';
-            } else if (dolulukYuzdesi >= 20 || kurtarilanLitre >= 1000) {
-                stageKey = 'half';
-            }
-
-            if (withDrops && tasarrufM3 > 0) {
-                spawnFallingDrops(stageKey === 'full' ? 2 : 1);
-            }
-
-            if (stageKey !== currentStageKey) {
-                currentStageKey = stageKey;
-                pondImg.classList.add('pond-stage-switching');
-                setTimeout(function () {
-                    pondImg.src = analyticsCfg.images[stageKey] || analyticsCfg.images.dry;
-                    pondImg.classList.remove('pond-stage-switching');
-                }, 140);
-            }
         }
 
         if (modeBtns.length > 0) {
@@ -645,10 +594,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 btn.addEventListener('click', function () {
                     const targetMode = btn.getAttribute('data-chart-mode') || 'monthly';
                     if (targetMode === currentMode) return;
-                    if (autoPlayTimer) {
-                        clearInterval(autoPlayTimer);
-                        autoPlayTimer = null;
-                    }
                     currentMode = targetMode;
                     modeBtns.forEach(function (b) {
                         const isAct = (b.getAttribute('data-chart-mode') === currentMode);
@@ -657,51 +602,312 @@ document.addEventListener('DOMContentLoaded', function () {
                         b.classList.toggle('btn-outline', !isAct);
                     });
                     liveSeries = JSON.parse(JSON.stringify(currentMode === 'yearly' ? baseYearly : baseMonthly));
-                    updateAnalyticsAndPond(true);
+                    updateAnalyticsView();
                 });
             });
         }
 
-        if (btnAutoPlay) {
-            btnAutoPlay.addEventListener('click', function () {
-                if (autoPlayTimer) {
-                    clearInterval(autoPlayTimer);
-                    autoPlayTimer = null;
-                }
-                const n = liveSeries.length;
-                const basePrev = Math.max(12, liveSeries[n - 2].consumption_m3);
-                liveSeries[n - 2].consumption_m3 = basePrev;
-                liveSeries[n - 1].consumption_m3 = basePrev;
-                updateAnalyticsAndPond(false);
-
-                let steps = 0;
-                autoPlayTimer = setInterval(function () {
-                    steps++;
-                    liveSeries[n - 1].consumption_m3 = Math.max(4, +(liveSeries[n - 1].consumption_m3 - 0.5).toFixed(2));
-                    updateAnalyticsAndPond(true);
-                    if (steps >= 7) {
-                        clearInterval(autoPlayTimer);
-                        autoPlayTimer = null;
-                    }
-                }, 650);
-            });
-        }
-
-        if (btnResetReal) {
-            btnResetReal.addEventListener('click', function () {
-                if (autoPlayTimer) {
-                    clearInterval(autoPlayTimer);
-                    autoPlayTimer = null;
-                }
-                liveSeries = JSON.parse(JSON.stringify(currentMode === 'yearly' ? baseYearly : baseMonthly));
-                const n = liveSeries.length;
-                liveSeries[n - 1].consumption_m3 = liveSeries[n - 2].consumption_m3;
-                updateAnalyticsAndPond(false);
-            });
-        }
-
-        // İlk açılışta o ayın (Aylık) çizgi tablosunu ve göleti başlat
-        const initSaved = Math.max(0, liveSeries[liveSeries.length - 2].consumption_m3 - liveSeries[liveSeries.length - 1].consumption_m3);
-        updateAnalyticsAndPond(initSaved > 0);
+        updateAnalyticsView();
     }
+
+    // 10. Yapay Zeka Fatura Doğrulama Canlı Kontrolü (water.php)
+    const aiConfirmForm = document.getElementById('billConfirmForm');
+    const aiRewardBanner = document.getElementById('aiVerifyRewardBanner');
+    if (aiConfirmForm && aiRewardBanner && aiConfirmForm.getAttribute('data-ai-used') === '1') {
+        const origMonth = String(aiConfirmForm.getAttribute('data-ai-month') || '');
+        const origYear = String(aiConfirmForm.getAttribute('data-ai-year') || '');
+        const origM3 = Number(String(aiConfirmForm.getAttribute('data-ai-m3') || '0').replace(',', '.'));
+        const origDays = String(aiConfirmForm.getAttribute('data-ai-days') || '30');
+        const origProvider = String(aiConfirmForm.getAttribute('data-ai-provider') || '').trim();
+        const origBillRaw = String(aiConfirmForm.getAttribute('data-ai-bill') || '').trim();
+
+        const inpMonth = document.getElementById('period_month');
+        const inpYear = document.getElementById('period_year');
+        const inpM3 = document.getElementById('consumption_m3');
+        const inpDays = document.getElementById('reading_days');
+        const inpProvider = document.getElementById('provider_name');
+        const inpBill = document.getElementById('bill_amount');
+        const aiVerifyIcon = document.getElementById('aiVerifyIcon');
+        const aiVerifyText = document.getElementById('aiVerifyText');
+        const submitBtn = document.getElementById('billConfirmSubmitBtn');
+
+        function checkAiUnmodifiedState() {
+            const curMonth = inpMonth ? String(inpMonth.value) : origMonth;
+            const curYear = inpYear ? String(inpYear.value) : origYear;
+            const curM3 = inpM3 ? Number(String(inpM3.value || '0').replace(',', '.')) : origM3;
+            const curDays = inpDays ? String(inpDays.value) : origDays;
+            const curProvider = inpProvider ? String(inpProvider.value || '').trim() : origProvider;
+            const curBillRaw = inpBill ? String(inpBill.value || '').trim() : origBillRaw;
+
+            const billMatches = (origBillRaw === '' && curBillRaw === '') ||
+                (Math.abs(Number(curBillRaw.replace(',', '.')) - Number(origBillRaw.replace(',', '.'))) < 0.01);
+
+            const isUnmodified = (
+                curMonth === origMonth &&
+                curYear === origYear &&
+                Math.abs(curM3 - origM3) < 0.001 &&
+                curDays === origDays &&
+                curProvider === origProvider &&
+                billMatches
+            );
+
+            aiRewardBanner.classList.toggle('is-modified', !isUnmodified);
+            if (isUnmodified) {
+                if (aiVerifyIcon) aiVerifyIcon.textContent = '✨';
+                if (aiVerifyText) {
+                    aiVerifyText.innerHTML = '<strong>AI değerleri değişmedi · Fatura otomatik puanlanacak</strong><small>Geçen aya göre azalma, sabitlik veya artış kuralı uygulanır.</small>';
+                }
+                if (submitBtn) {
+                    submitBtn.innerHTML = '💧 Onayla &amp; Damla Kazan';
+                }
+            } else {
+                if (aiVerifyIcon) aiVerifyIcon.textContent = '✏️';
+                if (aiVerifyText) {
+                    aiVerifyText.innerHTML = '<strong>AI değerleri değiştirildi · Admin incelemesi gerekli</strong><small>İnceleme tamamlanana kadar bu faturaya puan verilmez.</small>';
+                }
+                if (submitBtn) {
+                    submitBtn.innerHTML = 'Faturayı Kaydet';
+                }
+            }
+        }
+
+        [inpMonth, inpYear, inpM3, inpDays, inpProvider, inpBill].forEach(function (el) {
+            if (el) {
+                el.addEventListener('input', checkAiUnmodifiedState);
+                el.addEventListener('change', checkAiUnmodifiedState);
+            }
+        });
+    }
+
+    // 11. Ekranı Karartıp Gerçek Daire Göletine Damla Yağdıran Kutlama Modalı (water.php)
+    const celData = window.DEBI_POND_CELEBRATION;
+    const celOverlay = document.getElementById('pondCelebrationOverlay');
+    if (celData && celOverlay) {
+        const dropLayer = document.getElementById('pondCelDropLayer');
+        const rippleRing = document.getElementById('pondCelRippleRing');
+        const stageImg = document.getElementById('pondCelStageImg');
+        const dropsCounter = document.getElementById('pondCelDropsCounter');
+        const fillPctText = document.getElementById('pondCelFillPctText');
+        const meterFill = document.getElementById('pondCelMeterFill');
+        const closeBtn = document.getElementById('btnClosePondCelebration');
+
+        const dropsCount = Math.min(24, Math.max(10, Number(celData.earnedDrops || 10)));
+        const beforeDrops = Number(celData.dropsBefore || 0);
+        const afterDrops = Number(celData.dropsAfter || beforeDrops + Number(celData.earnedDrops || 10));
+        const beforeFill = Number(celData.fillBefore || 0);
+        const afterFill = Number(celData.fillAfter || 0);
+
+        // Damlaları yukarıdan gölete yağdır
+        for (let i = 0; i < dropsCount; i++) {
+            setTimeout(function () {
+                if (!dropLayer) return;
+                const drop = document.createElement('span');
+                drop.className = 'falling-water-drop cel-water-drop';
+                drop.textContent = '💧';
+                const offset = (Math.random() * 190) - 95;
+                drop.style.left = 'calc(50% + ' + Math.round(offset) + 'px)';
+                dropLayer.appendChild(drop);
+
+                setTimeout(function () {
+                    if (rippleRing) {
+                        rippleRing.classList.remove('ripple-active');
+                        void rippleRing.offsetWidth;
+                        rippleRing.classList.add('ripple-active');
+                    }
+                }, 540);
+
+                setTimeout(function () {
+                    if (drop.parentNode) {
+                        drop.parentNode.removeChild(drop);
+                    }
+                }, 800);
+            }, 180 + i * 115);
+        }
+
+        // Canlı Damla sayacı ve doluluk çubuğunu kademeli artır
+        const animSteps = 20;
+        let curStep = 0;
+        const stepInterval = setInterval(function () {
+            curStep++;
+            const progress = Math.min(1, curStep / animSteps);
+            const liveDrops = Math.round(beforeDrops + (afterDrops - beforeDrops) * progress);
+            const liveFill = +(beforeFill + (afterFill - beforeFill) * progress).toFixed(0);
+
+            if (dropsCounter) dropsCounter.textContent = String(liveDrops);
+            if (fillPctText) fillPctText.textContent = '%' + String(liveFill) + ' Doluluk';
+            if (meterFill) meterFill.style.width = Math.min(100, Math.max(3, liveFill)) + '%';
+
+            // Gölet aşaması seviye atladıysa (ör. dry -> half veya half -> full) gerçek görseli değiştir
+            if (progress >= 0.55 && celData.stageBefore !== celData.stageAfter && stageImg && !stageImg.dataset.switched) {
+                stageImg.dataset.switched = '1';
+                stageImg.classList.add('pond-stage-switching');
+                setTimeout(function () {
+                    if (celData.images && celData.images[celData.stageAfter]) {
+                        stageImg.src = celData.images[celData.stageAfter];
+                    }
+                    stageImg.classList.remove('pond-stage-switching');
+                }, 180);
+            }
+
+            if (curStep >= animSteps) {
+                clearInterval(stepInterval);
+            }
+        }, 110);
+
+        function closeCelebrationOverlay() {
+            celOverlay.classList.add('is-closing');
+            setTimeout(function () {
+                if (celOverlay.parentNode) {
+                    celOverlay.parentNode.removeChild(celOverlay);
+                }
+            }, 220);
+        }
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeCelebrationOverlay);
+        }
+        celOverlay.addEventListener('click', function (ev) {
+            if (ev.target === celOverlay) {
+                closeCelebrationOverlay();
+            }
+        });
+        document.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Escape' && document.body.contains(celOverlay)) {
+                closeCelebrationOverlay();
+            }
+        });
+    }
+
+    // 12. Sağ Sütun Debi Puan Sıralaması Sekmeleri (Arkadaş / Apartman / Genel)
+    const lbTabs = document.querySelectorAll('.js-lb-tab');
+    if (lbTabs.length > 0) {
+        lbTabs.forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                const targetId = tab.getAttribute('data-target');
+                lbTabs.forEach(function (t) {
+                    t.classList.toggle('active', t === tab);
+                });
+                document.querySelectorAll('.js-lb-panel').forEach(function (p) {
+                    p.style.display = (p.id === targetId) ? '' : 'none';
+                });
+            });
+        });
+    }
+
+    // 13. Oturum açılmış kullanıcı formlarında progressive AJAX gönderimi
+    // Sunucu normal HTML redirect döndürmeye devam eder; yalnızca ana içerik yenilenir.
+    document.addEventListener('submit', function (event) {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement) || event.defaultPrevented) return;
+        if ((form.method || 'get').toLowerCase() !== 'post') return;
+        if (form.hasAttribute('data-no-ajax') || form.classList.contains('reaction-form')) return;
+
+        const actionUrl = new URL(form.getAttribute('action') || window.location.href, window.location.href);
+        const excludedPages = ['login.php', 'register.php', 'migration.php', 'migrate.php'];
+        if (actionUrl.origin !== window.location.origin || excludedPages.indexOf(actionUrl.pathname.split('/').pop()) !== -1) return;
+
+        const mainColumn = form.closest('.main-column');
+        if (!mainColumn) return;
+
+        event.preventDefault();
+        const preservedFields = [];
+        form.querySelectorAll('input[name], select[name], textarea[name]').forEach(function (field) {
+            if (field.type === 'file' || field.type === 'submit' || field.type === 'button') return;
+            preservedFields.push({
+                name: field.name,
+                type: field.type,
+                value: field.value,
+                checked: field.checked
+            });
+        });
+        const buttons = form.querySelectorAll('button, input[type="submit"]');
+        const originalLabels = [];
+        buttons.forEach(function (button) {
+            originalLabels.push(button.textContent || button.value || '');
+            button.disabled = true;
+            if (button.tagName === 'BUTTON') button.textContent = 'Gönderiliyor...';
+        });
+        form.setAttribute('aria-busy', 'true');
+
+        const showAjaxError = function (message) {
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-error ajax-form-error';
+            alert.textContent = message;
+            form.insertBefore(alert, form.firstChild);
+        };
+
+        fetch(actionUrl.href, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: new FormData(form),
+            credentials: 'same-origin'
+        })
+            .then(function (response) {
+                return response.text().then(function (html) {
+                    if (!response.ok) throw new Error('İşlem tamamlanamadı.');
+                    return { html: html, url: response.url };
+                });
+            })
+            .then(function (result) {
+                const parser = new DOMParser();
+                const documentFromResponse = parser.parseFromString(result.html, 'text/html');
+                const updatedMain = documentFromResponse.querySelector('.main-column');
+                if (!updatedMain) throw new Error('Sunucudan beklenen sayfa içeriği alınamadı.');
+
+                const responseUrl = new URL(result.url, window.location.href);
+                if (responseUrl.pathname !== window.location.pathname || responseUrl.search !== window.location.search) {
+                    window.history.replaceState({}, '', responseUrl.href);
+                }
+                const currentTopbarPoints = document.querySelector('.topbar-drop-count');
+                const updatedTopbarPoints = documentFromResponse.querySelector('.topbar-drop-count');
+                if (currentTopbarPoints && updatedTopbarPoints) {
+                    currentTopbarPoints.textContent = updatedTopbarPoints.textContent;
+                }
+                const responseFlash = documentFromResponse.querySelector('.flash-wrapper');
+                if (responseFlash) {
+                    const inlineFlash = responseFlash.querySelector('.alert');
+                    if (inlineFlash) {
+                        const existingFlash = updatedMain.querySelector('.ajax-form-error, .ajax-form-success');
+                        if (existingFlash) existingFlash.remove();
+                        const flashAlert = inlineFlash.cloneNode(true);
+                        flashAlert.classList.add(inlineFlash.classList.contains('alert-error') ? 'ajax-form-error' : 'ajax-form-success');
+                        updatedMain.insertBefore(flashAlert, updatedMain.firstChild);
+                    }
+                }
+                mainColumn.replaceWith(updatedMain);
+                if (updatedMain.querySelector('.alert-error')) {
+                    preservedFields.forEach(function (savedField) {
+                        const matchingFields = updatedMain.querySelectorAll('[name="' + CSS.escape(savedField.name) + '"]');
+                        if (savedField.type === 'checkbox' || savedField.type === 'radio') return;
+                        matchingFields.forEach(function (field) {
+                            if (field.type !== 'file') field.value = savedField.value;
+                        });
+                    });
+                    preservedFields.filter(function (savedField) {
+                        return savedField.type === 'checkbox' || savedField.type === 'radio';
+                    }).forEach(function (savedField) {
+                        const matchingFields = updatedMain.querySelectorAll('[name="' + CSS.escape(savedField.name) + '"]');
+                        matchingFields.forEach(function (field) {
+                            field.checked = preservedFields.some(function (candidate) {
+                                return candidate.name === savedField.name
+                                    && candidate.type === savedField.type
+                                    && candidate.checked
+                                    && candidate.value === field.value;
+                            });
+                        });
+                    });
+                }
+                document.dispatchEvent(new CustomEvent('debi:content-updated'));
+            })
+            .catch(function (error) {
+                buttons.forEach(function (button, index) {
+                    button.disabled = false;
+                    if (button.tagName === 'BUTTON') {
+                        button.textContent = originalLabels[index];
+                    }
+                });
+                form.removeAttribute('aria-busy');
+                showAjaxError(error.message || 'İşlem sırasında bir hata oluştu. Lütfen tekrar deneyin.');
+            });
+    });
 });

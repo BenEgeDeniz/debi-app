@@ -4,138 +4,6 @@
  */
 
 /**
- * Tabloların varlığını kontrol eder, henüz 005 veya 006 SQL yüklenmemişse hata vermemesi için güvenli kurulum yapar.
- */
-function ensure_gamification_schema(): void
-{
-    static $checked = false;
-    if ($checked) {
-        return;
-    }
-    $checked = true;
-
-    try {
-        $pdo = db();
-
-        // 1. 005_post_images_and_alerts.sql kontrolü (neighborhood_alerts tablosu ve posts.image_path sütunu)
-        $hasAlerts = (bool) $pdo->query("SHOW TABLES LIKE 'neighborhood_alerts'")->fetchColumn();
-        if (!$hasAlerts) {
-            $sql005 = __DIR__ . '/../../sql-dum/005_post_images_and_alerts.sql';
-            if (file_exists($sql005)) {
-                run_sql_migration_file($pdo, $sql005);
-            }
-        }
-
-        // 2. 006_gamification_points.sql kontrolü (point_logs tablosu ve users.total_points sütunu)
-        $hasPointLogs  = (bool) $pdo->query("SHOW TABLES LIKE 'point_logs'")->fetchColumn();
-        $hasUserPoints = (bool) $pdo->query("SHOW COLUMNS FROM `users` LIKE 'total_points'")->fetchColumn();
-
-        if (!$hasPointLogs || !$hasUserPoints) {
-            $sql006 = __DIR__ . '/../../sql-dum/006_gamification_points.sql';
-            if (file_exists($sql006)) {
-                run_sql_migration_file($pdo, $sql006);
-            }
-        }
-
-        // 3. 007_bill_images.sql kontrolü (water_logs.bill_image_path sütunu)
-        $hasBillImage = (bool) $pdo->query("SHOW COLUMNS FROM `water_logs` LIKE 'bill_image_path'")->fetchColumn();
-        if (!$hasBillImage) {
-            $sql007 = __DIR__ . '/../../sql-dum/007_bill_images.sql';
-            if (file_exists($sql007)) {
-                run_sql_migration_file($pdo, $sql007);
-            }
-        }
-
-        // 4. 008_friendships_and_timeline.sql kontrolü (friendships tablosu ve posts.visibility ENUM güncellemesi)
-        $hasFriendships = (bool) $pdo->query("SHOW TABLES LIKE 'friendships'")->fetchColumn();
-        if (!$hasFriendships) {
-            $sql008 = __DIR__ . '/../../sql-dum/008_friendships_and_timeline.sql';
-            if (file_exists($sql008)) {
-                run_sql_migration_file($pdo, $sql008);
-            }
-        }
-
-        // 5. 009_profile_and_cover_photos.sql kontrolü (users.avatar_photo ve users.cover_photo sütunları)
-        $hasAvatarPhoto = (bool) $pdo->query("SHOW COLUMNS FROM `users` LIKE 'avatar_photo'")->fetchColumn();
-        if (!$hasAvatarPhoto) {
-            $sql009 = __DIR__ . '/../../sql-dum/009_profile_and_cover_photos.sql';
-            if (file_exists($sql009)) {
-                run_sql_migration_file($pdo, $sql009);
-            }
-        }
-
-        // 6. 010_household_unit_manager_and_residents.sql kontrolü (households.owner_user_id ve unit_invite_code)
-        $hasUnitInvite = (bool) $pdo->query("SHOW COLUMNS FROM `households` LIKE 'unit_invite_code'")->fetchColumn();
-        if (!$hasUnitInvite) {
-            $sql010 = __DIR__ . '/../../sql-dum/010_household_unit_manager_and_residents.sql';
-            if (file_exists($sql010)) {
-                run_sql_migration_file($pdo, $sql010);
-            }
-        }
-
-        // 7. 101_collective_pond_and_bill_points.sql kontrolü (collective_pond tablosu ve water_logs.saved_m3 sütunu)
-        $hasCollectivePond = (bool) $pdo->query("SHOW TABLES LIKE 'collective_pond'")->fetchColumn();
-        $hasSavedM3Column  = (bool) $pdo->query("SHOW COLUMNS FROM `water_logs` LIKE 'saved_m3'")->fetchColumn();
-        if (!$hasCollectivePond || !$hasSavedM3Column) {
-            $sql101 = __DIR__ . '/../../sql-dum/101_collective_pond_and_bill_points.sql';
-            if (file_exists($sql101)) {
-                run_sql_migration_file($pdo, $sql101);
-            }
-        }
-
-        // Mevcut hanelerde owner_user_id veya unit_invite_code eksikse otomatik tamamla
-        $pdo->exec("
-            UPDATE households h
-            SET h.owner_user_id = (
-                SELECT MIN(u.id) FROM users u WHERE u.household_id = h.id
-            )
-            WHERE h.owner_user_id IS NULL
-        ");
-
-        $missingCodes = $pdo->query("SELECT id FROM households WHERE unit_invite_code IS NULL OR unit_invite_code = ''")->fetchAll();
-        if (!empty($missingCodes)) {
-            $updCode = $pdo->prepare("UPDATE households SET unit_invite_code = :code WHERE id = :id");
-            foreach ($missingCodes as $row) {
-                $updCode->execute([
-                    ':code' => generate_invite_code('DAIRE'),
-                    ':id'   => (int) $row['id'],
-                ]);
-            }
-        }
-    } catch (Throwable $e) {
-        // Sessizce geç
-    }
-}
-
-/**
- * SQL dosyasındaki ifadeleri güvenli şekilde tek tek çalıştırır
- */
-function run_sql_migration_file(PDO $pdo, string $sqlFile): void
-{
-    $sql   = file_get_contents($sqlFile);
-    $lines = explode("\n", (string) $sql);
-    $clean = [];
-    foreach ($lines as $line) {
-        $trimmed = trim($line);
-        if ($trimmed === '' || strpos($trimmed, '--') === 0) {
-            continue;
-        }
-        $clean[] = $line;
-    }
-    $statements = explode(';', implode("\n", $clean));
-    foreach ($statements as $st) {
-        $st = trim($st);
-        if ($st !== '') {
-            try {
-                $pdo->exec($st);
-            } catch (Throwable $ignore) {
-                // Sütun/tablo zaten varsa devam et
-            }
-        }
-    }
-}
-
-/**
  * Puan değerine göre Seviye (Level), Unvan ve İlerleme Yüzdesi döndürür.
  */
 function get_level_info(int $points): array
@@ -190,17 +58,25 @@ function award_points(
     string $description,
     ?string $refKey = null
 ): int {
-    ensure_gamification_schema();
     if ($points <= 0 || $userId <= 0 || $householdId <= 0) {
+        return 0;
+    }
+    if (!in_array($actionCode, ['bill_drops_earned', 'event_participation'], true)) {
         return 0;
     }
 
     $pdo = db();
 
     try {
+        $typeStmt = $pdo->prepare("SELECT housing_type FROM households WHERE id = :hid LIMIT 1");
+        $typeStmt->execute([':hid' => $householdId]);
+        if (!in_array($typeStmt->fetchColumn(), ['apartment_unit', 'detached_house'], true)) {
+            return 0;
+        }
+
         if ($refKey !== null) {
-            $chk = $pdo->prepare("SELECT id FROM point_logs WHERE user_id = :uid AND ref_key = :rkey LIMIT 1");
-            $chk->execute([':uid' => $userId, ':rkey' => $refKey]);
+            $chk = $pdo->prepare("SELECT id FROM point_logs WHERE household_id = :hid AND ref_key = :rkey LIMIT 1");
+            $chk->execute([':hid' => $householdId, ':rkey' => $refKey]);
             if ($chk->fetchColumn()) {
                 return 0; // Bu tekil aksiyondan daha önce puan kazanılmış
             }
@@ -219,14 +95,8 @@ function award_points(
             ':rkey' => $refKey,
         ]);
 
-        $pdo->prepare("UPDATE users SET total_points = total_points + :pts WHERE id = :uid")
-            ->execute([':pts' => $points, ':uid' => $userId]);
-
         $pdo->prepare("UPDATE households SET total_points = total_points + :pts WHERE id = :hid")
             ->execute([':pts' => $points, ':hid' => $householdId]);
-
-        // Rozet kontrolü yap
-        check_and_award_badges($userId, $householdId);
 
         return $points;
     } catch (Throwable $e) {
@@ -239,7 +109,6 @@ function award_points(
  */
 function check_and_award_badges(int $userId, int $householdId): array
 {
-    ensure_gamification_schema();
     $pdo = db();
     $newlyEarned = [];
 
@@ -319,23 +188,6 @@ function check_and_award_badges(int $userId, int $householdId): array
             $ins = $pdo->prepare("INSERT IGNORE INTO user_badges (user_id, badge_id) VALUES (:uid, :bid)");
             $ins->execute([':uid' => $userId, ':bid' => (int) $badge['id']]);
             if ($ins->rowCount() > 0) {
-                $bonus = (int) $badge['bonus_points'];
-                if ($bonus > 0) {
-                    $pdo->prepare("
-                        INSERT IGNORE INTO point_logs (user_id, household_id, action_code, points, description, ref_key)
-                        VALUES (:uid, :hid, 'badge_earned', :pts, :desc, :rkey)
-                    ")->execute([
-                        ':uid'  => $userId,
-                        ':hid'  => $householdId,
-                        ':pts'  => $bonus,
-                        ':desc' => $badge['emoji'] . ' "' . $badge['title'] . '" rozeti kazanıldı!',
-                        ':rkey' => 'badge_' . $badge['code'],
-                    ]);
-                    $pdo->prepare("UPDATE users SET total_points = total_points + :pts WHERE id = :uid")
-                        ->execute([':pts' => $bonus, ':uid' => $userId]);
-                    $pdo->prepare("UPDATE households SET total_points = total_points + :pts WHERE id = :hid")
-                        ->execute([':pts' => $bonus, ':hid' => $householdId]);
-                }
                 $newlyEarned[] = $badge;
             }
         }
@@ -351,7 +203,6 @@ function check_and_award_badges(int $userId, int $householdId): array
  */
 function get_daily_quests_for_user(int $userId): array
 {
-    ensure_gamification_schema();
     $today = date('Y-m-d');
 
     try {
@@ -376,65 +227,10 @@ function get_daily_quests_for_user(int $userId): array
  */
 function complete_daily_quest(array $user, int $questId): array
 {
-    ensure_gamification_schema();
-    $pdo   = db();
-    $today = date('Y-m-d');
-
-    try {
-        $qStmt = $pdo->prepare("SELECT * FROM daily_quests WHERE id = :id LIMIT 1");
-        $qStmt->execute([':id' => $questId]);
-        $quest = $qStmt->fetch();
-
-        if (!$quest) {
-            return ['ok' => false, 'error' => 'Görev bulunamadı.'];
-        }
-
-        $chk = $pdo->prepare("
-            SELECT id FROM user_daily_quests
-            WHERE user_id = :uid AND quest_id = :qid AND completed_date = :today
-            LIMIT 1
-        ");
-        $chk->execute([
-            ':uid'   => (int) $user['id'],
-            ':qid'   => $questId,
-            ':today' => $today,
-        ]);
-
-        if ($chk->fetchColumn()) {
-            return ['ok' => false, 'error' => 'Bu görevi bugün zaten tamamladın! Yarın tekrar yapabilirsin.'];
-        }
-
-        $ins = $pdo->prepare("
-            INSERT INTO user_daily_quests (user_id, quest_id, completed_date)
-            VALUES (:uid, :qid, :today)
-        ");
-        $ins->execute([
-            ':uid'   => (int) $user['id'],
-            ':qid'   => $questId,
-            ':today' => $today,
-        ]);
-
-        $pts = (int) $quest['points'];
-        $ref = 'quest_' . $questId . '_' . $today;
-        award_points(
-            (int) $user['id'],
-            (int) $user['household_id'],
-            'daily_quest',
-            $pts,
-            $quest['emoji'] . ' Günlük Görev: ' . $quest['title'],
-            $ref
-        );
-
-        return [
-            'ok'     => true,
-            'points' => $pts,
-            'title'  => $quest['title'],
-            'emoji'  => $quest['emoji'],
-            'liters' => (int) $quest['water_saved_liters'],
-        ];
-    } catch (Throwable $e) {
-        return ['ok' => false, 'error' => 'Görev tamamlanırken bir hata oluştu.'];
-    }
+    return [
+        'ok'    => false,
+        'error' => 'Puan yalnızca su faturası kaydı ve fatura tasarrufundan kazanılır.',
+    ];
 }
 
 /**
@@ -442,7 +238,6 @@ function complete_daily_quest(array $user, int $questId): array
  */
 function get_user_badges_with_catalog(int $userId): array
 {
-    ensure_gamification_schema();
     try {
         $stmt = db()->prepare("
             SELECT
@@ -465,7 +260,6 @@ function get_user_badges_with_catalog(int $userId): array
  */
 function get_user_point_history(int $userId, int $limit = 10): array
 {
-    ensure_gamification_schema();
     try {
         $stmt = db()->prepare("
             SELECT *
@@ -488,22 +282,25 @@ function get_user_point_history(int $userId, int $limit = 10): array
  */
 function get_neighborhood_points_leaderboard(int $neighborhoodId, int $limit = 8): array
 {
-    ensure_gamification_schema();
     try {
         $stmt = db()->prepare("
             SELECT
                 u.id AS user_id,
                 u.full_name,
                 u.avatar_color,
-                u.total_points,
+                h.total_points,
                 h.unit_label,
                 h.housing_type,
                 a.name AS apartment_name
-            FROM users u
-            INNER JOIN households h ON h.id = u.household_id
+            FROM households h
+            INNER JOIN users u ON u.id = COALESCE(
+                NULLIF(h.owner_user_id, 0),
+                (SELECT MIN(hu.id) FROM users hu WHERE hu.household_id = h.id)
+            )
             LEFT JOIN apartments a ON a.id = u.apartment_id
-            WHERE u.neighborhood_id = :nid
-            ORDER BY u.total_points DESC, u.id ASC
+            WHERE h.neighborhood_id = :nid
+              AND h.housing_type IN ('apartment_unit', 'detached_house')
+            ORDER BY h.total_points DESC, h.id ASC
             LIMIT :lim
         ");
         $stmt->bindValue(':nid', $neighborhoodId, PDO::PARAM_INT);

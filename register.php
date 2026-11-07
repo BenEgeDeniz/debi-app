@@ -12,23 +12,77 @@ if ($currentUser) {
     redirect('index.php');
 }
 
+$inviteLookup = null;
 $error = null;
+$inviteBackRequested = ($_GET['back'] ?? '') === '1';
+if ($inviteBackRequested) {
+    unset(
+        $_SESSION['registration_invite_code'],
+        $_SESSION['registration_invite_type'],
+        $_SESSION['registration_invite_label'],
+        $_SESSION['registration_invite_unit_label'],
+        $_SESSION['registration_invite_apartment_name']
+    );
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'lookup_invite') {
+    if (!verify_csrf()) {
+        $error = 'Oturum doğrulaması başarısız oldu, lütfen sayfayı yenileyip tekrar deneyin.';
+    } else {
+        $lookup = lookup_registration_invite((string) ($_POST['invite_code'] ?? ''));
+        if (!$lookup['ok']) {
+            $error = $lookup['error'];
+            $prefillInvite = strtoupper(trim((string) ($_POST['invite_code'] ?? '')));
+        } else {
+            $_SESSION['registration_invite_code'] = strtoupper(trim((string) $_POST['invite_code']));
+            $_SESSION['registration_invite_type'] = $lookup['type'];
+            $_SESSION['registration_invite_label'] = $lookup['label'];
+            $_SESSION['registration_invite_unit_label'] = $lookup['unit_label'] ?? '';
+            $_SESSION['registration_invite_apartment_name'] = $lookup['apartment_name'] ?? '';
+            redirect('register.php?mode=apartment_invite');
+        }
+    }
+}
+
 $mode  = $_POST['register_mode'] ?? ($_GET['mode'] ?? 'individual');
 if (!in_array($mode, ['individual', 'apartment_invite', 'apartment_manager'], true)) {
     $mode = 'individual';
 }
 
-$prefillInvite = strtoupper(trim($_GET['code'] ?? ($_POST['invite_code'] ?? '')));
+$prefillInvite = strtoupper(trim(
+    $_GET['code']
+    ?? ($_POST['invite_code'] ?? ($_SESSION['registration_invite_code'] ?? ''))
+));
 if ($prefillInvite !== '' && !isset($_POST['register_mode'])) {
     $mode = 'apartment_invite';
 }
 
+$inviteVerified = $mode === 'apartment_invite'
+    && !empty($_SESSION['registration_invite_code'])
+    && $_SESSION['registration_invite_code'] === $prefillInvite;
+$inviteType = $_SESSION['registration_invite_type'] ?? null;
+$inviteLabel = $_SESSION['registration_invite_label'] ?? '';
+$inviteUnitLabel = $_SESSION['registration_invite_unit_label'] ?? '';
+$inviteApartmentName = $_SESSION['registration_invite_apartment_name'] ?? '';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf()) {
         $error = 'Oturum doğrulaması başarısız oldu, lütfen sayfayı yenileyip tekrar deneyin.';
+    } elseif (
+        $mode === 'apartment_invite'
+        && strtoupper(trim((string) ($_POST['invite_code'] ?? ''))) !== ($_SESSION['registration_invite_code'] ?? '')
+    ) {
+        $error = 'Önce davet kodunu sorgulamanız gerekiyor.';
     } else {
         $res = register_user($_POST);
         if ($res['ok']) {
+            unset(
+                $_SESSION['registration_invite_code'],
+                $_SESSION['registration_invite_type'],
+                $_SESSION['registration_invite_label'],
+                $_SESSION['registration_invite_unit_label'],
+                $_SESSION['registration_invite_apartment_name']
+            );
             session_regenerate_id(true);
             $_SESSION['user_id'] = $res['user_id'];
             set_flash('success', 'Debi ağına hoş geldiniz! Hane ve mahalle bağlantınız oluşturuldu.');
@@ -46,25 +100,22 @@ require_once __DIR__ . '/includes/header.php';
 <main class="auth-layout auth-layout-wide">
     <div class="auth-card auth-card-wide">
         <div class="auth-header-block">
-            <h1 class="auth-card-title">Debi Ağına Katıl</h1>
-            <p class="auth-card-subtitle">
-                Nasıl katılmak istediğinizi seçin. Apartmanınız henüz sistemde yoksa <strong>Bireysel / Müstakil</strong> seçeneğiyle doğrudan mahallenizde yer alabilirsiniz.
-            </p>
+            <h1 class="auth-card-title">Debi'ye Katıl</h1>
         </div>
 
         <!-- Katılım Modu Seçici Sekmeler -->
         <div class="mode-tabs" role="tablist">
             <button type="button" class="mode-tab <?= $mode === 'individual' ? 'active' : '' ?>" data-mode-target="individual">
-                <strong>1. Bireysel / Müstakil</strong>
-                <span>Mahallede bireysel yer al</span>
+                <strong>Bireysel / Müstakil</strong>
+                <span>Müstakil ev veya bireysel katılım</span>
             </button>
             <button type="button" class="mode-tab <?= $mode === 'apartment_invite' ? 'active' : '' ?>" data-mode-target="apartment_invite">
-                <strong>2. Davet Koduyla Katıl</strong>
-                <span>Apartman veya daire kodu ile katıl</span>
+                <strong>Davet Kodu ile</strong>
+                <span>Apartman veya daire koduyla</span>
             </button>
             <button type="button" class="mode-tab <?= $mode === 'apartment_manager' ? 'active' : '' ?>" data-mode-target="apartment_manager">
-                <strong>3. Apartman Yöneticisi</strong>
-                <span>Apartmanını mahalleye kur</span>
+                <strong>Apartman Yöneticisi</strong>
+                <span>Apartmanı kur</span>
             </button>
         </div>
 
@@ -72,13 +123,46 @@ require_once __DIR__ . '/includes/header.php';
             <div class="alert alert-error"><?= e($error) ?></div>
         <?php endif; ?>
 
+        <?php if ($mode === 'apartment_invite' && !$inviteVerified): ?>
+            <form method="post" action="register.php" class="form-stack" id="inviteGateForm">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="lookup_invite">
+                <input type="hidden" name="register_mode" value="apartment_invite">
+                <div class="form-section">
+                    <h3 class="form-section-title">Davet kodunuzu girin</h3>
+                    <div class="form-group">
+                        <label for="invite_gate_code">Davet Kodu</label>
+                        <input type="text" id="invite_gate_code" name="invite_code"
+                               value="<?= e($prefillInvite) ?>"
+                               placeholder="DEBI-... veya DAIRE-..." required autofocus>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Devam</button>
+            </form>
+        <?php elseif ($mode !== 'apartment_invite' || $inviteVerified): ?>
+        <?php if ($inviteVerified): ?>
+            <div class="alert alert-success">
+                <div>
+                    <strong><?= e($inviteLabel) ?> daveti doğrulandı.</strong>
+                    <?php if ($inviteType === 'resident'): ?>
+                        <br>Bu kod, <strong><?= e($inviteUnitLabel ?: 'mevcut dairenize') ?></strong> hanesine sakin olarak katılmanızı sağlar.
+                    <?php else: ?>
+                        <br><strong><?= e($inviteApartmentName ?: 'Bu apartman') ?></strong> için yeni bir daire yöneticisi hesabı oluşturacaksınız.
+                    <?php endif; ?>
+                </div>
+                <a href="register.php?mode=apartment_invite&amp;back=1" class="btn btn-outline btn-sm">Geri dön</a>
+            </div>
+        <?php endif; ?>
         <form method="post" action="register.php" class="form-stack" id="registerForm">
             <?= csrf_field() ?>
             <input type="hidden" name="register_mode" id="registerModeInput" value="<?= e($mode) ?>">
+            <?php if ($mode === 'apartment_invite'): ?>
+                <input type="hidden" name="invite_code" value="<?= e($prefillInvite) ?>">
+            <?php endif; ?>
 
             <!-- Ortak Kişisel Bilgiler -->
             <div class="form-section">
-                <h3 class="form-section-title">Kullanıcı ve Hane Bilgileri</h3>
+                <h3 class="form-section-title">Kullanıcı &amp; Hane</h3>
                 <div class="form-grid-2">
                     <div class="form-group">
                         <label for="full_name">Ad Soyad</label>
@@ -86,22 +170,36 @@ require_once __DIR__ . '/includes/header.php';
                                value="<?= e($_POST['full_name'] ?? '') ?>" placeholder="Örn: Ahmet Yılmaz">
                     </div>
                     <div class="form-group">
-                        <label for="email">E-posta Adresi</label>
+                        <label for="email">E-posta</label>
                         <input type="email" id="email" name="email" required
                                value="<?= e($_POST['email'] ?? '') ?>" placeholder="ornek@eposta.com">
                     </div>
                 </div>
 
+                <?php if ($mode === 'apartment_invite' && $inviteType === 'manager'): ?>
+                    <div class="form-section">
+                        <h3 class="form-section-title">Daire Yöneticisi Bilgileri</h3>
+                        <div class="form-group">
+                            <label for="invite_unit_label">Daire Numaranız</label>
+                            <input type="text" id="invite_unit_label" name="unit_label"
+                                   value="<?= e($_POST['unit_label'] ?? '') ?>"
+                                   placeholder="Örn: Daire 5" required>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
                 <div class="form-grid-2">
                     <div class="form-group">
-                        <label for="password">Şifre (En az 6 karakter)</label>
+                        <label for="password">Şifre (Min. 6 karakter)</label>
                         <input type="password" id="password" name="password" required placeholder="••••••">
                     </div>
-                    <div class="form-group">
-                        <label for="resident_count">Hanede Yaşayan Kişi Sayısı</label>
+                    <div class="form-group" id="residentCountGroup"
+                         <?= $mode === 'apartment_invite' && $inviteType !== 'manager' ? 'hidden' : '' ?>>
+                        <label for="resident_count">Hanedeki kişi sayısı</label>
                         <input type="number" id="resident_count" name="resident_count" min="1" max="20" required
-                               value="<?= e($_POST['resident_count'] ?? '3') ?>">
-                        <span class="field-hint">Kişi başı günlük su tüketimi hesabı için kullanılır.</span>
+                               value="<?= e($_POST['resident_count'] ?? '1') ?>"
+                               <?= $mode === 'apartment_invite' && $inviteType !== 'manager' ? 'disabled' : '' ?>>
+                        <small>Hanede yaşayan ve kişi başı kullanım hesabına dahil edilecek toplam kişi sayısını girin.</small>
                     </div>
                 </div>
             </div>
@@ -133,16 +231,11 @@ require_once __DIR__ . '/includes/header.php';
                  data-prefill-city="<?= e($postedCity) ?>"
                  data-prefill-district="<?= e($_POST['district'] ?? '') ?>"
                  data-prefill-neighborhood="<?= e($_POST['neighborhood_name'] ?? '') ?>">
-                <div>
-                    <h3 class="form-section-title">Mahalle Konumu</h3>
-                    <p class="section-note">
-                        İl, ilçe ve mahallenizi listeden seçin. Aynı mahalleyi seçen tüm apartmanlar ve bireysel evler ortak mahalle akışında buluşur.
-                    </p>
-                </div>
+                <h3 class="form-section-title">Mahalle Konumu</h3>
 
                 <div class="form-grid-3" id="autoLocationInputs">
                     <div class="form-group">
-                        <label for="citySelect">İl Seçin</label>
+                        <label for="citySelect">İl</label>
                         <select id="citySelect" name="city" class="loc-select">
                             <option value="">İl Seçiniz...</option>
                             <?php foreach ($provincesList as $plateId => $provName): ?>
@@ -154,13 +247,13 @@ require_once __DIR__ . '/includes/header.php';
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="districtSelect">İlçe Seçin</label>
+                        <label for="districtSelect">İlçe</label>
                         <select id="districtSelect" name="district" class="loc-select" disabled>
                             <option value="">Önce il seçin</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="neighborhoodSelect">Mahalle Seçin</label>
+                        <label for="neighborhoodSelect">Mahalle</label>
                         <select id="neighborhoodSelect" name="neighborhood_name" class="loc-select" disabled>
                             <option value="">Önce ilçe seçin</option>
                         </select>
@@ -171,48 +264,25 @@ require_once __DIR__ . '/includes/header.php';
             <!-- MOD 1: Bireysel / Müstakil Katılım Alanları -->
             <div class="form-section mode-specific" data-mode-box="individual"
                  style="<?= $mode === 'individual' ? '' : 'display:none;' ?>">
-                <h3 class="form-section-title">Bireysel / Müstakil Konut Detayı</h3>
+                <h3 class="form-section-title">Konut Türü</h3>
                 <div class="form-grid-2">
                     <div class="form-group">
-                        <label for="individual_housing_type">Konut Türünüz</label>
+                        <label for="individual_housing_type">Tür</label>
                         <select id="individual_housing_type" name="individual_housing_type">
                             <option value="individual_unit" <?= ($_POST['individual_housing_type'] ?? '') === 'individual_unit' ? 'selected' : '' ?>>
-                                Apartman Dairesi (Apartmanım henüz katılmadı, bireysel katılıyorum)
+                                Apartman Dairesi (Bireysel)
                             </option>
                             <option value="detached_house" <?= ($_POST['individual_housing_type'] ?? '') === 'detached_house' ? 'selected' : '' ?>>
-                                Müstakil Ev (Mahallede müstakil hane)
+                                Müstakil Ev
                             </option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="ind_unit_label">Hane / Ev Tanımı (İsteğe bağlı)</label>
+                        <label for="ind_unit_label">Daire / Hane Tanımı (İsteğe bağlı)</label>
                         <input type="text" id="ind_unit_label" name="unit_label"
                                value="<?= e($_POST['unit_label'] ?? '') ?>"
-                               placeholder="Örn: Gül Sokak No:8 veya Bireysel Daire"
+                               placeholder="Örn: Daire 2"
                                <?= $mode === 'individual' ? '' : 'disabled' ?>>
-                    </div>
-                </div>
-            </div>
-
-            <!-- MOD 2: Davet Kodu ile Apartmana veya Daireye Katılım Alanları -->
-            <div class="form-section mode-specific" data-mode-box="apartment_invite"
-                 style="<?= $mode === 'apartment_invite' ? '' : 'display:none;' ?>">
-                <h3 class="form-section-title">Apartman veya Daire Davet Bilgisi</h3>
-                <p class="section-note">
-                    Apartman yöneticinizin paylaştığı <strong>Apartman Kodunu (<code>DEBI-XXXXX</code>)</strong> girerek kendi dairenizi oluşturup <strong>Daire Yöneticisi</strong> olabilir veya daire yöneticinizin paylaştığı <strong>Daire Sakin Kodunu (<code>DAIRE-XXXXX</code>)</strong> girerek o daireye <strong>Sakin</strong> olarak katılabilirsiniz.
-                </p>
-                <div class="form-grid-2">
-                    <div class="form-group">
-                        <label for="invite_code">Apartman veya Daire Davet Kodu</label>
-                        <input type="text" id="invite_code" name="invite_code"
-                               value="<?= e($prefillInvite) ?>" placeholder="Örn: DEBI-7K4M2 veya DAIRE-9P2X4">
-                    </div>
-                    <div class="form-group">
-                        <label for="inv_unit_label">Daire Numaranız (Apartman kodu için)</label>
-                        <input type="text" id="inv_unit_label" name="unit_label"
-                               value="<?= e($_POST['unit_label'] ?? '') ?>"
-                               placeholder="Örn: Daire 5 (Daire sakin kodunda boş bırakılabilir)"
-                               <?= $mode === 'apartment_invite' ? '' : 'disabled' ?>>
                     </div>
                 </div>
             </div>
@@ -220,38 +290,36 @@ require_once __DIR__ . '/includes/header.php';
             <!-- MOD 3: Apartman Yöneticisi Alanları -->
             <div class="form-section mode-specific" data-mode-box="apartment_manager"
                  style="<?= $mode === 'apartment_manager' ? '' : 'display:none;' ?>">
-                <h3 class="form-section-title">Apartman Bilgileri (Yönetici)</h3>
-                <p class="section-note">
-                    Apartmanınızı mahallenize kaydedin. Kayıt sonrasında tüm dairelere gönderebileceğiniz davet kodunuz hazır olacaktır.
-                </p>
+                <h3 class="form-section-title">Apartman Bilgileri</h3>
                 <div class="form-grid-3">
                     <div class="form-group">
-                        <label for="apartment_name">Apartman / Site Adı</label>
+                        <label for="apartment_name">Apartman Adı</label>
                         <input type="text" id="apartment_name" name="apartment_name"
                                value="<?= e($_POST['apartment_name'] ?? '') ?>" placeholder="Örn: Çınar Apartmanı">
                     </div>
                     <div class="form-group">
-                        <label for="total_units">Toplam Daire Sayısı</label>
+                        <label for="total_units">Daire Sayısı</label>
                         <input type="number" id="total_units" name="total_units" min="2" max="500"
                                value="<?= e($_POST['total_units'] ?? '12') ?>">
                     </div>
                     <div class="form-group">
-                        <label for="mgr_unit_label">Sizin Daire Numaranız</label>
+                        <label for="mgr_unit_label">Daire Numaranız</label>
                         <input type="text" id="mgr_unit_label" name="unit_label"
                                value="<?= e($_POST['unit_label'] ?? 'Daire 1') ?>"
-                               placeholder="Örn: Daire 1"
+                               placeholder="Daire 1"
                                <?= $mode === 'apartment_manager' ? '' : 'disabled' ?>>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="address_detail">Sokak / Bina No (İsteğe bağlı)</label>
+                    <label for="address_detail">Sokak / No (İsteğe bağlı)</label>
                     <input type="text" id="address_detail" name="address_detail"
-                           value="<?= e($_POST['address_detail'] ?? '') ?>" placeholder="Örn: Bahariye Cad. Çınar Sok. No: 14">
+                           value="<?= e($_POST['address_detail'] ?? '') ?>" placeholder="Örn: Çınar Sok. No: 14">
                 </div>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-block">Kaydı Tamamla ve Başla</button>
+            <button type="submit" class="btn btn-primary btn-block">Kayıt Ol</button>
         </form>
+        <?php endif; ?>
 
         <div class="auth-card-footer">
             Zaten hesabınız var mı? <a href="login.php">Giriş Yapın</a>
@@ -261,3 +329,13 @@ require_once __DIR__ . '/includes/header.php';
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
 
+<script>
+(() => {
+    document.querySelectorAll('[data-mode-target]').forEach((tab) => {
+        tab.addEventListener('click', () => {
+            const mode = tab.dataset.modeTarget;
+            window.location.href = `register.php?mode=${encodeURIComponent(mode)}`;
+        });
+    });
+})();
+</script>
