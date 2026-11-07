@@ -209,7 +209,13 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
         $latestResult     = $emptyResult;
         $totalRows        = count($rows);
         $invoicePointRows = [];
-        $approvedByPeriod = [];
+        $rowsByPeriod = [];
+        foreach ($rows as $periodRow) {
+            if (($periodRow['review_status'] ?? 'approved') === 'approved') {
+                $periodKey = (int) $periodRow['period_year'] . '-' . str_pad((int) $periodRow['period_month'], 2, '0', STR_PAD_LEFT);
+                $rowsByPeriod[$periodKey] = round((float) $periodRow['consumption_m3'], 2);
+            }
+        }
 
         for ($i = 0; $i < $totalRows; $i++) {
             $cur        = $rows[$i];
@@ -228,8 +234,20 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
             $previousPeriod = (int) $cur['period_month'] === 1
                 ? ((int) $cur['period_year'] - 1) . '-12'
                 : (int) $cur['period_year'] . '-' . str_pad((int) $cur['period_month'] - 1, 2, '0', STR_PAD_LEFT);
-            if ($isApproved && isset($approvedByPeriod[$previousPeriod])) {
-                $prevM3 = $approvedByPeriod[$previousPeriod];
+            $nextPeriod = (int) $cur['period_month'] === 12
+                ? ((int) $cur['period_year'] + 1) . '-01'
+                : (int) $cur['period_year'] . '-' . str_pad((int) $cur['period_month'] + 1, 2, '0', STR_PAD_LEFT);
+            $previousM3 = $isApproved && isset($rowsByPeriod[$previousPeriod])
+                ? $rowsByPeriod[$previousPeriod]
+                : null;
+            $nextM3 = $isApproved && isset($rowsByPeriod[$nextPeriod])
+                ? $rowsByPeriod[$nextPeriod]
+                : null;
+            if ($previousM3 !== null) {
+                $prevM3 = $previousM3;
+            } elseif ($nextM3 !== null) {
+                // Geçmişten yüklenen ilk kayıt için sonraki komşu da bilinir.
+                $prevM3 = $nextM3;
                 if ($prevM3 > 0) {
                     $diff = round($prevM3 - $curM3, 2);
                     if ($diff > 0) {
@@ -301,9 +319,6 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
             $latestResult = $rowResult;
             if ($targetYear !== null && $targetMonth !== null && (int) $cur['period_year'] === $targetYear && (int) $cur['period_month'] === $targetMonth) {
                 $matchedResult = $rowResult;
-            }
-            if ($isApproved) {
-                $approvedByPeriod[(int) $cur['period_year'] . '-' . str_pad((int) $cur['period_month'], 2, '0', STR_PAD_LEFT)] = $curM3;
             }
         }
 
