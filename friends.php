@@ -64,8 +64,8 @@ require_once __DIR__ . '/includes/header.php';
         <!-- 1. Kişi Arama Çubuğu -->
         <section class="panel-card">
             <form method="get" action="friends.php" class="inline-action-form">
-                <input type="text" name="q" value="<?= e($searchQuery) ?>" placeholder="Arkadaş eklemek için isim veya apartman ara...">
-                <button type="submit" class="btn btn-primary btn-sm">Kişi Ara</button>
+                <input type="text" name="q" value="<?= e($searchQuery) ?>" placeholder="Kişi veya apartman ara...">
+                <button type="submit" class="btn btn-primary btn-sm">Ara</button>
                 <?php if ($searchQuery !== ''): ?>
                     <a href="friends.php" class="btn btn-outline btn-sm">Temizle</a>
                 <?php endif; ?>
@@ -75,7 +75,7 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="search-results-wrap">
                     <?php if (empty($searchResults)): ?>
                         <div class="empty-inline" style="margin-top: 12px; margin-bottom: 0;">
-                            "<?= e($searchQuery) ?>" aramasıyla eşleşen kullanıcı bulunamadı.
+                            Sonuç bulunamadı.
                         </div>
                     <?php else: ?>
                         <div class="friends-compact-grid" style="margin-top: 12px;">
@@ -172,7 +172,7 @@ require_once __DIR__ . '/includes/header.php';
 
             <?php if (empty($myFriends)): ?>
                 <div class="empty-inline">
-                    Henüz ekli arkadaşınız bulunmuyor. Yukarıdaki arama kutusundan arkadaşlarınızı bulup ekleyebilirsiniz.
+                    Henüz arkadaşınız yok. Yukarıdan arkadaş ekleyebilirsiniz.
                 </div>
             <?php else: ?>
                 <div class="friends-compact-grid">

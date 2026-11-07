@@ -92,12 +92,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'unit_label'      => format_unit_label($currentUser['unit_label'] ?? '', $currentUser['housing_type'] ?? 'apartment_unit'),
                 ];
             } else {
-                $msg = 'Faturanız kaydedildi. Kişi başı günlük ortalamanız: ' . number_format($res['daily_liters'], 1, ',', '.') . ' L.';
-                if (!empty($res['saved_liters']) && $res['saved_liters'] > 0) {
-                    $msg .= ' Önceki faturanıza göre ' . number_format((int) $res['saved_liters'], 0, ',', '.') . ' L (%' . number_format((float) $res['saving_pct'], 1, ',', '.') . ') su kurtarıldı!';
-                }
+                $msg = 'Fatura kaydedildi (' . number_format($res['daily_liters'], 1, ',', '.') . ' L/gün).';
                 if (!empty($res['points_awarded']) && $res['points_awarded'] > 0) {
-                    $msg .= ' Daire Göletinize +' . (int) $res['points_awarded'] . ' Damla 💧 eklendi!';
+                    $msg .= ' +' . (int) $res['points_awarded'] . ' Damla 💧';
                 }
                 set_flash('success', $msg);
             }
@@ -147,25 +144,17 @@ require_once __DIR__ . '/includes/header.php';
             <!-- ADIM 2: "BU BİLGİLER DOĞRU MU?" ONAY KARTI -->
             <section class="panel-card bill-confirm-card">
                 <div class="panel-card-header">
-                    <div>
-                        <div class="section-kicker">YAPAY ZEKA FATURA KONTROLÜ</div>
-                        <h1 class="section-title">Faturanızdan Çıkarılan Bilgiler Doğru mu?</h1>
-                    </div>
+                    <h1 class="section-title">Fatura Bilgilerini Onayla</h1>
                     <span class="tag"><?= e($currentUser['unit_label']) ?> · <?= $residentCnt ?> Kişi</span>
                 </div>
 
                 <?php if (!empty($scanResult['api_key_missing'])): ?>
                     <div class="bill-ai-notice notice-warn">
-                        <strong>Gemini API Anahtarı Bekleniyor:</strong>
-                        <code>config/database.local.php</code> dosyasına <code>GEMINI_API_KEY</code> değerinizi girdiğinizde fatura fotoğrafları otomatik okunacaktır. Şimdilik faturanıza bakarak bilgileri aşağıdan onaylayabilirsiniz.
+                        <code>GEMINI_API_KEY</code> tanımlı değil; bilgileri elle girebilirsiniz.
                     </div>
                 <?php elseif (!empty($scanResult['ai_error'])): ?>
                     <div class="bill-ai-notice notice-warn">
                         <?= e($scanResult['ai_error']) ?>
-                    </div>
-                <?php else: ?>
-                    <div class="bill-ai-notice notice-ok">
-                        <strong>Yapay Zeka Özeti:</strong> <?= e($ext['summary_text']) ?>
                     </div>
                 <?php endif; ?>
 
@@ -173,8 +162,7 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="ai-verify-reward-banner" id="aiVerifyRewardBanner">
                         <span class="ai-verify-icon" id="aiVerifyIcon">✨</span>
                         <div class="ai-verify-text" id="aiVerifyText">
-                            <strong>Yapay Zeka Doğrulama Ödülü Hazır (+10 Damla 💧 Garantili):</strong>
-                            <span>Okunan fatura bilgilerini değiştirmeden onayladığınızda ekran kararır ve Daire Göletinize anında damlalar yağar!</span>
+                            <strong>AI okudu · Değiştirmeden onayla, +10 💧 kazan</strong>
                         </div>
                     </div>
                 <?php endif; ?>
@@ -182,10 +170,9 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="bill-verify-layout">
                     <?php if (!empty($scanResult['bill_image_path'])): ?>
                         <div class="bill-preview-column">
-                            <a href="<?= e($scanResult['bill_image_path']) ?>" target="_blank" title="Tam boyutta görüntüle">
-                                <img src="<?= e($scanResult['bill_image_path']) ?>" alt="Yüklenen Su Faturası" class="bill-scanned-img">
+                            <a href="<?= e($scanResult['bill_image_path']) ?>" target="_blank" title="Büyüt">
+                                <img src="<?= e($scanResult['bill_image_path']) ?>" alt="Su Faturası" class="bill-scanned-img">
                             </a>
-                            <span class="field-hint">Büyütmek için faturaya tıklayın</span>
                         </div>
                     <?php endif; ?>
 
@@ -203,14 +190,14 @@ require_once __DIR__ . '/includes/header.php';
 
                         <div class="form-grid-3">
                             <div class="form-group">
-                                <label for="provider_name">Su İdaresi / Kurum</label>
+                                <label for="provider_name">Kurum</label>
                                 <input type="text" id="provider_name" name="provider_name"
                                        value="<?= e((string) $ext['provider_name']) ?>"
-                                       placeholder="Örn: İSKİ, ASKİ, İZSU">
+                                       placeholder="İSKİ, ASKİ, İZSU">
                             </div>
 
                             <div class="form-group">
-                                <label for="period_month">Fatura Ayı</label>
+                                <label for="period_month">Ay</label>
                                 <select id="period_month" name="period_month">
                                     <?php for ($m = 1; $m <= 12; $m++): ?>
                                         <option value="<?= $m ?>" <?= $m === (int) $ext['period_month'] ? 'selected' : '' ?>>
@@ -221,7 +208,7 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
 
                             <div class="form-group">
-                                <label for="period_year">Fatura Yılı</label>
+                                <label for="period_year">Yıl</label>
                                 <select id="period_year" name="period_year">
                                     <?php $curY = (int) date('Y'); ?>
                                     <?php for ($y = $curY + 1; $y >= 2023; $y--): ?>
@@ -233,53 +220,53 @@ require_once __DIR__ . '/includes/header.php';
 
                         <div class="form-grid-3">
                             <div class="form-group">
-                                <label for="consumption_m3">Tüketim Miktarı (m³)</label>
+                                <label for="consumption_m3">Tüketim (m³)</label>
                                 <input type="number" step="0.01" min="0.5" max="500" id="consumption_m3" name="consumption_m3"
-                                       required value="<?= e((string) $ext['consumption_m3']) ?>" placeholder="Örn: 11">
+                                       required value="<?= e((string) $ext['consumption_m3']) ?>" placeholder="11">
                             </div>
 
                             <div class="form-group">
-                                <label for="reading_days">Okuma Gün Sayısı</label>
+                                <label for="reading_days">Gün</label>
                                 <input type="number" min="1" max="90" id="reading_days" name="reading_days"
                                        required value="<?= (int) $ext['reading_days'] ?>">
                             </div>
 
                             <div class="form-group">
-                                <label for="bill_amount">Fatura Tutarı (TL)</label>
+                                <label for="bill_amount">Tutar (TL)</label>
                                 <input type="number" step="0.01" min="0" id="bill_amount" name="bill_amount"
-                                       value="<?= e((string) $ext['bill_amount']) ?>" placeholder="Örn: 345.50">
+                                       value="<?= e((string) $ext['bill_amount']) ?>" placeholder="345.50">
                             </div>
                         </div>
 
                         <div class="bill-calc-preview">
-                            <span>Hesaplanan Kişi Başı Günlük Tüketim (<?= $residentCnt ?> kişi):</span>
+                            <span>Kişi Başı Günlük (<?= $residentCnt ?> kişi):</span>
                             <strong id="liveDailyLiters"><?= $previewDaily > 0 ? number_format($previewDaily, 1, ',', '.') . ' L / gün' : '—' ?></strong>
                         </div>
 
                         <div class="form-grid-2">
                             <div class="form-group">
-                                <label for="notes">Kısa Not (İsteğe bağlı)</label>
-                                <input type="text" id="notes" name="notes" placeholder="Örn: Bu ay musluk başlıklarını değiştirdik.">
+                                <label for="notes">Not (İsteğe bağlı)</label>
+                                <input type="text" id="notes" name="notes" placeholder="Kısa not...">
                             </div>
 
                             <div class="form-group">
-                                <label for="feed_scope">Hangi Akışta Paylaşılsın?</label>
+                                <label for="feed_scope">Paylaşım</label>
                                 <select id="feed_scope" name="feed_scope">
-                                    <option value="friends" <?= $selectedFeed === 'friends' ? 'selected' : '' ?>>Arkadaşlarım Akışında Paylaş</option>
+                                    <option value="friends" <?= $selectedFeed === 'friends' ? 'selected' : '' ?>>Arkadaşlar</option>
                                     <?php if (!empty($currentUser['apartment_id'])): ?>
-                                        <option value="apartment" <?= $selectedFeed === 'apartment' ? 'selected' : '' ?>>Apartmanım (<?= e($currentUser['apartment_name']) ?>) Akışında Paylaş</option>
+                                        <option value="apartment" <?= $selectedFeed === 'apartment' ? 'selected' : '' ?>><?= e($currentUser['apartment_name']) ?></option>
                                     <?php endif; ?>
-                                    <option value="public" <?= $selectedFeed === 'public' ? 'selected' : '' ?>>Genel Debi Akışında Paylaş</option>
-                                    <option value="none" <?= $selectedFeed === 'none' ? 'selected' : '' ?>>Akışta Paylaşma (Sadece Kaydet)</option>
+                                    <option value="public" <?= $selectedFeed === 'public' ? 'selected' : '' ?>>Genel</option>
+                                    <option value="none" <?= $selectedFeed === 'none' ? 'selected' : '' ?>>Paylaşma</option>
                                 </select>
                             </div>
                         </div>
 
                         <div class="bill-confirm-actions">
                             <button type="submit" class="btn btn-primary" id="billConfirmSubmitBtn">
-                                <?= $aiWasUsed ? '💧 Evet, Doğru — Faturayı Onayla &amp; Damla Kazan' : 'Evet, Doğru — Faturayı Kaydet' ?>
+                                <?= $aiWasUsed ? '💧 Onayla &amp; Damla Kazan' : 'Kaydet' ?>
                             </button>
-                            <a href="water.php" class="btn btn-outline">İptal / Yeniden Yükle</a>
+                            <a href="water.php" class="btn btn-outline">İptal</a>
                         </div>
                     </form>
                 </div>
@@ -288,22 +275,15 @@ require_once __DIR__ . '/includes/header.php';
             <!-- ADIM 1: FATURA FOTOĞRAFI YÜKLEME KARTI -->
             <section class="panel-card">
                 <div class="panel-card-header">
-                    <div>
-                        <div class="section-kicker">YAPAY ZEKA DESTEKLİ FATURA OKUMA</div>
-                        <h1 class="section-title">Su Faturanızın Fotoğrafını Yükleyin</h1>
-                    </div>
+                    <h1 class="section-title">Fatura Yükle</h1>
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                        <a href="index.php#daireGoleti" class="drop-motivation-badge" title="Daire Göletinizdeki Toplam Damla Sayısı">
+                        <a href="index.php#daireGoleti" class="drop-motivation-badge" title="Daire Göleti">
                             <span class="drop-badge-icon">💧</span>
-                            <span>Daire Göletimiz: <strong><?= number_format((int) ($pondState['total_drops'] ?? 0), 0, ',', '.') ?> / <?= (int) ($pondState['target_drops'] ?? 100) ?> Damla</strong></span>
+                            <strong><?= number_format((int) ($pondState['total_drops'] ?? 0), 0, ',', '.') ?> / <?= (int) ($pondState['target_drops'] ?? 100) ?></strong>
                         </a>
                         <span class="tag"><?= e($currentUser['unit_label']) ?> · <?= (int) $currentUser['resident_count'] ?> Kişi</span>
                     </div>
                 </div>
-
-                <p class="panel-desc">
-                    Faturanızın fotoğrafını çekin veya seçin. Yapay zeka (Gemini) fatura dönemini ve harcanan metreküpü (<strong>m³</strong>) otomatik okuduğunda bilgileri değiştirmeden onaylayarak <strong>Daire Göletinize anında +10 Damla 💧</strong> (ve tasarruf oranınıza göre <strong>+30 Damla'ya kadar</strong>) yağdırabilirsiniz!
-                </p>
 
                 <form method="post" action="water.php" enctype="multipart/form-data" class="bill-upload-form" id="billScanForm">
                     <?= csrf_field() ?>
@@ -314,29 +294,29 @@ require_once __DIR__ . '/includes/header.php';
                                accept="image/jpeg,image/png,image/webp" capture="environment" required>
                         <div class="bill-dropzone-content" id="billDropzoneText">
                             <div class="bill-dropzone-icon">📷</div>
-                            <strong>Su Faturası Fotoğrafı Seçin veya Çekin</strong>
-                            <span>JPG, PNG veya WebP · Maksimum 8 MB</span>
+                            <strong>Fatura Fotoğrafı Seç</strong>
+                            <span>Yapay zeka otomatik okur · +10 💧</span>
                         </div>
                         <div class="bill-selected-preview" id="billSelectedPreview" hidden>
-                            <img id="billPreviewImg" src="" alt="Seçilen fatura önizlemesi">
+                            <img id="billPreviewImg" src="" alt="Önizleme">
                             <span id="billPreviewName"></span>
                         </div>
                     </label>
 
                     <div class="composer-submit-row">
                         <div class="composer-bar-left">
-                            <label for="initial_feed_scope" class="field-hint" style="font-weight: 700;">Paylaşım Akışı:</label>
+                            <label for="initial_feed_scope" class="field-hint" style="font-weight: 700;">Paylaşım:</label>
                             <select id="initial_feed_scope" name="feed_scope" class="composer-scope-select">
-                                <option value="friends">Arkadaşlarım</option>
+                                <option value="friends">Arkadaşlar</option>
                                 <?php if (!empty($currentUser['apartment_id'])): ?>
-                                    <option value="apartment" selected>Apartmanım (<?= e($currentUser['apartment_name']) ?>)</option>
+                                    <option value="apartment" selected><?= e($currentUser['apartment_name']) ?></option>
                                 <?php endif; ?>
-                                <option value="public" <?= empty($currentUser['apartment_id']) ? 'selected' : '' ?>>Genel Debi</option>
-                                <option value="none">Akışta Paylaşma</option>
+                                <option value="public" <?= empty($currentUser['apartment_id']) ? 'selected' : '' ?>>Genel</option>
+                                <option value="none">Paylaşma</option>
                             </select>
                         </div>
                         <button type="submit" class="btn btn-primary" id="billScanSubmitBtn">
-                            Faturayı Yapay Zeka ile Okut
+                            ✨ Okut
                         </button>
                     </div>
                 </form>
@@ -346,13 +326,13 @@ require_once __DIR__ . '/includes/header.php';
         <!-- Geçmiş Su Faturaları ve Tüketim Grafiği -->
         <section class="panel-card">
             <div class="panel-card-header">
-                <h2 class="section-title">Geçmiş Su Faturalarım</h2>
-                <a href="analytics.php" class="btn btn-outline btn-sm">Su Tüketim Analizi &rarr;</a>
+                <h2 class="section-title">Faturalarım</h2>
+                <a href="analytics.php" class="btn btn-outline btn-sm">Analiz &rarr;</a>
             </div>
 
             <?php if (empty($history)): ?>
                 <div class="empty-inline">
-                    Henüz kaydedilmiş bir su faturanız bulunmuyor. Yukarıdan ilk faturanızın fotoğrafını yükleyebilirsiniz.
+                    Henüz fatura yüklenmedi.
                 </div>
             <?php else: ?>
                 <?php
@@ -396,11 +376,11 @@ require_once __DIR__ . '/includes/header.php';
                             <tr>
                                 <th>Dönem</th>
                                 <th>Kurum</th>
-                                <th>Tüketim</th>
-                                <th>Kişi Başı Günlük</th>
-                                <th>Kazanılan Damla</th>
+                                <th>m³</th>
+                                <th>Günlük</th>
+                                <th>Damla</th>
                                 <th>Tutar</th>
-                                <th>Fatura Görseli</th>
+                                <th>Görsel</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -469,16 +449,12 @@ require_once __DIR__ . '/includes/header.php';
     <!-- EKRANI KARARTIP GERÇEK DAİRE GÖLETİNE DAMLA YAĞDIRAN KUTLAMA MODALI -->
     <div class="pond-celebration-overlay" id="pondCelebrationOverlay" role="dialog" aria-modal="true" aria-labelledby="pondCelTitle">
         <div class="pond-celebration-card">
-            <div class="pond-cel-kicker">✨ YAPAY ZEKA DOĞRULAMASI &amp; <?= e(mb_strtoupper($pondCelebration['unit_label'] ?? 'DAİRE', 'UTF-8')) ?> GÖLETİ</div>
             <h2 class="pond-cel-title" id="pondCelTitle">
-                +<?= (int) $pondCelebration['earned_drops'] ?> Damla Kazandınız! 💧
+                +<?= (int) $pondCelebration['earned_drops'] ?> Damla! 💧
             </h2>
-            <p class="pond-cel-sub">
-                <strong><?= e($pondCelebration['period_label'] ?? '') ?></strong> faturanızı yapay zeka okumasını değiştirmeden onayladınız. Damlalarınız şimdi daire göletinize yağıyor!
-            </p>
 
             <?php if (!empty($pondCelebration['drop_reasons'])): ?>
-                <div class="pond-cel-reasons">
+                <div class="pond-cel-reasons" style="margin-top: 8px;">
                     <?php foreach ($pondCelebration['drop_reasons'] as $reasonText): ?>
                         <span class="pond-cel-reason-pill"><?= e($reasonText) ?></span>
                     <?php endforeach; ?>
@@ -491,7 +467,7 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="pond-cel-visual-wrap">
                     <img id="pondCelStageImg"
                          src="<?= e($celStageMap[$celInitStage] ?? $celStageMap['dry']) ?>"
-                         alt="Daire Göleti Gerçek Durumu"
+                         alt="Daire Göleti"
                          class="pond-cel-stage-img">
                     <div class="pond-ripple-ring" id="pondCelRippleRing"></div>
                 </div>
@@ -501,24 +477,19 @@ require_once __DIR__ . '/includes/header.php';
             <div class="pond-cel-meter-box">
                 <div class="pond-cel-meter-top">
                     <span>
-                        <?= e($pondCelebration['unit_label'] ?? 'Daire') ?> Göleti:
-                        <strong id="pondCelDropsCounter"><?= (int) $pondCelebration['drops_before'] ?></strong>
-                        / <?= (int) $pondCelebration['target_drops'] ?> Damla 💧
+                        💧 <strong id="pondCelDropsCounter"><?= (int) $pondCelebration['drops_before'] ?></strong>
+                        / <?= (int) $pondCelebration['target_drops'] ?> Damla
                     </span>
-                    <strong id="pondCelFillPctText">%<?= number_format((float) $pondCelebration['fill_before'], 0, ',', '.') ?> Doluluk</strong>
+                    <strong id="pondCelFillPctText">%<?= number_format((float) $pondCelebration['fill_before'], 0, ',', '.') ?></strong>
                 </div>
-                <div class="pond-meter-track" style="height: 14px;">
+                <div class="pond-meter-track" style="height: 12px;">
                     <div class="pond-meter-fill" id="pondCelMeterFill" style="width: <?= min(100, max(3, (float) $pondCelebration['fill_before'])) ?>%;"></div>
-                </div>
-                <div class="pond-cel-stage-status">
-                    <strong><?= e($pondCelebration['stage_title'] ?? '') ?>:</strong>
-                    <span><?= e($pondCelebration['next_stage_hint'] ?? '') ?></span>
                 </div>
             </div>
 
             <div class="pond-cel-actions">
-                <a href="index.php#daireGoleti" class="btn btn-primary">Ana Sayfada Göletimi Gör</a>
-                <button type="button" class="btn btn-outline" id="btnClosePondCelebration">Fatura Sayfasında Kal</button>
+                <a href="index.php#daireGoleti" class="btn btn-primary btn-sm">Gölete Git</a>
+                <button type="button" class="btn btn-outline btn-sm" id="btnClosePondCelebration">Kapat</button>
             </div>
         </div>
     </div>

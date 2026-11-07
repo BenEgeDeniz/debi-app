@@ -111,14 +111,14 @@ function save_water_log(array $user, array $input): array
     // Seçilen akışta (Arkadaşlar / Apartman / Genel Debi) fatura paylaşımı oluştur
     if ($feedScope !== 'none') {
         $provTag  = $providerName !== '' ? " ({$providerName})" : '';
-        $postText = "{$monthName} dönemi{$provTag} su faturamızı kaydettik: {$consumptionM3} m³.";
+        $postText = "💧 {$monthName}{$provTag}: {$consumptionM3} m³ ({$dailyLitersPerPerson} L/gün).";
         if ($kurtarilanLitre > 0) {
-            $postText .= " Önceki faturamıza göre {$kurtarilanLitre} L (%{$tasarrufYuzdesi}) su kurtararak Daire Göletimize +{$earnedPoints} Damla 💧 kazandırdık!";
+            $postText .= " {$kurtarilanLitre} L (%{$tasarrufYuzdesi}) tasarruf · +{$earnedPoints} Damla!";
         } elseif ($earnedPoints > 0) {
-            $postText .= " Yapay zeka doğrulamasıyla Daire Göletimize +{$earnedPoints} Damla 💧 eklendi!";
+            $postText .= " +{$earnedPoints} Damla!";
         }
         if ($notes !== '') {
-            $postText .= " Notumuz: " . $notes;
+            $postText .= " — " . $notes;
         }
 
         $pStmt = $pdo->prepare("
@@ -217,7 +217,7 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
             // 1. Yapay Zeka Doğrulama Ödülü (+10 Damla)
             if ($isAiVer) {
                 $earnedPoints += 10;
-                $dropReasons[] = '✨ Yapay Zeka Doğrulaması: +10 Damla';
+                $dropReasons[] = '✨ AI Doğrulama +10 💧';
             }
 
             // 2. Önceki Gerçek Faturaya Göre Su Tasarrufu Ödülü
@@ -231,11 +231,11 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
                         $savedLiters  = (int) round($savedM3 * 1000);
                         $savingPct    = round(($savedM3 / $prevM3) * 100, 2);
                         $earnedPoints += 10;
-                        $dropReasons[] = '📉 Su Tasarrufu (' . number_format($savedM3, 1, ',', '.') . ' m³ / ' . number_format($savedLiters, 0, ',', '.') . ' L): +10 Damla';
+                        $dropReasons[] = '📉 ' . number_format($savedLiters, 0, ',', '.') . ' L Tasarruf +10 💧';
 
                         if ($savingPct >= 10.0) {
                             $earnedPoints += 10;
-                            $dropReasons[] = '🏆 %10 Tasarruf Barajı (%' . number_format($savingPct, 1, ',', '.') . '): +10 Damla';
+                            $dropReasons[] = '🏆 %' . number_format($savingPct, 0, ',', '.') . ' Tasarruf Bonusu +10 💧';
                         }
                     }
                 }
@@ -473,8 +473,8 @@ function get_household_pond_state(int $householdId): array
         'saved_liters'       => 0,
         'doluluk_yuzdesi'    => 0.0,
         'stage'              => 'dry',
-        'stage_title'        => 'Kurumuş Gölet (Başlangıç)',
-        'next_stage_hint'    => 'Yarı Dolu Gölet aşamasına 30 Damla 💧 kaldı',
+        'stage_title'        => 'Kurumuş',
+        'next_stage_hint'    => 'Sonraki seviye: 30 💧 kaldı',
         'golet_mevcut_su_m3' => 0.0,
         'golet_mevcut_litre' => 0,
         'golet_toplam_puan'  => 0,
@@ -502,18 +502,18 @@ function get_household_pond_state(int $householdId): array
 
         if ($totalDrops >= 70) {
             $stage          = 'full';
-            $stageTitle     = 'Bereketli Gölet (Tam Dolu)';
-            $nextStageHint  = 'Harika! Daire göletiniz tam doluluk aşamasında parlıyor 🌟';
+            $stageTitle     = 'Tam Dolu';
+            $nextStageHint  = 'Tam dolu 🌟';
         } elseif ($totalDrops >= 30) {
             $stage          = 'half';
-            $stageTitle     = 'Canlanan Gölet (Yarı Dolu)';
+            $stageTitle     = 'Yarı Dolu';
             $remaining      = max(1, 70 - $totalDrops);
-            $nextStageHint  = "Tam Dolu Gölet aşamasına {$remaining} Damla 💧 kaldı";
+            $nextStageHint  = "Tam doluya {$remaining} 💧 kaldı";
         } else {
             $stage          = 'dry';
-            $stageTitle     = 'Kurumuş Gölet (Başlangıç)';
+            $stageTitle     = 'Kurumuş';
             $remaining      = max(1, 30 - $totalDrops);
-            $nextStageHint  = "Yarı Dolu Gölet aşamasına {$remaining} Damla 💧 kaldı";
+            $nextStageHint  = "Yarı doluya {$remaining} 💧 kaldı";
         }
 
         return [
@@ -573,8 +573,8 @@ function get_household_water_analytics(array $user): array
     // Yalnızca en az 2 gerçek fatura dönemi varsa karşılaştırma yapılır
     $n               = count($series);
     $hasComparison   = ($n >= 2);
-    $prevMonthLabel  = 'Önceki Dönem Faturası';
-    $currMonthLabel  = 'Son Dönem Faturası';
+    $prevMonthLabel  = 'Önceki Fatura';
+    $currMonthLabel  = 'Son Fatura';
     $prevMonthM3     = null;
     $currMonthM3     = null;
     $diffM3          = 0.0;
@@ -586,8 +586,8 @@ function get_household_water_analytics(array $user): array
     if ($n >= 2) {
         $prevItem       = $series[$n - 2];
         $currItem       = $series[$n - 1];
-        $prevMonthLabel = $prevItem['period_label'] . ' Tüketimi';
-        $currMonthLabel = $currItem['period_label'] . ' Tüketimi';
+        $prevMonthLabel = $prevItem['period_label'];
+        $currMonthLabel = $currItem['period_label'];
         $prevMonthM3    = (float) $prevItem['consumption_m3'];
         $currMonthM3    = (float) $currItem['consumption_m3'];
         $diffM3         = round($prevMonthM3 - $currMonthM3, 2);
@@ -597,7 +597,7 @@ function get_household_water_analytics(array $user): array
         $earnedPoints   = (int) ($currItem['earned_points'] ?? 0);
     } elseif ($n === 1) {
         $currItem       = $series[0];
-        $currMonthLabel = $currItem['period_label'] . ' Tüketimi';
+        $currMonthLabel = $currItem['period_label'];
         $currMonthM3    = (float) $currItem['consumption_m3'];
         $earnedPoints   = (int) ($currItem['earned_points'] ?? 0);
     }

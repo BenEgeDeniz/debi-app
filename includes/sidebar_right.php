@@ -13,12 +13,10 @@ $incomingReqs  = $currentUser ? get_incoming_friend_requests((int) $currentUser[
     <?php if ($currentUser && $quickWater): ?>
         <?php if (!empty($incomingReqs)): ?>
             <div class="panel-card">
-                <div class="panel-card-header">
-                    <span class="panel-title">Arkadaşlık İstekleri (<?= count($incomingReqs) ?>)</span>
-                    <a href="friends.php" class="link-subtle">Tümü</a>
+                <div class="panel-card-header" style="margin-bottom: 8px;">
+                    <span class="panel-title">👋 <?= count($incomingReqs) ?> Arkadaşlık İsteği</span>
                 </div>
-                <p class="panel-desc">Size arkadaşlık isteği gönderen kullanıcılar var.</p>
-                <a href="friends.php" class="btn btn-primary btn-sm btn-block">İstekleri Görüntüle</a>
+                <a href="friends.php" class="btn btn-primary btn-sm btn-block">İstekleri Gör</a>
             </div>
         <?php endif; ?>
 
@@ -32,8 +30,8 @@ $incomingReqs  = $currentUser ? get_incoming_friend_requests((int) $currentUser[
                 'saved_liters'    => 0,
                 'doluluk_yuzdesi' => 0.0,
                 'stage'           => 'dry',
-                'stage_title'     => 'Kurumuş Gölet (Başlangıç)',
-                'next_stage_hint' => 'Yarı Dolu Gölet aşamasına 30 Damla 💧 kaldı',
+                'stage_title'     => 'Kurumuş',
+                'next_stage_hint' => 'Yarı doluya 30 💧 kaldı',
             ];
             $sidePondStage = $sidePondData['stage'] ?? 'dry';
             $sidePondImg   = brand_asset_path('pond_' . $sidePondStage);
@@ -46,42 +44,32 @@ $incomingReqs  = $currentUser ? get_incoming_friend_requests((int) $currentUser[
             <div class="panel-card sidebar-pond-card" id="daireGoleti">
                 <div class="panel-card-header">
                     <div>
-                        <span class="panel-title">Daire Göletimiz</span>
-                        <div style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted);">
+                        <span class="panel-title">Daire Göleti</span>
+                        <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted);">
                             <?= e($sideUnitName) ?> &middot; <?= e($sidePondData['stage_title'] ?? '') ?>
                         </div>
                     </div>
                     <span class="drop-motivation-badge">
                         <span class="drop-badge-icon">💧</span>
-                        <strong><?= number_format($sideDrops, 0, ',', '.') ?> Damla</strong>
+                        <strong><?= number_format($sideDrops, 0, ',', '.') ?> / <?= $sideTarget ?></strong>
                     </span>
                 </div>
 
-                <!-- Motivasyon Damla Gösterge Kutusu -->
-                <div class="sidebar-drop-hero">
-                    <div class="sidebar-drop-hero-main">
-                        <span class="sidebar-drop-big">💧 <?= number_format($sideDrops, 0, ',', '.') ?> <small>/ <?= $sideTarget ?> Damla</small></span>
-                        <span class="sidebar-drop-sub"><?= e($sidePondData['next_stage_hint'] ?? '') ?></span>
-                    </div>
-                </div>
-
                 <div class="sidebar-pond-visual">
-                    <img src="<?= e($sidePondImg) ?>" alt="Daire Su Göleti" class="sidebar-pond-img">
+                    <img src="<?= e($sidePondImg) ?>" alt="Daire Göleti" class="sidebar-pond-img">
                 </div>
 
                 <div class="sidebar-pond-footer">
-                    <div class="comp-row" style="margin-top: 10px; margin-bottom: 5px;">
-                        <span>Gölet Doluluğu (%<?= number_format($sidePct, 0, ',', '.') ?>)</span>
-                        <strong>
-                            <?= $sideSavedLit > 0 ? number_format($sideSavedLit, 0, ',', '.') . ' L Su Kurtarıldı' : $sideDrops . ' / ' . $sideTarget . ' Damla' ?>
-                        </strong>
+                    <div class="comp-row" style="margin-top: 8px; margin-bottom: 5px; font-size: 0.78rem;">
+                        <span><?= e($sidePondData['next_stage_hint'] ?? '') ?></span>
+                        <strong>%<?= number_format($sidePct, 0, ',', '.') ?></strong>
                     </div>
-                    <div class="progress-track" style="height: 10px;">
+                    <div class="progress-track" style="height: 9px;">
                         <div class="progress-fill fill-green" style="width: <?= min(100, max(3, $sidePct)) ?>%;"></div>
                     </div>
 
-                    <a href="water.php" class="btn btn-primary btn-sm btn-block" style="margin-top: 12px;">
-                        📷 Fatura Yükle &amp; Damla Kazan
+                    <a href="water.php" class="btn btn-primary btn-sm btn-block" style="margin-top: 10px;">
+                        📷 Fatura Yükle
                     </a>
                 </div>
             </div>
@@ -90,7 +78,7 @@ $incomingReqs  = $currentUser ? get_incoming_friend_requests((int) $currentUser[
         <!-- 1. Bu Ayki Fatura & Debi Özeti -->
         <div class="panel-card">
             <div class="panel-card-header">
-                <span class="panel-title">Fatura &amp; Debi Özeti</span>
+                <span class="panel-title">Bu Ay</span>
                 <span class="panel-period"><?= e($quickWater['period_label']) ?></span>
             </div>
 
@@ -103,19 +91,19 @@ $incomingReqs  = $currentUser ? get_incoming_friend_requests((int) $currentUser[
                 <div class="metric-highlight metric-with-mascot <?= $statusClass ?>">
                     <?= render_mascot($mascotPose, 'mascot-sm', 'Su Durumu Maskotu') ?>
                     <div>
-                        <div class="metric-big"><?= number_format($myDaily, 1, ',', '.') ?> <small>L / kişi·gün</small></div>
+                        <div class="metric-big"><?= number_format($myDaily, 1, ',', '.') ?> <small>L / gün</small></div>
                         <div class="metric-sub">
-                            Bu ayki faturanız: <strong><?= number_format((float) $quickWater['my_log']['consumption_m3'], 1, ',', '.') ?> m³</strong>
+                            <strong><?= number_format((float) $quickWater['my_log']['consumption_m3'], 1, ',', '.') ?> m³</strong>
                         </div>
                     </div>
                 </div>
             <?php else: ?>
                 <div class="empty-mini">
                     <div class="empty-mini-mascot">
-                        <?= render_mascot('thinking', 'mascot-sm', 'Debi Düşünen Maskot') ?>
+                        <?= render_mascot('thinking', 'mascot-sm', 'Debi Maskotu') ?>
                     </div>
-                    <p>Bu ayın su faturasını henüz yüklemediniz. Fotoğrafını yükleyerek yapay zeka ile okutabilirsiniz.</p>
-                    <a href="water.php" class="btn btn-primary btn-sm btn-block">Fatura Fotoğrafı Yükle</a>
+                    <p>Bu ay fatura girilmedi.</p>
+                    <a href="water.php" class="btn btn-primary btn-sm btn-block">+ Fatura Ekle</a>
                 </div>
             <?php endif; ?>
 
@@ -123,9 +111,9 @@ $incomingReqs  = $currentUser ? get_incoming_friend_requests((int) $currentUser[
                 <div class="comparison-bars">
                     <div class="comp-item">
                         <div class="comp-row">
-                            <span>Apartman Ortalaması</span>
+                            <span>Apartman Ort.</span>
                             <strong>
-                                <?= $quickWater['apartment_avg'] !== null ? number_format($quickWater['apartment_avg'], 1, ',', '.') . ' L' : 'Veri yok' ?>
+                                <?= $quickWater['apartment_avg'] !== null ? number_format($quickWater['apartment_avg'], 1, ',', '.') . ' L' : '—' ?>
                             </strong>
                         </div>
                         <?php if ($quickWater['apartment_avg'] !== null): ?>
@@ -139,15 +127,15 @@ $incomingReqs  = $currentUser ? get_incoming_friend_requests((int) $currentUser[
             <?php endif; ?>
 
             <a href="analytics.php" class="btn btn-outline btn-sm btn-block" style="margin-top: 10px;">
-                Su Tüketim Analizi (m³ Grafiği) &rarr;
+                Su Analizi &rarr;
             </a>
         </div>
 
         <!-- 2. Arkadaşlar & Apartman En Az Tüketenler -->
         <div class="panel-card">
             <div class="panel-card-header">
-                <span class="panel-title">Çevremde En Az Tüketenler</span>
-                <a href="friends.php" class="link-subtle">Arkadaşlar</a>
+                <span class="panel-title">En Az Tüketenler</span>
+                <a href="friends.php" class="link-subtle">Tümü</a>
             </div>
             <?php if (!empty($leaders)): ?>
                 <ol class="leaderboard-list">
@@ -169,7 +157,7 @@ $incomingReqs  = $currentUser ? get_incoming_friend_requests((int) $currentUser[
                     <?php endforeach; ?>
                 </ol>
             <?php else: ?>
-                <p class="muted-note">Arkadaş çevrenizde bu ay henüz fatura verisi girilmedi.</p>
+                <p class="muted-note">Bu ay henüz veri yok.</p>
             <?php endif; ?>
         </div>
     <?php endif; ?>

@@ -83,54 +83,48 @@ require_once __DIR__ . '/includes/header.php';
             <!-- DURUM A: Kullanıcı henüz bir apartmana bağlı değil -->
             <div class="grid-2-cols">
                 <section class="panel-card">
-                    <h2 class="section-title">1. Davet Kodu ile Katıl</h2>
-                    <p class="panel-desc">
-                        Apartman kodu (<code>DEBI-...</code>) ile kendi dairenizi açabilir veya daire kodu (<code>DAIRE-...</code>) ile mevcut bir daireye sakin olarak katılabilirsiniz.
-                    </p>
-                    <form method="post" action="apartment.php" class="form-stack">
+                    <h2 class="section-title">Davet Kodu ile Katıl</h2>
+                    <form method="post" action="apartment.php" class="form-stack" style="margin-top: 12px;">
                         <?= csrf_field() ?>
                         <input type="hidden" name="action" value="join_apartment">
 
                         <div class="form-group">
-                            <label for="invite_code">Davet Kodu</label>
-                            <input type="text" id="invite_code" name="invite_code" required placeholder="Örn: DEBI-7K4M2 veya DAIRE-9P2X4">
+                            <label for="invite_code">Apartman (DEBI-...) veya Daire (DAIRE-...) Kodu</label>
+                            <input type="text" id="invite_code" name="invite_code" required placeholder="DEBI-7K4M2 veya DAIRE-9P2X4">
                         </div>
 
                         <div class="form-group">
-                            <label for="join_unit_label">Daire Numaranız (Apartman kodu için)</label>
-                            <input type="text" id="join_unit_label" name="unit_label" placeholder="Örn: Daire 4 (Daire kodunda boş bırakın)">
+                            <label for="join_unit_label">Daire No (Apartman kodu için)</label>
+                            <input type="text" id="join_unit_label" name="unit_label" placeholder="Örn: Daire 4">
                         </div>
 
-                        <button type="submit" class="btn btn-primary">Bağlan</button>
+                        <button type="submit" class="btn btn-primary">Katıl</button>
                     </form>
                 </section>
 
                 <section class="panel-card">
-                    <h2 class="section-title">2. Yeni Apartman Oluştur</h2>
-                    <p class="panel-desc">
-                        <strong><?= e($currentUser['neighborhood_name']) ?></strong> mahallesindeki apartmanınızı kurup <strong>Apartman Yöneticisi</strong> olun.
-                    </p>
-                    <form method="post" action="apartment.php" class="form-stack">
+                    <h2 class="section-title">Yeni Apartman Kur</h2>
+                    <form method="post" action="apartment.php" class="form-stack" style="margin-top: 12px;">
                         <?= csrf_field() ?>
                         <input type="hidden" name="action" value="create_apartment">
 
                         <div class="form-group">
-                            <label for="apartment_name">Apartman / Site Adı</label>
+                            <label for="apartment_name">Apartman Adı</label>
                             <input type="text" id="apartment_name" name="apartment_name" required placeholder="Örn: Palmiye Apartmanı">
                         </div>
 
                         <div class="form-grid-2">
                             <div class="form-group">
-                                <label for="total_units">Toplam Daire Sayısı</label>
+                                <label for="total_units">Daire Sayısı</label>
                                 <input type="number" id="total_units" name="total_units" min="2" max="500" value="12" required>
                             </div>
                             <div class="form-group">
-                                <label for="create_unit_label">Sizin Daireniz</label>
+                                <label for="create_unit_label">Daireniz</label>
                                 <input type="text" id="create_unit_label" name="unit_label" value="Daire 1" required>
                             </div>
                         </div>
 
-                        <button type="submit" class="btn btn-outline">Apartmanı Oluştur</button>
+                        <button type="submit" class="btn btn-outline">Oluştur</button>
                     </form>
                 </section>
             </div>
@@ -147,34 +141,33 @@ require_once __DIR__ . '/includes/header.php';
             <section class="panel-card clear-role-section">
                 <div class="clear-section-top">
                     <div>
-                        <span class="clear-kicker">1. APARTMAN BİLGİSİ</span>
                         <h1 class="page-title">🏢 <?= e($apt['name']) ?></h1>
                         <p class="page-subtitle">
                             <?= e($apt['neighborhood_name']) ?> &middot; <?= e($apt['district'] . ' / ' . $apt['city']) ?>
-                            &middot; Kayıtlı Daire: <strong><?= count($units) ?> / <?= (int) $apt['total_units'] ?></strong>
+                            &middot; <strong><?= count($units) ?> / <?= (int) $apt['total_units'] ?> Daire</strong>
                             <?php if ($avgDaily !== null): ?>
-                                &middot; Apartman Ortalaması: <strong><?= number_format($avgDaily, 1, ',', '.') ?> L / gün</strong>
+                                &middot; Ort: <strong><?= number_format($avgDaily, 1, ',', '.') ?> L / gün</strong>
                             <?php endif; ?>
                         </p>
                     </div>
 
                     <div>
                         <?php if ($currentUser['role'] === 'manager'): ?>
-                            <span class="role-badge role-badge-apt">🏢 Apartman Yöneticisisiniz</span>
+                            <span class="role-badge role-badge-apt">🏢 Apartman Yöneticisi</span>
                         <?php else: ?>
-                            <span class="role-badge">Apartman Yöneticisi: <?= e($apt['manager_name'] ?? 'Belirtilmedi') ?></span>
+                            <span class="role-badge">Yönetici: <?= e($apt['manager_name'] ?? '—') ?></span>
                         <?php endif; ?>
                     </div>
                 </div>
 
                 <div class="code-share-strip strip-apt">
                     <div class="code-share-info">
-                        <strong>Apartman Davet Kodu (Yeni Daireler İçin)</strong>
-                        <span>Apartmandaki diğer komşuların kendi dairelerini oluşturup apartmana katılması için bu kodu paylaşın:</span>
+                        <strong>Apartman Kodu</strong>
+                        <span>Yeni dairelerin katılması için</span>
                     </div>
                     <div class="code-share-box">
                         <code><?= e($apt['invite_code']) ?></code>
-                        <button type="button" class="btn btn-primary btn-sm btn-copy" data-copy="<?= e($apt['invite_code']) ?>">Kodu Kopyala</button>
+                        <button type="button" class="btn btn-primary btn-sm btn-copy" data-copy="<?= e($apt['invite_code']) ?>">Kopyala</button>
                     </div>
                 </div>
             </section>
@@ -183,19 +176,18 @@ require_once __DIR__ . '/includes/header.php';
             <section class="panel-card clear-role-section">
                 <div class="clear-section-top">
                     <div>
-                        <span class="clear-kicker">2. DAİREM &amp; EV SAKİNLERİ</span>
                         <h2 class="page-title">🏠 <?= e($myUnitLabel) ?></h2>
                         <p class="page-subtitle">
-                            Bu dairede toplam <strong><?= (int) $currentUser['resident_count'] ?> kişi</strong> yaşıyor
-                            &middot; Sistemde kayıtlı hesap: <strong><?= count($myResidents) ?></strong>
+                            <strong><?= (int) $currentUser['resident_count'] ?> Kişi</strong>
+                            &middot; <strong><?= count($myResidents) ?> Hesap</strong>
                         </p>
                     </div>
 
                     <div>
                         <?php if ($isUnitManager): ?>
-                            <span class="role-badge role-badge-unit">🏠 <?= e($myUnitLabel) ?> Yöneticisisiniz</span>
+                            <span class="role-badge role-badge-unit">🏠 Daire Yöneticisi</span>
                         <?php else: ?>
-                            <span class="role-badge role-badge-resident">👤 <?= e($myUnitLabel) ?> Sakinisiniz</span>
+                            <span class="role-badge role-badge-resident">👤 Daire Sakini</span>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -203,25 +195,25 @@ require_once __DIR__ . '/includes/header.php';
                 <?php if ($isUnitManager && !empty($currentUser['household_invite_code'])): ?>
                     <div class="code-share-strip strip-unit">
                         <div class="code-share-info">
-                            <strong>Daire Sakin Kodu (Aynı Dairede Yaşayanlar İçin)</strong>
-                            <span>Aynı evde yaşadığınız eşinizi, aile üyenizi veya ev arkadaşınızı <strong><?= e($myUnitLabel) ?></strong> içerisine sakin olarak eklemek için bu kodu paylaşın:</span>
+                            <strong>Daire Sakin Kodu</strong>
+                            <span>Ev arkadaşları / aile üyeleri için</span>
                         </div>
                         <div class="code-share-box">
                             <code><?= e($currentUser['household_invite_code']) ?></code>
-                            <button type="button" class="btn btn-outline btn-sm btn-copy" data-copy="<?= e($currentUser['household_invite_code']) ?>">Kodu Kopyala</button>
+                            <button type="button" class="btn btn-outline btn-sm btn-copy" data-copy="<?= e($currentUser['household_invite_code']) ?>">Kopyala</button>
                         </div>
                     </div>
                 <?php endif; ?>
 
                 <div class="unit-members-row">
-                    <span class="sub-label"><?= e($myUnitLabel) ?> Sakinleri:</span>
+                    <span class="sub-label">Sakinler:</span>
                     <div class="unit-residents-list">
                         <?php foreach ($myResidents as $resUser): ?>
                             <?php $isOwner = ((int) ($resUser['owner_user_id'] ?? 0) === (int) $resUser['id']); ?>
                             <a href="profile.php?id=<?= (int) $resUser['id'] ?>" class="unit-resident-chip">
                                 <?= render_avatar($resUser, 'avatar-xs') ?>
                                 <span class="unit-resident-name"><?= e($resUser['full_name']) ?></span>
-                                <span class="tag"><?= $isOwner ? 'Daire Yöneticisi' : 'Daire Sakini' ?></span>
+                                <span class="tag"><?= $isOwner ? 'Yönetici' : 'Sakin' ?></span>
                             </a>
                         <?php endforeach; ?>
                     </div>
@@ -231,7 +223,7 @@ require_once __DIR__ . '/includes/header.php';
             <!-- 3. KART: APARTMANDAKİ DAİRELER LİSTESİ -->
             <section class="panel-card">
                 <div class="panel-card-header">
-                    <h2 class="section-title">Apartmandaki Daireler (<?= e(turkish_month_name($month) . ' ' . $year) ?>)</h2>
+                    <h2 class="section-title">Daireler (<?= e(turkish_month_name($month) . ' ' . $year) ?>)</h2>
                 </div>
 
                 <div class="table-responsive">
@@ -239,9 +231,9 @@ require_once __DIR__ . '/includes/header.php';
                         <thead>
                             <tr>
                                 <th>Daire</th>
-                                <th>Daire Yöneticisi &amp; Sakinler</th>
-                                <th>Bu Ayki Sayaç</th>
-                                <th>Kişi Başı Günlük</th>
+                                <th>Sakinler</th>
+                                <th>Sayaç</th>
+                                <th>Günlük</th>
                             </tr>
                         </thead>
                         <tbody>

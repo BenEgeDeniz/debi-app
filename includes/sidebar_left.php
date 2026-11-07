@@ -30,21 +30,21 @@ $unitFormatted    = !empty($currentUser)
 
             <div class="sidebar-role-badges">
                 <?php if ($currentUser['role'] === 'manager'): ?>
-                    <span class="role-badge role-badge-apt">🏢 Apartman Yöneticisi</span>
+                    <span class="role-badge role-badge-apt">🏢 Apt. Yöneticisi</span>
                 <?php endif; ?>
 
                 <?php if (is_unit_manager($currentUser)): ?>
                     <span class="role-badge role-badge-unit">
-                        🏠 <?= $isDetachedHome ? 'Hane Yöneticisi' : e($unitFormatted) . ' Yöneticisi' ?>
+                        🏠 <?= e($unitFormatted) ?>
                     </span>
                 <?php else: ?>
                     <span class="role-badge role-badge-resident">
-                        👤 <?= e($unitFormatted) ?> Sakini
+                        👤 <?= e($unitFormatted) ?>
                     </span>
                 <?php endif; ?>
 
-                <a href="index.php#daireGoleti" class="role-badge role-badge-drops" title="Daire Göletinizdeki Toplam Damla">
-                    💧 <?= number_format((int) ($headerPondDrops ?? 0), 0, ',', '.') ?> Damla
+                <a href="index.php#daireGoleti" class="role-badge role-badge-drops" title="Daire Göleti">
+                    💧 <?= number_format((int) ($headerPondDrops ?? 0), 0, ',', '.') ?>
                 </a>
             </div>
         </div>
@@ -53,12 +53,12 @@ $unitFormatted    = !empty($currentUser)
     <nav class="side-nav" aria-label="Ana Menü">
         <a href="index.php" class="side-nav-link <?= $activeNav === 'feed' ? 'active' : '' ?>">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            <span>Sosyal Akış</span>
+            <span>Akış</span>
         </a>
 
         <a href="profile.php" class="side-nav-link <?= $activeNav === 'profile' ? 'active' : '' ?>">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <span>Zaman Tünelim</span>
+            <span>Profilim</span>
         </a>
 
         <a href="friends.php" class="side-nav-link <?= $activeNav === 'friends' ? 'active' : '' ?>">
@@ -71,20 +71,18 @@ $unitFormatted    = !empty($currentUser)
 
         <a href="water.php" class="side-nav-link <?= $activeNav === 'water' ? 'active' : '' ?>">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
-            <span>Su Faturalarım</span>
+            <span>Faturalar</span>
         </a>
 
         <a href="analytics.php" class="side-nav-link <?= $activeNav === 'analytics' ? 'active' : '' ?>">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-            <span>Su Analizi</span>
+            <span>Analiz</span>
         </a>
 
         <?php if (!$isDetachedHome): ?>
             <a href="apartment.php" class="side-nav-link <?= $activeNav === 'apartment' ? 'active' : '' ?>">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
-                <span>
-                    <?= !empty($currentUser['apartment_id']) ? 'Apartman & Dairem' : 'Apartmana Katıl' ?>
-                </span>
+                <span>Apartman</span>
             </a>
         <?php endif; ?>
     </nav>

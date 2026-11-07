@@ -12,8 +12,8 @@ $series         = $analytics['series'] ?? [];
 $yearlySeries   = $analytics['yearly_series'] ?? [];
 $billCount      = (int) ($analytics['bill_count'] ?? count($series));
 $hasComparison  = !empty($analytics['has_comparison']);
-$prevLabel      = $analytics['prev_label'] ?? 'Önceki Dönem Faturası';
-$currLabel      = $analytics['curr_label'] ?? 'Son Dönem Faturası';
+$prevLabel      = $analytics['prev_label'] ?? 'Önceki Fatura';
+$currLabel      = $analytics['curr_label'] ?? 'Son Fatura';
 $prevM3         = $analytics['prev_m3'];
 $currM3         = $analytics['curr_m3'];
 $diffM3         = (float) ($analytics['diff_m3'] ?? 0.0);
@@ -42,60 +42,45 @@ require_once __DIR__ . '/includes/header.php';
         <!-- Üst Başlık ve Fatura Farkı / Damla Özet Metrikleri -->
         <section class="panel-card">
             <div class="panel-card-header">
-                <div>
-                    <div class="section-kicker">SU TÜKETİM ANALİZİ &amp; DAMLA KAZANIMI</div>
-                    <h1 class="section-title">Fatura Tüketim Karşılaştırması (m³)</h1>
-                </div>
+                <h1 class="section-title">Su Analizi</h1>
                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                    <a href="index.php#daireGoleti" class="drop-motivation-badge" title="Daire Göletinizdeki Toplam Damla Sayısı">
+                    <a href="index.php#daireGoleti" class="drop-motivation-badge" title="Daire Göleti">
                         <span class="drop-badge-icon">💧</span>
-                        <span>Dairemiz: <strong id="userWalletPointsText"><?= number_format($totalDrops, 0, ',', '.') ?> Damla</strong></span>
+                        <strong id="userWalletPointsText"><?= number_format($totalDrops, 0, ',', '.') ?> Damla</strong>
                     </a>
-                    <a href="water.php" class="btn btn-primary btn-sm">📷 Fatura Yükle &amp; Damla Kazan</a>
+                    <a href="water.php" class="btn btn-primary btn-sm">📷 Fatura Yükle</a>
                 </div>
             </div>
-
-            <?php if ($billCount === 0): ?>
-                <div class="bill-ai-notice notice-warn" style="margin-bottom: 14px;">
-                    <strong>Henüz Fatura Verisi Yok:</strong>
-                    Hanenize ait yüklenmiş su faturası bulunmuyor. <a href="water.php" style="font-weight: 800; text-decoration: underline;">Su Faturalarım</a> sayfasından faturanızı yapay zeka ile okutup onayladığınızda hem <strong>Damla 💧</strong> kazanır hem de tüketim grafiğinizi oluşturursunuz.
-                </div>
-            <?php elseif ($billCount === 1): ?>
-                <div class="bill-ai-notice notice-ok" style="margin-bottom: 14px;">
-                    <strong>Tek Dönem Verisi Mevcut:</strong>
-                    Hanenize ait yalnızca <strong><?= e($series[0]['period_label'] ?? '') ?></strong> faturası yüklü. Aylar arası su tasarrufu farkı hesabı için en az 2 farklı döneme ait fatura kaydı gereklidir.
-                </div>
-            <?php endif; ?>
 
             <div class="analytics-kpi-grid">
                 <div class="analytics-kpi-box">
                     <span class="analytics-kpi-label" id="kpiPrevLabel"><?= e($prevLabel) ?></span>
                     <strong class="analytics-kpi-val" id="kpiPrevM3">
-                        <?= $prevM3 !== null ? number_format((float) $prevM3, 1, ',', '.') . ' m³' : 'Veri Yok' ?>
+                        <?= $prevM3 !== null ? number_format((float) $prevM3, 1, ',', '.') . ' m³' : '—' ?>
                     </strong>
                 </div>
                 <div class="analytics-kpi-box">
                     <span class="analytics-kpi-label" id="kpiCurrLabel"><?= e($currLabel) ?></span>
                     <strong class="analytics-kpi-val" id="kpiCurrM3">
-                        <?= $currM3 !== null ? number_format((float) $currM3, 1, ',', '.') . ' m³' : 'Veri Yok' ?>
+                        <?= $currM3 !== null ? number_format((float) $currM3, 1, ',', '.') . ' m³' : '—' ?>
                     </strong>
                 </div>
                 <div class="analytics-kpi-box">
-                    <span class="analytics-kpi-label" id="kpiDiffLabel">Tasarruf Farkı &amp; Oranı</span>
+                    <span class="analytics-kpi-label" id="kpiDiffLabel">Tasarruf</span>
                     <strong class="analytics-kpi-val" id="kpiDiffM3">
                         <?php if (!$hasComparison): ?>
-                            En az 2 fatura gerekli
+                            En az 2 fatura
                         <?php elseif ($savedM3 > 0): ?>
-                            <?= number_format($savedM3, 1, ',', '.') . ' m³ (' . number_format($savedLiters, 0, ',', '.') . ' L · %' . number_format($savingPct, 1, ',', '.') . ')' ?>
+                            <?= number_format($savedM3, 1, ',', '.') . ' m³ (%' . number_format($savingPct, 1, ',', '.') . ')' ?>
                         <?php elseif ($diffM3 < 0): ?>
-                            <?= '+' . number_format(abs($diffM3), 1, ',', '.') . ' m³ artış (Tasarruf yok)' ?>
+                            <?= '+' . number_format(abs($diffM3), 1, ',', '.') . ' m³ artış' ?>
                         <?php else: ?>
-                            0,0 m³ (Değişim yok)
+                            Değişim yok
                         <?php endif; ?>
                     </strong>
                 </div>
                 <div class="analytics-kpi-box analytics-kpi-highlight">
-                    <span class="analytics-kpi-label">Son Faturadan Kazanılan Damla</span>
+                    <span class="analytics-kpi-label">Son Fatura</span>
                     <strong class="analytics-kpi-val" id="kpiEarnedPoints">
                         <?= $earnedPoints > 0 ? '+' . $earnedPoints . ' Damla 💧' : '0 Damla' ?>
                     </strong>
@@ -106,9 +91,7 @@ require_once __DIR__ . '/includes/header.php';
         <!-- ZAMAN (xlab) VE KULLANILAN m³ (ylab) ÇİZGİ TABLOSU -->
         <section class="panel-card">
             <div class="panel-card-header">
-                <div>
-                    <h2 class="section-title" id="chartSectionTitle">Su Tüketimi Çizgi Tablosu</h2>
-                </div>
+                <h2 class="section-title" id="chartSectionTitle">Tüketim Grafiği (m³)</h2>
                 <div class="chart-period-toggle" role="tablist" aria-label="Zaman Aralığı Seçimi">
                     <button type="button" class="btn btn-primary btn-sm js-chart-mode active" data-chart-mode="monthly">
                         Aylık

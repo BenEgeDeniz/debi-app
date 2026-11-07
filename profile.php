@@ -116,12 +116,12 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="profile-title-row">
                             <h1 class="page-title"><?= e($profileUser['full_name']) ?></h1>
                             <?php if ($profileUser['role'] === 'manager'): ?>
-                                <span class="role-badge role-badge-apt">🏢 Apartman Yöneticisi</span>
+                                <span class="role-badge role-badge-apt">🏢 Apt. Yöneticisi</span>
                             <?php endif; ?>
                             <?php if (is_unit_manager($profileUser)): ?>
-                                <span class="role-badge role-badge-unit">🏠 <?= e($profileUnitName) ?> Yöneticisi</span>
+                                <span class="role-badge role-badge-unit">🏠 <?= e($profileUnitName) ?></span>
                             <?php else: ?>
-                                <span class="role-badge role-badge-resident">👤 <?= e($profileUnitName) ?> Sakini</span>
+                                <span class="role-badge role-badge-resident">👤 <?= e($profileUnitName) ?></span>
                             <?php endif; ?>
                         </div>
 
@@ -309,20 +309,20 @@ require_once __DIR__ . '/includes/header.php';
                     <input type="hidden" name="category" value="tip">
 
                     <textarea name="content" rows="2" required
-                              placeholder="Zaman tünelinizde yeni bir su tasarrufu notu veya fatura gelişmesi paylaşın..."></textarea>
+                              placeholder="Bir şeyler paylaş..."></textarea>
 
                     <div class="composer-bar-clean">
                         <div class="composer-bar-left">
                             <select name="visibility" class="composer-scope-select" aria-label="Görünürlük">
-                                <option value="friends">Arkadaşlarım</option>
+                                <option value="friends">Arkadaşlar</option>
                                 <?php if (!empty($currentUser['apartment_id'])): ?>
-                                    <option value="apartment">Apartmanım (<?= e($currentUser['apartment_name']) ?>)</option>
+                                    <option value="apartment"><?= e($currentUser['apartment_name']) ?></option>
                                 <?php endif; ?>
-                                <option value="public" selected>Genel Debi</option>
+                                <option value="public" selected>Genel</option>
                             </select>
 
                             <label class="file-attach-label">
-                                <span>Fotoğraf Ekle</span>
+                                <span>📷 Fotoğraf</span>
                                 <input type="file" name="post_image" accept="image/jpeg,image/png,image/webp">
                             </label>
                         </div>
@@ -337,11 +337,6 @@ require_once __DIR__ . '/includes/header.php';
         <?php if (empty($timelinePosts)): ?>
             <div class="panel-card empty-state-card">
                 <h3>Henüz paylaşım yok</h3>
-                <p>
-                    <?= $isOwnProfile
-                        ? 'Yukarıdaki kutudan ilk paylaşımınızı ekleyebilirsiniz.'
-                        : 'Bu kullanıcının henüz paylaşımı bulunmuyor.' ?>
-                </p>
             </div>
         <?php else: ?>
             <div class="post-list">
@@ -389,13 +384,12 @@ require_once __DIR__ . '/includes/header.php';
                                 <input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>">
                                 <button type="submit" class="btn-action <?= (int) $post['user_reacted'] > 0 ? 'reacted' : '' ?>">
                                     <span class="drop-symbol">💧</span>
-                                    <span class="reaction-label">Damla Desteği</span>
-                                    <span class="reaction-count">(<?= (int) $post['reaction_count'] ?>)</span>
+                                    <span class="reaction-count"><?= (int) $post['reaction_count'] ?></span>
                                 </button>
                             </form>
 
                             <button type="button" class="btn-action js-toggle-comments" data-target="comments-<?= (int) $post['id'] ?>">
-                                Yorumlar (<?= (int) $post['comment_count'] ?>)
+                                💬 <?= (int) $post['comment_count'] ?>
                             </button>
 
                             <?php if ((int) $post['user_id'] === (int) $currentUser['id']): ?>

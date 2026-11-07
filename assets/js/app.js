@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             btn.classList.toggle('reacted', !!data.reacted);
                         }
                         if (countSpan) {
-                            countSpan.textContent = '(' + data.count + ')';
+                            countSpan.textContent = data.count;
                         }
                     } else {
                         form.submit();
@@ -426,8 +426,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (n === 0) {
                 svgChart.innerHTML =
                     '<rect x="' + padL + '" y="' + padT + '" width="' + plotW + '" height="' + plotH + '" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-dasharray="6 6" stroke-width="1.5"/>' +
-                    '<text x="' + (W / 2) + '" y="' + (H / 2 - 8) + '" text-anchor="middle" fill="#334155" font-size="14" font-weight="800">Henüz yüklenmiş su faturası verisi bulunmuyor.</text>' +
-                    '<text x="' + (W / 2) + '" y="' + (H / 2 + 16) + '" text-anchor="middle" fill="#64748b" font-size="12.5" font-weight="600">Su Faturalarım sayfasından faturanızı yüklediğinizde grafik otomatik çizilir.</text>';
+                    '<text x="' + (W / 2) + '" y="' + (H / 2 - 4) + '" text-anchor="middle" fill="#334155" font-size="14" font-weight="800">Fatura verisi yok</text>' +
+                    '<text x="' + (W / 2) + '" y="' + (H / 2 + 18) + '" text-anchor="middle" fill="#64748b" font-size="12" font-weight="600">Fatura yüklediğinizde grafik burada görüntülenir.</text>';
                 return;
             }
 
@@ -457,15 +457,15 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             // Axis Titles (ylab & xlab)
-            const modeLabel = currentMode === 'yearly' ? 'Yıllık' : 'Aylık';
-            svgHtml += '<text x="12" y="' + (padT + plotH / 2) + '" transform="rotate(-90 12 ' + (padT + plotH / 2) + ')" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">Kullanılan Su (m³)</text>';
-            svgHtml += '<text x="' + (padL + plotW / 2) + '" y="' + (H - 8) + '" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">Zaman (' + modeLabel + ')</text>';
+            const modeLabel = currentMode === 'yearly' ? 'Yıl' : 'Ay';
+            svgHtml += '<text x="12" y="' + (padT + plotH / 2) + '" transform="rotate(-90 12 ' + (padT + plotH / 2) + ')" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">m³</text>';
+            svgHtml += '<text x="' + (padL + plotW / 2) + '" y="' + (H - 8) + '" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">' + modeLabel + '</text>';
 
             // Tek veri noktası varsa yatay referans çizgisi ve bilgi notu göster
             if (coords.length === 1) {
                 const c0 = coords[0];
                 svgHtml += '<line x1="' + padL + '" y1="' + c0.y.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + c0.y.toFixed(1) + '" stroke="#0ea5e9" stroke-dasharray="6 6" stroke-width="2" opacity="0.65"/>';
-                svgHtml += '<text x="' + (padL + plotW / 2) + '" y="' + (padT + 14) + '" text-anchor="middle" fill="#64748b" font-size="11.5" font-weight="700">Tek dönem kaydı mevcut (' + c0.pt.period_label + ') — Karşılaştırma çizgisi için 2. dönem faturası bekleniyor</text>';
+                svgHtml += '<text x="' + (padL + plotW / 2) + '" y="' + (padT + 14) + '" text-anchor="middle" fill="#64748b" font-size="11.5" font-weight="700">Tek fatura (' + c0.pt.period_label + ') · Karşılaştırma için 2. fatura bekleniyor</text>';
             }
 
             // Area under line
@@ -534,21 +534,21 @@ document.addEventListener('DOMContentLoaded', function () {
                     kazanilanDamla = (tasarrufM3 > 0 ? 10 : 0) + (tasarrufYuzdesi >= 10.0 ? 10 : 0);
                 }
 
-                if (kpiPrevLabel) kpiPrevLabel.textContent = (prevPt.period_label || prevPt.xlab) + ' Tüketimi';
-                if (kpiCurrLabel) kpiCurrLabel.textContent = (currPt.period_label || currPt.xlab) + ' Tüketimi';
-                if (kpiDiffLabel) kpiDiffLabel.textContent = (currentMode === 'yearly' ? 'Yıllık' : 'Tasarruf') + ' Farkı & Oranı';
+                if (kpiPrevLabel) kpiPrevLabel.textContent = prevPt.period_label || prevPt.xlab;
+                if (kpiCurrLabel) kpiCurrLabel.textContent = currPt.period_label || currPt.xlab;
+                if (kpiDiffLabel) kpiDiffLabel.textContent = currentMode === 'yearly' ? 'Yıllık Değişim' : 'Tasarruf';
                 if (kpiPrevM3) kpiPrevM3.textContent = formatTR(prevM3, 1) + ' m³';
                 if (kpiCurrM3) kpiCurrM3.textContent = formatTR(currM3, 1) + ' m³';
 
                 if (kpiDiffM3) {
                     if (tasarrufM3 > 0) {
-                        kpiDiffM3.textContent = formatTR(tasarrufM3, 1) + ' m³ (' + formatTR(kurtarilanLitre, 0) + ' L · %' + formatTR(tasarrufYuzdesi, 1) + ')';
+                        kpiDiffM3.textContent = formatTR(tasarrufM3, 1) + ' m³ (%' + formatTR(tasarrufYuzdesi, 1) + ')';
                         kpiDiffM3.style.color = 'var(--brand-green-dark)';
                     } else if (diffM3 < 0) {
-                        kpiDiffM3.textContent = '+' + formatTR(Math.abs(diffM3), 1) + ' m³ artış (Tasarruf yok)';
+                        kpiDiffM3.textContent = '+' + formatTR(Math.abs(diffM3), 1) + ' m³ artış';
                         kpiDiffM3.style.color = 'var(--brand-danger-dark)';
                     } else {
-                        kpiDiffM3.textContent = '0,0 m³ (Değişim yok)';
+                        kpiDiffM3.textContent = 'Değişim yok';
                         kpiDiffM3.style.color = 'var(--text-main)';
                     }
                 }
@@ -557,23 +557,23 @@ document.addEventListener('DOMContentLoaded', function () {
                 const onlyM3 = Number(onlyPt.consumption_m3 || 0);
                 kazanilanDamla = currentMode === 'monthly' ? Number(onlyPt.earned_points || 0) : 0;
 
-                if (kpiPrevLabel) kpiPrevLabel.textContent = currentMode === 'yearly' ? 'Önceki Yıl Tüketimi' : 'Önceki Dönem Faturası';
-                if (kpiCurrLabel) kpiCurrLabel.textContent = (onlyPt.period_label || onlyPt.xlab) + ' Tüketimi';
-                if (kpiDiffLabel) kpiDiffLabel.textContent = (currentMode === 'yearly' ? 'Yıllık' : 'Tasarruf') + ' Farkı & Oranı';
-                if (kpiPrevM3) kpiPrevM3.textContent = 'Veri Yok';
+                if (kpiPrevLabel) kpiPrevLabel.textContent = currentMode === 'yearly' ? 'Önceki Yıl' : 'Önceki Fatura';
+                if (kpiCurrLabel) kpiCurrLabel.textContent = onlyPt.period_label || onlyPt.xlab;
+                if (kpiDiffLabel) kpiDiffLabel.textContent = 'Tasarruf';
+                if (kpiPrevM3) kpiPrevM3.textContent = '—';
                 if (kpiCurrM3) kpiCurrM3.textContent = formatTR(onlyM3, 1) + ' m³';
                 if (kpiDiffM3) {
-                    kpiDiffM3.textContent = currentMode === 'yearly' ? 'En az 2 yıl verisi gerekli' : 'En az 2 fatura gerekli';
+                    kpiDiffM3.textContent = currentMode === 'yearly' ? 'En az 2 yıl' : 'En az 2 fatura';
                     kpiDiffM3.style.color = 'var(--text-muted)';
                 }
             } else {
-                if (kpiPrevLabel) kpiPrevLabel.textContent = 'Önceki Dönem Faturası';
-                if (kpiCurrLabel) kpiCurrLabel.textContent = 'Son Dönem Faturası';
-                if (kpiDiffLabel) kpiDiffLabel.textContent = 'Tasarruf Farkı & Oranı';
-                if (kpiPrevM3) kpiPrevM3.textContent = 'Veri Yok';
-                if (kpiCurrM3) kpiCurrM3.textContent = 'Veri Yok';
+                if (kpiPrevLabel) kpiPrevLabel.textContent = 'Önceki Fatura';
+                if (kpiCurrLabel) kpiCurrLabel.textContent = 'Son Fatura';
+                if (kpiDiffLabel) kpiDiffLabel.textContent = 'Tasarruf';
+                if (kpiPrevM3) kpiPrevM3.textContent = '—';
+                if (kpiCurrM3) kpiCurrM3.textContent = '—';
                 if (kpiDiffM3) {
-                    kpiDiffM3.textContent = 'Henüz fatura yüklenmedi';
+                    kpiDiffM3.textContent = 'Veri yok';
                     kpiDiffM3.style.color = 'var(--text-muted)';
                 }
             }
@@ -650,15 +650,15 @@ document.addEventListener('DOMContentLoaded', function () {
             if (isUnmodified) {
                 if (aiVerifyIcon) aiVerifyIcon.textContent = '✨';
                 if (aiVerifyText) {
-                    aiVerifyText.innerHTML = '<strong>Yapay Zeka Doğrulama Ödülü Hazır (+10 Damla 💧 Garantili):</strong><span>Okunan fatura bilgilerini değiştirmeden onayladığınızda ekran kararır ve Daire Göletinize anında damlalar yağar!</span>';
+                    aiVerifyText.innerHTML = '<strong>AI okudu · Değiştirmeden onayla, +10 💧 kazan</strong>';
                 }
                 if (submitBtn) {
-                    submitBtn.innerHTML = '💧 Evet, Doğru — Faturayı Onayla &amp; Damla Kazan';
+                    submitBtn.innerHTML = '💧 Onayla &amp; Damla Kazan';
                 }
             } else {
                 if (aiVerifyIcon) aiVerifyIcon.textContent = '✏️';
                 if (aiVerifyText) {
-                    aiVerifyText.innerHTML = '<strong>Fatura Bilgileri Manuel Düzenlendi:</strong><span>Yapay zeka verilerini değiştirdiğiniz için otomatik doğrulama damlası yerine yalnızca önceki aya göre tasarruf damlası hesaplanır.</span>';
+                    aiVerifyText.innerHTML = '<strong>Elle düzenlendi · Standart tasarruf hesaplanır</strong>';
                 }
                 if (submitBtn) {
                     submitBtn.innerHTML = 'Faturayı Kaydet';
