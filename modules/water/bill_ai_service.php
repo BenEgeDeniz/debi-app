@@ -1,12 +1,12 @@
 <?php
 /**
- * DEBI - Gemini AI Su Faturası Okuma Servisi
- * Kullanıcının yüklediği su faturası fotoğrafını Gemini API ile analiz eder,
+ * DEBI - Gemini 3.8 Flash (Interactions API) Su Faturası Okuma Servisi
+ * Kullanıcının yüklediği su faturası fotoğrafını Gemini Interactions API ile analiz eder,
  * metreküp (m³), fatura tutarı (TL), dönem (ay/yıl), gün sayısı ve su idaresi bilgisini çıkarır.
  */
 
 /**
- * Yüklenen fatura görselini kaydeder ve Gemini API ile analiz eder.
+ * Yüklenen fatura görselini kaydeder ve Gemini Interactions API (gemini-3.8-flash) ile analiz eder.
  */
 function analyze_water_bill_image(array $file): array
 {
@@ -81,58 +81,64 @@ Bu görseldeki su faturasını incele ve aşağıdaki alanları JSON olarak çı
 - summary_text: Kullanıcıya gösterilecek tek cümlelik Türkçe özet (Örn: "İSKİ faturanızdan 29 günlük dönemde 11 m³ su tüketimi ve 348,00 TL fatura tutarı okundu.")
 PROMPT;
 
-    $payload = [
-        'contents' => [
-            [
-                'parts' => [
-                    ['text' => $prompt],
-                    [
-                        'inline_data' => [
-                            'mime_type' => $mime,
-                            'data'      => $imageBase64,
-                        ],
-                    ],
-                ],
-            ],
+    $schema = [
+        'type'       => 'object',
+        'properties' => [
+            'is_water_bill'  => ['type' => 'boolean'],
+            'provider_name'  => ['type' => 'string'],
+            'period_month'   => ['type' => 'integer'],
+            'period_year'    => ['type' => 'integer'],
+            'consumption_m3' => ['type' => 'number'],
+            'bill_amount'    => ['type' => 'number'],
+            'reading_days'   => ['type' => 'integer'],
+            'summary_text'   => ['type' => 'string'],
         ],
-        'generationConfig' => [
-            'temperature'      => 0.1,
-            'responseMimeType' => 'application/json',
-            'responseSchema'   => [
-                'type'       => 'OBJECT',
-                'properties' => [
-                    'is_water_bill'  => ['type' => 'BOOLEAN'],
-                    'provider_name'  => ['type' => 'STRING'],
-                    'period_month'   => ['type' => 'INTEGER'],
-                    'period_year'    => ['type' => 'INTEGER'],
-                    'consumption_m3' => ['type' => 'NUMBER'],
-                    'bill_amount'    => ['type' => 'NUMBER'],
-                    'reading_days'   => ['type' => 'INTEGER'],
-                    'summary_text'   => ['type' => 'STRING'],
-                ],
-                'required' => [
-                    'is_water_bill',
-                    'provider_name',
-                    'period_month',
-                    'period_year',
-                    'consumption_m3',
-                    'bill_amount',
-                    'reading_days',
-                    'summary_text',
-                ],
-            ],
+        'required' => [
+            'is_water_bill',
+            'provider_name',
+            'period_month',
+            'period_year',
+            'consumption_m3',
+            'bill_amount',
+            'reading_days',
+            'summary_text',
         ],
     ];
 
-    $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' . urlencode($apiKey);
+    // Güncel Gemini Interactions API (models/gemini-3.8-flash)
+    $payload = [
+        'model' => 'gemini-3.8-flash',
+        'input' => [
+            [
+                'type' => 'text',
+                'text' => $prompt,
+            ],
+            [
+                'type'      => 'image',
+                'data'      => $imageBase64,
+                'mime_type' => $mime,
+            ],
+        ],
+        'response_format' => [
+            'type'      => 'text',
+            'mime_type' => 'application/json',
+            'schema'    => $schema,
+        ],
+    ];
+
+    $url = 'https://generativelanguage.googleapis.com/v1beta/interactions';
 
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_POST           => true,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+        CURLOPT_HTTPHEADER     => [
+            'x-goog-api-key: ' . $apiKey,
+            'Content-Type: application/json',
+            'Api-Revision: 2026-05-20',
+        ],
         CURLOPT_POSTFIELDS     => json_encode($payload, JSON_UNESCAPED_UNICODE),
-        CURLOPT_TIMEOUT        => 25,
+        CURLOPT_TIMEOUT        => 30,
     ]);
 
     $rawResponse = curl_exec($ch);
@@ -141,7 +147,7 @@ PROMPT;
     curl_close($ch);
 
     if ($rawResponse === false || $httpCode >= 400) {
-        $errDetail = $curlErr ?: 'HTTP ' . $httpCode;
+        $errDetail  = $curlErr ?: 'HTTP ' . $httpCode;
         $decodedErr = json_decode((string) $rawResponse, true);
         if (!empty($decodedErr['error']['message'])) {
             $errDetail = $decodedErr['error']['message'];
@@ -163,9 +169,10 @@ PROMPT;
         ];
     }
 
-    $respJson  = json_decode((string) $rawResponse, true);
-    $textPart  = $respJson['candidates'][0]['content']['parts'][0]['text'] ?? '';
-    $extracted = json_decode((string) $textPart, true);
+    $respJson = json_decode((string) $rawResponse, true);
+    $textPart = extract_interaction_output_text(is_array($respJson) ? $respJson : []);
+
+    $extracted = json_decode($textPart, true);
 
     if (!is_array($extracted)) {
         return [
@@ -222,4 +229,43 @@ PROMPT;
             'summary_text'   => trim((string) ($extracted['summary_text'] ?? 'Faturanız yapay zeka tarafından okundu.')),
         ],
     ];
+}
+
+/**
+ * Gemini Interactions API yanıtından (steps veya outputs) metin çıktısını ayıklar.
+ */
+function extract_interaction_output_text(array $respJson): string
+{
+    if (!empty($respJson['output_text']) && is_string($respJson['output_text'])) {
+        return $respJson['output_text'];
+    }
+
+    if (!empty($respJson['steps']) && is_array($respJson['steps'])) {
+        $texts = [];
+        foreach ($respJson['steps'] as $step) {
+            if (($step['type'] ?? '') === 'model_output' && !empty($step['content']) && is_array($step['content'])) {
+                foreach ($step['content'] as $part) {
+                    if (($part['type'] ?? '') === 'text' && isset($part['text'])) {
+                        $texts[] = (string) $part['text'];
+                    }
+                }
+            }
+        }
+        if (!empty($texts)) {
+            return implode('', $texts);
+        }
+    }
+
+    if (!empty($respJson['outputs']) && is_array($respJson['outputs'])) {
+        $last = end($respJson['outputs']);
+        if (is_array($last) && isset($last['text'])) {
+            return (string) $last['text'];
+        }
+    }
+
+    if (!empty($respJson['candidates'][0]['content']['parts'][0]['text'])) {
+        return (string) $respJson['candidates'][0]['content']['parts'][0]['text'];
+    }
+
+    return '';
 }
