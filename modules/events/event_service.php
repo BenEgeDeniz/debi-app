@@ -37,7 +37,8 @@ function create_event(array $user, array $input): array
 
 function get_events_for_user(array $user): array
 {
-    $stmt = db()->prepare("
+    try {
+        $stmt = db()->prepare("
         SELECT e.*, u.full_name AS creator_name,
                ea.status AS attendee_status, ep.ai_status AS photo_status,
                (SELECT COUNT(*) FROM event_attendees ea2 WHERE ea2.event_id = e.id) AS attendee_count
@@ -47,9 +48,12 @@ function get_events_for_user(array $user): array
         LEFT JOIN event_photos ep ON ep.event_id = e.id AND ep.user_id = :uid
         WHERE e.scope = 'public' OR e.neighborhood_id = :nid
         ORDER BY e.event_date ASC, e.start_time ASC
-    ");
-    $stmt->execute([':uid' => (int) $user['id'], ':nid' => (int) $user['neighborhood_id']]);
-    return $stmt->fetchAll();
+        ");
+        $stmt->execute([':uid' => (int) $user['id'], ':nid' => (int) $user['neighborhood_id']]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        throw new RuntimeException('Etkinlik tabloları hazır değil. Önce 003_events.sql migrationunu çalıştırın.', 0, $e);
+    }
 }
 
 function join_event(array $user, int $eventId): array

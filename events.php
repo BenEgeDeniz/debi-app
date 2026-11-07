@@ -45,7 +45,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$events = get_events_for_user($currentUser);
+$events = [];
+try {
+    $events = get_events_for_user($currentUser);
+} catch (RuntimeException $e) {
+    $error = $e->getMessage();
+}
 $managedAttendees = [];
 foreach ($events as $event) {
     if ((int) $event['creator_id'] === (int) $currentUser['id']) {
