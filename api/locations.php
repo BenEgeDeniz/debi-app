@@ -1,7 +1,7 @@
 <?php
 /**
  * DEBI - İl, İlçe ve Mahalle Seçimi API Servisi
- * Kaynak: TurkiyeAPI (api.turkiyeapi.dev) + Yerel JSON Önbellekleme
+ * Kaynak: TurkiyeAPI + Yerel JSON Önbellekleme
  */
 
 header('Content-Type: application/json; charset=utf-8');
@@ -9,21 +9,21 @@ header('Cache-Control: public, max-age=86400');
 
 $action = $_GET['action'] ?? 'provinces';
 
-// 81 İl Listesi (Plaka Kodu -> İl Adı)
+// 81 İl Listesi (Alfabetik Sıralı, Plaka Kodu -> İl Adı)
 function get_static_provinces(): array
 {
     return [
-        ['id' => 1, 'name' => 'Adana'],
-        ['id' => 2, 'name' => 'Adıyaman'],
-        ['id' => 3, 'name' => 'Afyonkarahisar'],
-        ['id' => 4, 'name' => 'Ağrı'],
+        ['id' => 1,  'name' => 'Adana'],
+        ['id' => 2,  'name' => 'Adıyaman'],
+        ['id' => 3,  'name' => 'Afyonkarahisar'],
+        ['id' => 4,  'name' => 'Ağrı'],
         ['id' => 68, 'name' => 'Aksaray'],
-        ['id' => 5, 'name' => 'Amasya'],
-        ['id' => 6, 'name' => 'Ankara'],
-        ['id' => 7, 'name' => 'Antalya'],
+        ['id' => 5,  'name' => 'Amasya'],
+        ['id' => 6,  'name' => 'Ankara'],
+        ['id' => 7,  'name' => 'Antalya'],
         ['id' => 75, 'name' => 'Ardahan'],
-        ['id' => 8, 'name' => 'Artvin'],
-        ['id' => 9, 'name' => 'Aydın'],
+        ['id' => 8,  'name' => 'Artvin'],
+        ['id' => 9,  'name' => 'Aydın'],
         ['id' => 10, 'name' => 'Balıkesir'],
         ['id' => 74, 'name' => 'Bartın'],
         ['id' => 72, 'name' => 'Batman'],
@@ -98,25 +98,10 @@ function get_static_provinces(): array
 }
 
 /**
- * Uzak API'den veri çeker ve yerel önbelleğe kaydeder.
+ * Verilen URL'den JSON verisi çeker
  */
-function fetch_with_cache(string $cacheFileName, string $url): ?array
+function http_get_json(string $url): ?array
 {
-    $cacheDir = __DIR__ . '/../cache/locations';
-    $cacheFile = $cacheDir . '/' . $cacheFileName;
-
-    // Önbellek geçerli mi (30 gün)
-    if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < 86400 * 30)) {
-        $content = @file_get_contents($cacheFile);
-        if ($content) {
-            $data = json_decode($content, true);
-            if (is_array($data)) {
-                return $data;
-            }
-        }
-    }
-
-    $raw = null;
     $context = stream_context_create([
         'http' => [
             'method'  => 'GET',
@@ -126,7 +111,7 @@ function fetch_with_cache(string $cacheFileName, string $url): ?array
         'ssl' => [
             'verify_peer'      => false,
             'verify_peer_name' => false,
-        ]
+        ],
     ]);
 
     $raw = @file_get_contents($url, false, $context);
@@ -143,13 +128,39 @@ function fetch_with_cache(string $cacheFileName, string $url): ?array
 
     if ($raw) {
         $decoded = json_decode($raw, true);
-        if (!empty($decoded['data']) && is_array($decoded['data'])) {
-            if (!is_dir($cacheDir)) {
-                @mkdir($cacheDir, 0755, true);
-            }
-            @file_put_contents($cacheFile, json_encode($decoded['data'], JSON_UNESCAPED_UNICODE));
-            return $decoded['data'];
+        if (is_array($decoded)) {
+            return $decoded;
         }
+    }
+
+    return null;
+}
+
+/**
+ * Önbellekten oku veya uzak API'den çekip kaydet
+ */
+function get_cached_or_remote(string $cacheFileName, callable $fetcher): ?array
+{
+    $cacheDir  = __DIR__ . '/../cache/locations';
+    $cacheFile = $cacheDir . '/' . $cacheFileName;
+
+    if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < 86400 * 30)) {
+        $content = @file_get_contents($cacheFile);
+        if ($content) {
+            $data = json_decode($content, true);
+            if (is_array($data) && count($data) > 0) {
+                return $data;
+            }
+        }
+    }
+
+    $list = $fetcher();
+    if (is_array($list) && count($list) > 0) {
+        if (!is_dir($cacheDir)) {
+            @mkdir($cacheDir, 0755, true);
+        }
+        @file_put_contents($cacheFile, json_encode($list, JSON_UNESCAPED_UNICODE));
+        return $list;
     }
 
     return null;
@@ -157,35 +168,33 @@ function fetch_with_cache(string $cacheFileName, string $url): ?array
 
 try {
     if ($action === 'provinces') {
-        // İlleri Türkçe alfabetik sıralı döndür
-        $provinces = get_static_provinces();
-        usort($provinces, function ($a, $b) {
-            if (class_exists('Collator')) {
-                $coll = new Collator('tr_TR');
-                return $coll->compare($a['name'], $b['name']);
-            }
-            $trMap = ['ç'=>'c1', 'Ç'=>'c1', 'ğ'=>'g1', 'Ğ'=>'g1', 'ı'=>'i0', 'I'=>'i0', 'İ'=>'i1', 'i'=>'i1', 'ö'=>'o1', 'Ö'=>'o1', 'ş'=>'s1', 'Ş'=>'s1', 'ü'=>'u1', 'Ü'=>'u1'];
-            $nameA = strtr(mb_strtolower($a['name'], 'UTF-8'), $trMap);
-            $nameB = strtr(mb_strtolower($b['name'], 'UTF-8'), $trMap);
-            return strcmp($nameA, $nameB);
-        });
-
-        echo json_encode(['ok' => true, 'data' => $provinces], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['ok' => true, 'data' => get_static_provinces()], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
     if ($action === 'districts') {
         $provinceId = (int) ($_GET['province_id'] ?? 0);
         if ($provinceId <= 0) {
-            echo json_encode(['ok' => false, 'error' => 'Geçerli bir il ID belirtilmedi.'], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['ok' => false, 'error' => 'Geçerli bir il seçilmedi.'], JSON_UNESCAPED_UNICODE);
             exit;
         }
 
-        $url = "https://api.turkiyeapi.dev/v2/provinces/{$provinceId}/districts?fields=id,name&sort=name";
-        $data = fetch_with_cache("districts_{$provinceId}.json", $url);
+        $data = get_cached_or_remote("districts_{$provinceId}.json", function () use ($provinceId) {
+            // 1. v2 API dene
+            $resV2 = http_get_json("https://api.turkiyeapi.dev/v2/provinces/{$provinceId}/districts?fields=id,name&sort=name&limit=1000");
+            if (!empty($resV2['data']) && is_array($resV2['data'])) {
+                return $resV2['data'];
+            }
+            // 2. v1 API yedek dene
+            $resV1 = http_get_json("https://turkiyeapi.dev/api/v1/provinces/{$provinceId}");
+            if (!empty($resV1['data']['districts']) && is_array($resV1['data']['districts'])) {
+                return array_map(fn($d) => ['id' => $d['id'], 'name' => $d['name']], $resV1['data']['districts']);
+            }
+            return null;
+        });
 
-        if ($data === null) {
-            echo json_encode(['ok' => false, 'error' => 'İlçeler yüklenemedi. Lütfen internet bağlantınızı kontrol edin.'], JSON_UNESCAPED_UNICODE);
+        if (!$data) {
+            echo json_encode(['ok' => false, 'error' => 'İlçeler yüklenemedi.'], JSON_UNESCAPED_UNICODE);
             exit;
         }
 
@@ -196,15 +205,26 @@ try {
     if ($action === 'neighborhoods') {
         $districtId = (int) ($_GET['district_id'] ?? 0);
         if ($districtId <= 0) {
-            echo json_encode(['ok' => false, 'error' => 'Geçerli bir ilçe ID belirtilmedi.'], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['ok' => false, 'error' => 'Geçerli bir ilçe seçilmedi.'], JSON_UNESCAPED_UNICODE);
             exit;
         }
 
-        $url = "https://api.turkiyeapi.dev/v2/districts/{$districtId}/neighborhoods?fields=id,name&sort=name";
-        $data = fetch_with_cache("neighborhoods_{$districtId}.json", $url);
+        $data = get_cached_or_remote("neighborhoods_{$districtId}.json", function () use ($districtId) {
+            // 1. v2 API dene
+            $resV2 = http_get_json("https://api.turkiyeapi.dev/v2/districts/{$districtId}/neighborhoods?fields=id,name&sort=name&limit=1000");
+            if (!empty($resV2['data']) && is_array($resV2['data'])) {
+                return $resV2['data'];
+            }
+            // 2. v1 API yedek dene
+            $resV1 = http_get_json("https://turkiyeapi.dev/api/v1/districts/{$districtId}");
+            if (!empty($resV1['data']['neighborhoods']) && is_array($resV1['data']['neighborhoods'])) {
+                return array_map(fn($n) => ['id' => $n['id'], 'name' => $n['name']], $resV1['data']['neighborhoods']);
+            }
+            return null;
+        });
 
-        if ($data === null) {
-            echo json_encode(['ok' => false, 'error' => 'Mahalleler yüklenemedi. Lütfen internet bağlantınızı kontrol edin.'], JSON_UNESCAPED_UNICODE);
+        if (!$data) {
+            echo json_encode(['ok' => false, 'error' => 'Mahalleler yüklenemedi.'], JSON_UNESCAPED_UNICODE);
             exit;
         }
 
@@ -212,7 +232,7 @@ try {
         exit;
     }
 
-    echo json_encode(['ok' => false, 'error' => 'Bilinmeyen işlem.'], JSON_UNESCAPED_UNICODE);
+    echo json_encode(['ok' => false, 'error' => 'Geçersiz istek.'], JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
     echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
 }

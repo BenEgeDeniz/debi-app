@@ -106,30 +106,51 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </div>
 
-            <!-- MOD 1 ve MOD 3 İçin Ortak Mahalle Seçimi (Otomatik Çekilen Liste) -->
+            <!-- MOD 1 ve MOD 3 İçin Ortak Mahalle Seçimi (Standart Liste) -->
+            <?php
+            $provincesList = [
+                1 => 'Adana', 2 => 'Adıyaman', 3 => 'Afyonkarahisar', 4 => 'Ağrı', 68 => 'Aksaray',
+                5 => 'Amasya', 6 => 'Ankara', 7 => 'Antalya', 75 => 'Ardahan', 8 => 'Artvin',
+                9 => 'Aydın', 10 => 'Balıkesir', 74 => 'Bartın', 72 => 'Batman', 69 => 'Bayburt',
+                11 => 'Bilecik', 12 => 'Bingöl', 13 => 'Bitlis', 14 => 'Bolu', 15 => 'Burdur',
+                16 => 'Bursa', 17 => 'Çanakkale', 18 => 'Çankırı', 19 => 'Çorum', 20 => 'Denizli',
+                21 => 'Diyarbakır', 81 => 'Düzce', 22 => 'Edirne', 23 => 'Elazığ', 24 => 'Erzincan',
+                25 => 'Erzurum', 26 => 'Eskişehir', 27 => 'Gaziantep', 28 => 'Giresun', 29 => 'Gümüşhane',
+                30 => 'Hakkari', 31 => 'Hatay', 76 => 'Iğdır', 32 => 'Isparta', 34 => 'İstanbul',
+                35 => 'İzmir', 46 => 'Kahramanmaraş', 78 => 'Karabük', 70 => 'Karaman', 36 => 'Kars',
+                37 => 'Kastamonu', 38 => 'Kayseri', 71 => 'Kırıkkale', 39 => 'Kırklareli', 40 => 'Kırşehir',
+                79 => 'Kilis', 41 => 'Kocaeli', 42 => 'Konya', 43 => 'Kütahya', 44 => 'Malatya',
+                45 => 'Manisa', 47 => 'Mardin', 33 => 'Mersin', 48 => 'Muğla', 49 => 'Muş',
+                50 => 'Nevşehir', 51 => 'Niğde', 52 => 'Ordu', 80 => 'Osmaniye', 53 => 'Rize',
+                54 => 'Sakarya', 55 => 'Samsun', 56 => 'Siirt', 57 => 'Sinop', 58 => 'Sivas',
+                63 => 'Şanlıurfa', 73 => 'Şırnak', 59 => 'Tekirdağ', 60 => 'Tokat', 61 => 'Trabzon',
+                62 => 'Tunceli', 64 => 'Uşak', 65 => 'Van', 77 => 'Yalova', 66 => 'Yozgat', 67 => 'Zonguldak',
+            ];
+            $postedCity = $_POST['city'] ?? '';
+            ?>
             <div class="form-section mode-panel" id="locationSection"
                  style="<?= $mode === 'apartment_invite' ? 'display:none;' : '' ?>"
-                 data-prefill-city="<?= e($_POST['city'] ?? '') ?>"
+                 data-prefill-city="<?= e($postedCity) ?>"
                  data-prefill-district="<?= e($_POST['district'] ?? '') ?>"
                  data-prefill-neighborhood="<?= e($_POST['neighborhood_name'] ?? '') ?>">
-                <div class="location-header-row">
-                    <div>
-                        <h3 class="form-section-title">Mahalle Konumu</h3>
-                        <p class="section-note">
-                            İl, ilçe ve mahallenizi seçin. Seçtiğiniz mahalledeki apartmanlar ve komşularınızla otomatik eşleşirsiniz.
-                        </p>
-                    </div>
-                    <button type="button" class="btn-link-subtle" id="toggleManualLocation">
-                        Listede bulamadım, elle yaz
-                    </button>
+                <div>
+                    <h3 class="form-section-title">Mahalle Konumu</h3>
+                    <p class="section-note">
+                        İl, ilçe ve mahallenizi listeden seçin. Aynı mahalleyi seçen tüm apartmanlar ve bireysel evler ortak mahalle akışında buluşur.
+                    </p>
                 </div>
 
-                <!-- Otomatik İl > İlçe > Mahalle Seçim Menüleri -->
                 <div class="form-grid-3" id="autoLocationInputs">
                     <div class="form-group">
                         <label for="citySelect">İl Seçin</label>
                         <select id="citySelect" name="city" class="loc-select">
-                            <option value="">İller yükleniyor...</option>
+                            <option value="">İl Seçiniz...</option>
+                            <?php foreach ($provincesList as $plateId => $provName): ?>
+                                <option value="<?= e($provName) ?>" data-id="<?= (int) $plateId ?>"
+                                    <?= ($postedCity !== '' && mb_strtolower($postedCity, 'UTF-8') === mb_strtolower($provName, 'UTF-8')) ? 'selected' : '' ?>>
+                                    <?= e($provName) ?>
+                                </option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="form-group">
@@ -143,22 +164,6 @@ require_once __DIR__ . '/includes/header.php';
                         <select id="neighborhoodSelect" name="neighborhood_name" class="loc-select" disabled>
                             <option value="">Önce ilçe seçin</option>
                         </select>
-                    </div>
-                </div>
-
-                <!-- İsteğe Bağlı Manuel Giriş Alanları (Gerektiğinde Açılır) -->
-                <div class="form-grid-3" id="manualLocationInputs" style="display: none;">
-                    <div class="form-group">
-                        <label for="manualCity">İl (Elle Giriş)</label>
-                        <input type="text" id="manualCity" placeholder="Örn: İstanbul" disabled>
-                    </div>
-                    <div class="form-group">
-                        <label for="manualDistrict">İlçe (Elle Giriş)</label>
-                        <input type="text" id="manualDistrict" placeholder="Örn: Kadıköy" disabled>
-                    </div>
-                    <div class="form-group">
-                        <label for="manualNeighborhood">Mahalle (Elle Giriş)</label>
-                        <input type="text" id="manualNeighborhood" placeholder="Örn: Moda Mah." disabled>
                     </div>
                 </div>
             </div>

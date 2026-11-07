@@ -27,7 +27,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     const isMatch = box.getAttribute('data-mode-box') === targetMode;
                     box.style.display = isMatch ? '' : 'none';
 
-                    // Aynı isimli unit_label alanlarının çakışmaması için sadece aktif olanı etkinleştir
                     const unitInput = box.querySelector('input[name="unit_label"]');
                     if (unitInput) {
                         unitInput.disabled = !isMatch;
@@ -81,84 +80,116 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // 5. Otomatik İl > İlçe > Mahalle Seçimi (API Destekli)
-    const locationSection = document.getElementById('locationSection');
+    // 4. AJAX Damla Desteği (Beğeni)
+    const reactionForms = document.querySelectorAll('.reaction-form');
+    reactionForms.forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const btn = form.querySelector('.btn-action');
+            const countSpan = form.querySelector('.reaction-count');
+
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+                .then(function (res) {
+                    return res.json();
+                })
+                .then(function (data) {
+                    if (data && data.ok) {
+                        if (btn) {
+                            btn.classList.toggle('reacted', !!data.reacted);
+                        }
+                        if (countSpan) {
+                            countSpan.textContent = '(' + data.count + ')';
+                        }
+                    } else {
+                        form.submit();
+                    }
+                })
+                .catch(function () {
+                    form.submit();
+                });
+        });
+    });
+
+    // 5. Otomatik İl > İlçe > Mahalle Seçimi (Yalnızca Listeden Seçim)
     const citySelect = document.getElementById('citySelect');
     const districtSelect = document.getElementById('districtSelect');
     const neighborhoodSelect = document.getElementById('neighborhoodSelect');
-    const toggleManualBtn = document.getElementById('toggleManualLocation');
-    const autoLocationBox = document.getElementById('autoLocationInputs');
-    const manualLocationBox = document.getElementById('manualLocationInputs');
 
     if (citySelect && districtSelect && neighborhoodSelect) {
-        let isManual = false;
-        const prefillCity = locationSection ? locationSection.getAttribute('data-prefill-city') : '';
-        const prefillDistrict = locationSection ? locationSection.getAttribute('data-prefill-district') : '';
-        const prefillNeighborhood = locationSection ? locationSection.getAttribute('data-prefill-neighborhood') : '';
+        const prefillDistrict = locationSection ? (locationSection.getAttribute('data-prefill-district') || '') : '';
+        const prefillNeighborhood = locationSection ? (locationSection.getAttribute('data-prefill-neighborhood') || '') : '';
 
-        // API İstek Yardımcısı (Önce yerel proxy, başarısızsa doğrudan TurkiyeAPI genel uç noktası)
-        async function fetchLocations(action, paramKey, paramVal) {
-            const localUrl = `api/locations.php?action=${action}${paramKey ? `&${paramKey}=${paramVal}` : ''}`;
+        async function fetchLocationList(action, paramKey, paramVal) {
+            // 1. Önce yerel PHP proxy + cache uç noktasını dene
+            const localUrl = 'api/locations.php?action=' + encodeURIComponent(action) +
+                (paramKey ? '&' + encodeURIComponent(paramKey) + '=' + encodeURIComponent(paramVal) : '');
             try {
                 const res = await fetch(localUrl);
-                const json = await res.json();
-                if (json && json.ok && Array.isArray(json.data) && json.data.length > 0) {
-                    return json.data;
-                }
-            } catch (err) {
-                // Yerel istek başarısız olduysa genel API'ye düş
-            }
-
-            // Fallback: Doğrudan api.turkiyeapi.dev
-            try {
-                let directUrl = '';
-                if (action === 'provinces') {
-                    directUrl = 'https://api.turkiyeapi.dev/v2/provinces?fields=id,name&sort=name';
-                } else if (action === 'districts') {
-                    directUrl = `https://api.turkiyeapi.dev/v2/provinces/${paramVal}/districts?fields=id,name&sort=name`;
-                } else if (action === 'neighborhoods') {
-                    directUrl = `https://api.turkiyeapi.dev/v2/districts/${paramVal}/neighborhoods?fields=id,name&sort=name`;
-                }
-                if (directUrl) {
-                    const fallbackRes = await fetch(directUrl);
-                    const fallbackJson = await fallbackRes.json();
-                    if (fallbackJson && fallbackJson.data) {
-                        return fallbackJson.data;
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json && json.ok && Array.isArray(json.data) && json.data.length > 0) {
+                        return json.data;
                     }
                 }
-            } catch (fallbackErr) {
-                console.error('Konum API hatası:', fallbackErr);
+            } catch (e) {
+                // Yerel uç nokta hata verirse doğrudan API'ye geç
             }
+
+            // 2. Doğrudan TurkiyeAPI v2 dene
+            try {
+                let v2Url = '';
+                if (action === 'districts') {
+                    v2Url = 'https://api.turkiyeapi.dev/v2/provinces/' + encodeURIComponent(paramVal) + '/districts?fields=id,name&sort=name&limit=1000';
+                } else if (action === 'neighborhoods') {
+                    v2Url = 'https://api.turkiyeapi.dev/v2/districts/' + encodeURIComponent(paramVal) + '/neighborhoods?fields=id,name&sort=name&limit=1000';
+                }
+                if (v2Url) {
+                    const resV2 = await fetch(v2Url);
+                    if (resV2.ok) {
+                        const jsonV2 = await resV2.json();
+                        if (jsonV2 && Array.isArray(jsonV2.data) && jsonV2.data.length > 0) {
+                            return jsonV2.data;
+                        }
+                    }
+                }
+            } catch (e2) {
+                // v2 başarısızsa v1 dene
+            }
+
+            // 3. Doğrudan TurkiyeAPI v1 yedek dene
+            try {
+                if (action === 'districts') {
+                    const resV1 = await fetch('https://turkiyeapi.dev/api/v1/provinces/' + encodeURIComponent(paramVal));
+                    if (resV1.ok) {
+                        const jsonV1 = await resV1.json();
+                        if (jsonV1 && jsonV1.data && Array.isArray(jsonV1.data.districts)) {
+                            return jsonV1.data.districts;
+                        }
+                    }
+                } else if (action === 'neighborhoods') {
+                    const resV1 = await fetch('https://turkiyeapi.dev/api/v1/districts/' + encodeURIComponent(paramVal));
+                    if (resV1.ok) {
+                        const jsonV1 = await resV1.json();
+                        if (jsonV1 && jsonV1.data && Array.isArray(jsonV1.data.neighborhoods)) {
+                            return jsonV1.data.neighborhoods;
+                        }
+                    }
+                }
+            } catch (e3) {
+                console.error('Konum verisi çekilemedi:', e3);
+            }
+
             return [];
         }
 
-        // İlleri Doldur
-        async function loadProvinces() {
-            citySelect.innerHTML = '<option value="">İl Seçiniz...</option>';
-            const provinces = await fetchLocations('provinces');
-
-            if (!provinces || provinces.length === 0) {
-                citySelect.innerHTML = '<option value="">İller yüklenemedi (Elle girişe geçin)</option>';
-                return;
-            }
-
-            provinces.forEach(function (p) {
-                const opt = document.createElement('option');
-                opt.value = p.name;
-                opt.setAttribute('data-id', p.id);
-                opt.textContent = p.name;
-                if (prefillCity && (prefillCity.toLowerCase() === p.name.toLowerCase())) {
-                    opt.selected = true;
-                }
-                citySelect.appendChild(opt);
-            });
-
-            if (citySelect.value) {
-                citySelect.dispatchEvent(new Event('change'));
-            }
-        }
-
-        // İlçe Yükle
+        // İl seçildiğinde ilçeleri yükle
         citySelect.addEventListener('change', async function () {
             const selectedOpt = citySelect.options[citySelect.selectedIndex];
             const provinceId = selectedOpt ? selectedOpt.getAttribute('data-id') : null;
@@ -168,10 +199,17 @@ document.addEventListener('DOMContentLoaded', function () {
             neighborhoodSelect.innerHTML = '<option value="">Önce ilçe seçin</option>';
             neighborhoodSelect.disabled = true;
 
-            if (!provinceId) return;
+            if (!provinceId) {
+                return;
+            }
 
             districtSelect.innerHTML = '<option value="">İlçeler yükleniyor...</option>';
-            const districts = await fetchLocations('districts', 'province_id', provinceId);
+            const districts = await fetchLocationList('districts', 'province_id', provinceId);
+
+            if (!districts || districts.length === 0) {
+                districtSelect.innerHTML = '<option value="">İlçeler yüklenemedi, tekrar deneyin</option>';
+                return;
+            }
 
             districtSelect.innerHTML = '<option value="">İlçe Seçiniz...</option>';
             districts.forEach(function (d) {
@@ -179,7 +217,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 opt.value = d.name;
                 opt.setAttribute('data-id', d.id);
                 opt.textContent = d.name;
-                if (prefillDistrict && (prefillDistrict.toLowerCase() === d.name.toLowerCase())) {
+                if (prefillDistrict && prefillDistrict.toLowerCase() === d.name.toLowerCase()) {
                     opt.selected = true;
                 }
                 districtSelect.appendChild(opt);
@@ -191,7 +229,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        // Mahalle Yükle
+        // İlçe seçildiğinde mahalleleri yükle
         districtSelect.addEventListener('change', async function () {
             const selectedOpt = districtSelect.options[districtSelect.selectedIndex];
             const districtId = selectedOpt ? selectedOpt.getAttribute('data-id') : null;
@@ -199,22 +237,30 @@ document.addEventListener('DOMContentLoaded', function () {
             neighborhoodSelect.innerHTML = '<option value="">Önce ilçe seçin</option>';
             neighborhoodSelect.disabled = true;
 
-            if (!districtId) return;
+            if (!districtId) {
+                return;
+            }
 
             neighborhoodSelect.innerHTML = '<option value="">Mahalleler yükleniyor...</option>';
-            const neighborhoods = await fetchLocations('neighborhoods', 'district_id', districtId);
+            const neighborhoods = await fetchLocationList('neighborhoods', 'district_id', districtId);
+
+            if (!neighborhoods || neighborhoods.length === 0) {
+                neighborhoodSelect.innerHTML = '<option value="">Mahalleler yüklenemedi, tekrar deneyin</option>';
+                return;
+            }
 
             neighborhoodSelect.innerHTML = '<option value="">Mahalle Seçiniz...</option>';
             neighborhoods.forEach(function (n) {
-                let mName = n.name;
-                if (!mName.toLowerCase().endsWith('mah.') && !mName.toLowerCase().endsWith('mahallesi')) {
+                let mName = (n.name || '').trim();
+                const lower = mName.toLocaleLowerCase('tr-TR');
+                if (!lower.endsWith('mah.') && !lower.endsWith('mahallesi')) {
                     mName += ' Mah.';
                 }
                 const opt = document.createElement('option');
                 opt.value = mName;
                 opt.setAttribute('data-id', n.id);
                 opt.textContent = mName;
-                if (prefillNeighborhood && (prefillNeighborhood.toLowerCase() === mName.toLowerCase())) {
+                if (prefillNeighborhood && prefillNeighborhood.toLocaleLowerCase('tr-TR') === mName.toLocaleLowerCase('tr-TR')) {
                     opt.selected = true;
                 }
                 neighborhoodSelect.appendChild(opt);
@@ -222,59 +268,9 @@ document.addEventListener('DOMContentLoaded', function () {
             neighborhoodSelect.disabled = false;
         });
 
-        // Manuel / Otomatik Giriş Arasında Geçiş Yap
-        if (toggleManualBtn && autoLocationBox && manualLocationBox) {
-            const manCity = document.getElementById('manualCity');
-            const manDist = document.getElementById('manualDistrict');
-            const manNeigh = document.getElementById('manualNeighborhood');
-
-            toggleManualBtn.addEventListener('click', function () {
-                isManual = !isManual;
-                if (isManual) {
-                    autoLocationBox.style.display = 'none';
-                    manualLocationBox.style.display = '';
-
-                    // İsimleri manuel alanlara ver
-                    citySelect.removeAttribute('name');
-                    districtSelect.removeAttribute('name');
-                    neighborhoodSelect.removeAttribute('name');
-
-                    manCity.setAttribute('name', 'city');
-                    manDist.setAttribute('name', 'district');
-                    manNeigh.setAttribute('name', 'neighborhood_name');
-
-                    manCity.disabled = false;
-                    manDist.disabled = false;
-                    manNeigh.disabled = false;
-
-                    manCity.value = citySelect.value || '';
-                    manDist.value = districtSelect.value || '';
-                    manNeigh.value = neighborhoodSelect.value || '';
-
-                    toggleManualBtn.textContent = 'Listeden otomatik seçime dön ←';
-                } else {
-                    autoLocationBox.style.display = '';
-                    manualLocationBox.style.display = 'none';
-
-                    // İsimleri select kutularına geri ver
-                    manCity.removeAttribute('name');
-                    manDist.removeAttribute('name');
-                    manNeigh.removeAttribute('name');
-                    manCity.disabled = true;
-                    manDist.disabled = true;
-                    manNeigh.disabled = true;
-
-                    citySelect.setAttribute('name', 'city');
-                    districtSelect.setAttribute('name', 'district');
-                    neighborhoodSelect.setAttribute('name', 'neighborhood_name');
-
-                    toggleManualBtn.textContent = 'Listede bulamadım, elle yaz →';
-                }
-            });
+        // Sayfa yüklendiğinde seçili bir il varsa ilçelerini otomatik tetikle
+        if (citySelect.value) {
+            citySelect.dispatchEvent(new Event('change'));
         }
-
-        // Sayfa açıldığında illeri yükle
-        loadProvinces();
     }
 });
-
