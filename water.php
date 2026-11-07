@@ -385,7 +385,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <th>Kurum</th>
                                 <th>m³</th>
                                 <th>Günlük</th>
-                                <th>Damla</th>
+                                <th>Puan</th>
                                 <th>Tutar</th>
                                 <th>Görsel</th>
                             </tr>

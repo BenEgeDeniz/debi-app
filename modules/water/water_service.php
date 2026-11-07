@@ -215,6 +215,7 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
             $cur        = $rows[$i];
             $curM3      = round((float) $cur['consumption_m3'], 2);
             $isApproved = ($cur['review_status'] ?? 'approved') === 'approved';
+            $pointsAlreadyCredited = (int) ($cur['points_credited'] ?? 0) === 1;
 
             $prevM3       = null;
             $savedM3      = 0.0;
@@ -258,19 +259,20 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
                 round((float) ($cur['saved_m3'] ?? 0), 2) !== $savedM3 ||
                 (int) ($cur['saved_liters'] ?? 0) !== $savedLiters ||
                 round((float) ($cur['saving_pct'] ?? 0), 2) !== $savingPct ||
-                (int) ($cur['earned_points'] ?? 0) !== $earnedPoints
+                (!$pointsAlreadyCredited && (int) ($cur['earned_points'] ?? 0) !== $earnedPoints)
             ) {
                 $updStmt->execute([
                     ':prevm3'  => $prevM3,
                     ':savedm3' => $savedM3,
                     ':savedl'  => $savedLiters,
                     ':savepct' => $savingPct,
-                    ':pts'     => $earnedPoints,
+                    ':pts'     => $pointsAlreadyCredited ? (int) $cur['earned_points'] : $earnedPoints,
                     ':id'      => (int) $cur['id'],
                 ]);
             }
 
-            if ($earnedPoints > 0 && (int) ($cur['points_credited'] ?? 0) === 0) {
+            $displayPoints = $pointsAlreadyCredited ? (int) $cur['earned_points'] : $earnedPoints;
+            if ($earnedPoints > 0 && !$pointsAlreadyCredited) {
                 $targetUid = $userId > 0 ? $userId : (int) ($cur['user_id'] ?? 0);
                 if ($targetUid > 0) {
                     $mLabel = turkish_month_name((int) $cur['period_month']) . ' ' . (int) $cur['period_year'];
@@ -290,7 +292,7 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
                 'saved_m3'       => $savedM3,
                 'saved_liters'   => $savedLiters,
                 'saving_pct'     => $savingPct,
-                'points_awarded' => $earnedPoints,
+                'points_awarded' => $displayPoints,
                 'drop_reasons'   => $dropReasons,
             ];
             $latestResult = $rowResult;
