@@ -45,7 +45,8 @@ function save_water_log(array $user, array $input): array
     // 1 m3 = 1000 Litre. Faturadaki okuma gün sayısı ve kişi sayısına göre günlük litre:
     $dailyLitersPerPerson = round(($consumptionM3 * 1000) / ($readingDays * $residentCount), 1);
     $aiVerified           = !empty($input['ai_verified']) ? 1 : 0;
-    $reviewStatus         = $aiVerified === 1 ? 'approved' : 'pending';
+    $aiUsed               = !empty($input['ai_used']);
+    $reviewStatus         = (!$aiUsed || $aiVerified === 1) ? 'approved' : 'pending';
 
     $pdo = db();
 
@@ -303,32 +304,17 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
         }
 
         $pdo->beginTransaction();
-        $keptRefs = [];
         $existingLogsStmt = $pdo->prepare("
-            SELECT id, ref_key, points
+            SELECT ref_key
             FROM point_logs
             WHERE household_id = :hid AND action_code = 'bill_drops_earned'
         ");
         $existingLogsStmt->execute([':hid' => $householdId]);
         $existingLogs = [];
         foreach ($existingLogsStmt->fetchAll() as $existingLog) {
-            $existingLogs[(string) $existingLog['ref_key']] = [
-                'id'     => (int) $existingLog['id'],
-                'points' => (int) $existingLog['points'],
-            ];
+            $existingLogs[(string) $existingLog['ref_key']] = true;
         }
         $pointDelta = 0;
-        $existingLogStmt = $pdo->prepare("
-            SELECT id
-            FROM point_logs
-            WHERE household_id = :hid AND ref_key = :ref_key
-            LIMIT 1
-        ");
-        $updateLogStmt = $pdo->prepare("
-            UPDATE point_logs
-            SET user_id = :uid, points = :points, description = :description
-            WHERE id = :id
-        ");
         $insertLogStmt = $pdo->prepare("
             INSERT INTO point_logs (
                 user_id, household_id, action_code, points, description, ref_key
@@ -338,55 +324,18 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
         ");
         foreach ($invoicePointRows as $pointRow) {
             $refKey = 'bill_drops_' . $pointRow['year'] . '_' . $pointRow['month'];
-            $keptRefs[] = $refKey;
-            $existingLogStmt->execute([
-                ':hid'     => $householdId,
-                ':ref_key' => $refKey,
-            ]);
-            $existingLogId = $existingLogStmt->fetchColumn();
-            $logParams = [
+            if (isset($existingLogs[$refKey])) {
+                continue;
+            }
+            $insertLogStmt->execute([
                 ':uid'         => $pointRow['user_id'],
+                ':hid'         => $householdId,
                 ':points'      => $pointRow['points'],
                 ':description' => $pointRow['label'],
-            ];
-            if ($existingLogId) {
-                $pointDelta += $pointRow['points'] - ($existingLogs[$refKey]['points'] ?? 0);
-                $updateLogStmt->execute($logParams + [':id' => (int) $existingLogId]);
-            } else {
-                $pointDelta += $pointRow['points'];
-                $insertLogStmt->execute($logParams + [
-                    ':hid'     => $householdId,
-                    ':ref_key' => $refKey,
-                ]);
-            }
-        }
-        if ($keptRefs) {
-            $staleParams = [':hid' => $householdId];
-            $staleKeys = [];
-            foreach (array_values(array_unique($keptRefs)) as $index => $refKey) {
-                $param = ':keep_ref_' . $index;
-                $staleKeys[] = $param;
-                $staleParams[$param] = $refKey;
-            }
-            foreach ($existingLogs as $refKey => $existingLog) {
-                if (!in_array($refKey, $keptRefs, true)) {
-                    $pointDelta -= $existingLog['points'];
-                }
-            }
-            $pdo->prepare("
-                DELETE FROM point_logs
-                WHERE household_id = :hid
-                  AND action_code = 'bill_drops_earned'
-                  AND ref_key NOT IN (" . implode(',', $staleKeys) . ")
-            ")->execute($staleParams);
-        } else {
-            $pdo->prepare("
-                DELETE FROM point_logs
-                WHERE household_id = :hid AND action_code = 'bill_drops_earned'
-            ")->execute([':hid' => $householdId]);
-            foreach ($existingLogs as $existingLog) {
-                $pointDelta -= $existingLog['points'];
-            }
+                ':ref_key'     => $refKey,
+            ]);
+            $existingLogs[$refKey] = true;
+            $pointDelta += $pointRow['points'];
         }
         $pdo->prepare("
             UPDATE households

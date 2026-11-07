@@ -618,12 +618,14 @@ document.addEventListener('DOMContentLoaded', function () {
         const origYear = String(aiConfirmForm.getAttribute('data-ai-year') || '');
         const origM3 = Number(String(aiConfirmForm.getAttribute('data-ai-m3') || '0').replace(',', '.'));
         const origDays = String(aiConfirmForm.getAttribute('data-ai-days') || '30');
+        const origProvider = String(aiConfirmForm.getAttribute('data-ai-provider') || '').trim();
         const origBillRaw = String(aiConfirmForm.getAttribute('data-ai-bill') || '').trim();
 
         const inpMonth = document.getElementById('period_month');
         const inpYear = document.getElementById('period_year');
         const inpM3 = document.getElementById('consumption_m3');
         const inpDays = document.getElementById('reading_days');
+        const inpProvider = document.getElementById('provider_name');
         const inpBill = document.getElementById('bill_amount');
         const aiVerifyIcon = document.getElementById('aiVerifyIcon');
         const aiVerifyText = document.getElementById('aiVerifyText');
@@ -634,6 +636,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const curYear = inpYear ? String(inpYear.value) : origYear;
             const curM3 = inpM3 ? Number(String(inpM3.value || '0').replace(',', '.')) : origM3;
             const curDays = inpDays ? String(inpDays.value) : origDays;
+            const curProvider = inpProvider ? String(inpProvider.value || '').trim() : origProvider;
             const curBillRaw = inpBill ? String(inpBill.value || '').trim() : origBillRaw;
 
             const billMatches = (origBillRaw === '' && curBillRaw === '') ||
@@ -644,6 +647,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 curYear === origYear &&
                 Math.abs(curM3 - origM3) < 0.001 &&
                 curDays === origDays &&
+                curProvider === origProvider &&
                 billMatches
             );
 
@@ -651,7 +655,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (isUnmodified) {
                 if (aiVerifyIcon) aiVerifyIcon.textContent = '✨';
                 if (aiVerifyText) {
-                    aiVerifyText.innerHTML = '<strong>AI okudu · Değiştirmeden onayla, +10 💧 kazan</strong>';
+                    aiVerifyText.innerHTML = '<strong>AI değerleri değişmedi · Fatura otomatik puanlanacak</strong><small>Geçen aya göre azalma, sabitlik veya artış kuralı uygulanır.</small>';
                 }
                 if (submitBtn) {
                     submitBtn.innerHTML = '💧 Onayla &amp; Damla Kazan';
@@ -659,7 +663,7 @@ document.addEventListener('DOMContentLoaded', function () {
             } else {
                 if (aiVerifyIcon) aiVerifyIcon.textContent = '✏️';
                 if (aiVerifyText) {
-                    aiVerifyText.innerHTML = '<strong>Elle düzenlendi · Standart tasarruf hesaplanır</strong>';
+                    aiVerifyText.innerHTML = '<strong>AI değerleri değiştirildi · Admin incelemesi gerekli</strong><small>İnceleme tamamlanana kadar bu faturaya puan verilmez.</small>';
                 }
                 if (submitBtn) {
                     submitBtn.innerHTML = 'Faturayı Kaydet';
@@ -667,7 +671,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        [inpMonth, inpYear, inpM3, inpDays, inpBill].forEach(function (el) {
+        [inpMonth, inpYear, inpM3, inpDays, inpProvider, inpBill].forEach(function (el) {
             if (el) {
                 el.addEventListener('input', checkAiUnmodifiedState);
                 el.addEventListener('change', checkAiUnmodifiedState);

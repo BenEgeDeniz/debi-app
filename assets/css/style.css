@@ -779,6 +779,48 @@ code {
     margin-bottom: 12px;
 }
 
+.bill-points-rule-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    color: var(--text-secondary);
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.bill-points-rule-box strong {
+    color: var(--text-main);
+    font-size: 0.84rem;
+}
+
+.bill-points-rule-box small {
+    color: var(--brand-primary-dark);
+    font-weight: 800;
+}
+
+.ai-verify-text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.ai-verify-text small {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.review-pending-tag {
+    color: #92400e;
+    background: #fef3c7;
+    border-color: #fcd34d;
+}
+
 .admin-review-list {
     display: grid;
     gap: 16px;

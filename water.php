@@ -72,6 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $_POST['ai_verified'] = $aiUnmodified ? 1 : 0;
+        $_POST['ai_used'] = !empty($aiScan['ai_used']) ? 1 : 0;
         $res = save_water_log($currentUser, $_POST);
 
         if ($res['ok']) {
@@ -166,10 +167,16 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="ai-verify-reward-banner" id="aiVerifyRewardBanner">
                         <span class="ai-verify-icon" id="aiVerifyIcon">✨</span>
                         <div class="ai-verify-text" id="aiVerifyText">
-                            <strong>AI okudu · Değiştirmeden onayla, +10 💧 kazan</strong>
+                            <strong>AI okudu · Değerleri değiştirmezsen otomatik puanlanır</strong>
+                            <small>Değişiklik yaparsan fatura admin incelemesine gider ve inceleme bitene kadar puan verilmez.</small>
                         </div>
                     </div>
                 <?php endif; ?>
+                <div class="bill-points-rule-box">
+                    <strong>Fatura puanı nasıl hesaplanır?</strong>
+                    <span>İlk fatura: +10 puan · Aynı tüketim: +10 puan · Tüketim artışı: +2 puan · Tüketim azalması: azalan ton farkı × 10</span>
+                    <small>Verilen puanlar hesabında kalıcıdır; fatura kaydı sonradan düzenlense veya silinse geri alınmaz.</small>
+                </div>
 
                 <div class="bill-verify-layout">
                     <?php if (!empty($scanResult['bill_image_path'])): ?>
@@ -187,6 +194,7 @@ require_once __DIR__ . '/includes/header.php';
                           data-ai-year="<?= (int) $ext['period_year'] ?>"
                           data-ai-m3="<?= e((string) $ext['consumption_m3']) ?>"
                           data-ai-days="<?= (int) $ext['reading_days'] ?>"
+                          data-ai-provider="<?= e((string) $ext['provider_name']) ?>"
                           data-ai-bill="<?= e((string) $ext['bill_amount']) ?>">
                         <?= csrf_field() ?>
                         <input type="hidden" name="action" value="confirm_bill">
@@ -299,7 +307,7 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="bill-dropzone-content" id="billDropzoneText">
                             <div class="bill-dropzone-icon">📷</div>
                             <strong>Fatura Fotoğrafı Seç</strong>
-                            <span>Yapay zeka otomatik okur · +10 💧</span>
+                            <span>Yapay zeka otomatik okur · değerleri kontrol ederek puan kazan</span>
                         </div>
                         <div class="bill-selected-preview" id="billSelectedPreview" hidden>
                             <img id="billPreviewImg" src="" alt="Önizleme">
@@ -411,7 +419,7 @@ require_once __DIR__ . '/includes/header.php';
                                     </td>
                                     <td>
                                         <?php if ($reviewPending): ?>
-                                            <span class="tag">Admin incelemesi bekliyor</span>
+                                            <span class="tag review-pending-tag">Admin incelemesi bekliyor · puan beklemede</span>
                                         <?php elseif ($rowDrops > 0): ?>
                                             <span class="drop-motivation-badge" style="padding: 3px 9px; font-size: 0.78rem;">
                                                 💧 +<?= $rowDrops ?> Puan
