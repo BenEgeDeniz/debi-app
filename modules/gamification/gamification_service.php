@@ -4,7 +4,7 @@
  */
 
 /**
- * Tabloların varlığını kontrol eder, henüz 006 SQL yüklenmemişse hata vermemesi için güvenli kurulum yapar.
+ * Tabloların varlığını kontrol eder, henüz 005 veya 006 SQL yüklenmemişse hata vermemesi için güvenli kurulum yapar.
  */
 function ensure_gamification_schema(): void
 {
@@ -16,40 +16,56 @@ function ensure_gamification_schema(): void
 
     try {
         $pdo = db();
-        // point_logs tablosu var mı hızlı kontrol
-        $stmt = $pdo->query("SHOW TABLES LIKE 'point_logs'");
-        if ($stmt->fetchColumn()) {
-            return;
+
+        // 1. 005_post_images_and_alerts.sql kontrolü (neighborhood_alerts tablosu ve posts.image_path sütunu)
+        $hasAlerts = (bool) $pdo->query("SHOW TABLES LIKE 'neighborhood_alerts'")->fetchColumn();
+        if (!$hasAlerts) {
+            $sql005 = __DIR__ . '/../../sql-dum/005_post_images_and_alerts.sql';
+            if (file_exists($sql005)) {
+                run_sql_migration_file($pdo, $sql005);
+            }
         }
 
-        // Eğer 006_gamification_points.sql henüz manuel yüklenmediyse otomatik uygula
-        $sqlFile = __DIR__ . '/../../sql-dum/006_gamification_points.sql';
-        if (file_exists($sqlFile)) {
-            $sql = file_get_contents($sqlFile);
-            // Yorum satırlarını temizle ve noktalı virgülle ayırarak çalıştır
-            $lines = explode("\n", $sql);
-            $clean = [];
-            foreach ($lines as $line) {
-                $trimmed = trim($line);
-                if ($trimmed === '' || str_starts_with($trimmed, '--')) {
-                    continue;
-                }
-                $clean[] = $line;
-            }
-            $statements = explode(';', implode("\n", $clean));
-            foreach ($statements as $st) {
-                $st = trim($st);
-                if ($st !== '') {
-                    try {
-                        $pdo->exec($st);
-                    } catch (Throwable $ignore) {
-                        // Sütun zaten varsa vb. devam et
-                    }
-                }
+        // 2. 006_gamification_points.sql kontrolü (point_logs tablosu ve users.total_points sütunu)
+        $hasPointLogs  = (bool) $pdo->query("SHOW TABLES LIKE 'point_logs'")->fetchColumn();
+        $hasUserPoints = (bool) $pdo->query("SHOW COLUMNS FROM `users` LIKE 'total_points'")->fetchColumn();
+
+        if (!$hasPointLogs || !$hasUserPoints) {
+            $sql006 = __DIR__ . '/../../sql-dum/006_gamification_points.sql';
+            if (file_exists($sql006)) {
+                run_sql_migration_file($pdo, $sql006);
             }
         }
     } catch (Throwable $e) {
         // Sessizce geç
+    }
+}
+
+/**
+ * SQL dosyasındaki ifadeleri güvenli şekilde tek tek çalıştırır
+ */
+function run_sql_migration_file(PDO $pdo, string $sqlFile): void
+{
+    $sql   = file_get_contents($sqlFile);
+    $lines = explode("\n", (string) $sql);
+    $clean = [];
+    foreach ($lines as $line) {
+        $trimmed = trim($line);
+        if ($trimmed === '' || strpos($trimmed, '--') === 0) {
+            continue;
+        }
+        $clean[] = $line;
+    }
+    $statements = explode(';', implode("\n", $clean));
+    foreach ($statements as $st) {
+        $st = trim($st);
+        if ($st !== '') {
+            try {
+                $pdo->exec($st);
+            } catch (Throwable $ignore) {
+                // Sütun/tablo zaten varsa devam et
+            }
+        }
     }
 }
 

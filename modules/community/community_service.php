@@ -254,23 +254,39 @@ function get_neighborhood_overview(int $neighborhoodId, int $year, int $month): 
     // Mahalle temel bilgisi
     $nStmt = $pdo->prepare("SELECT * FROM neighborhoods WHERE id = :id LIMIT 1");
     $nStmt->execute([':id' => $neighborhoodId]);
-    $neighborhood = $nStmt->fetch();
+    $neighborhood = $nStmt->fetch() ?: [
+        'id'       => $neighborhoodId,
+        'city'     => '',
+        'district' => '',
+        'name'     => 'Mahallem',
+    ];
 
     // Mahalledeki apartmanlar ve o ayki ortalama kişi başı günlük litre tüketimleri
     $aptStmt = $pdo->prepare("
         SELECT
-            a.*,
-            u.full_name AS manager_name,
-            COUNT(DISTINCT h.id) AS registered_households,
+            a.id,
+            a.neighborhood_id,
+            a.name,
+            a.address_detail,
+            a.invite_code,
+            a.total_units,
+            a.monthly_goal_m3,
+            a.manager_user_id,
+            MAX(u.full_name) AS manager_name,
+            (SELECT COUNT(*) FROM households h WHERE h.apartment_id = a.id) AS registered_households,
             AVG(w.daily_liters_per_person) AS avg_daily_liters,
             SUM(w.consumption_m3) AS total_m3
         FROM apartments a
         LEFT JOIN users u ON u.id = a.manager_user_id
-        LEFT JOIN households h ON h.apartment_id = a.id
         LEFT JOIN water_logs w ON w.apartment_id = a.id AND w.period_year = :y AND w.period_month = :m
         WHERE a.neighborhood_id = :nid
-        GROUP BY a.id
-        ORDER BY avg_daily_liters IS NULL ASC, avg_daily_liters ASC, a.name ASC
+        GROUP BY
+            a.id, a.neighborhood_id, a.name, a.address_detail,
+            a.invite_code, a.total_units, a.monthly_goal_m3, a.manager_user_id
+        ORDER BY
+            CASE WHEN AVG(w.daily_liters_per_person) IS NULL THEN 1 ELSE 0 END ASC,
+            AVG(w.daily_liters_per_person) ASC,
+            a.name ASC
     ");
     $aptStmt->execute([
         ':y'   => $year,
@@ -296,7 +312,10 @@ function get_neighborhood_overview(int $neighborhoodId, int $year, int $month): 
         INNER JOIN users u ON u.household_id = h.id
         LEFT JOIN water_logs w ON w.household_id = h.id AND w.period_year = :y AND w.period_month = :m
         WHERE h.neighborhood_id = :nid AND h.apartment_id IS NULL
-        ORDER BY w.daily_liters_per_person IS NULL ASC, w.daily_liters_per_person ASC, u.full_name ASC
+        ORDER BY
+            CASE WHEN w.daily_liters_per_person IS NULL THEN 1 ELSE 0 END ASC,
+            w.daily_liters_per_person ASC,
+            u.full_name ASC
     ");
     $indStmt->execute([
         ':y'   => $year,
@@ -350,17 +369,22 @@ function get_neighborhood_overview(int $neighborhoodId, int $year, int $month): 
     ]);
     $leaderboard = $leaderStmt->fetchAll();
 
-    // Aktif mahalle su kesintisi / arıza bildirimleri
-    $alertStmt = $pdo->prepare("
-        SELECT na.*, u.full_name AS author_name
-        FROM neighborhood_alerts na
-        INNER JOIN users u ON u.id = na.user_id
-        WHERE na.neighborhood_id = :nid AND na.is_active = 1
-        ORDER BY na.created_at DESC
-        LIMIT 3
-    ");
-    $alertStmt->execute([':nid' => $neighborhoodId]);
-    $activeAlerts = $alertStmt->fetchAll();
+    // Aktif mahalle su kesintisi / arıza bildirimleri (Tablo henüz yüklenmemişse hata vermemesi için güvenli)
+    $activeAlerts = [];
+    try {
+        $alertStmt = $pdo->prepare("
+            SELECT na.*, u.full_name AS author_name
+            FROM neighborhood_alerts na
+            INNER JOIN users u ON u.id = na.user_id
+            WHERE na.neighborhood_id = :nid AND na.is_active = 1
+            ORDER BY na.created_at DESC
+            LIMIT 3
+        ");
+        $alertStmt->execute([':nid' => $neighborhoodId]);
+        $activeAlerts = $alertStmt->fetchAll();
+    } catch (Throwable $e) {
+        $activeAlerts = [];
+    }
 
     return [
         'neighborhood'          => $neighborhood,
@@ -413,7 +437,10 @@ function get_apartment_overview(int $apartmentId, int $year, int $month): array
         INNER JOIN users u ON u.household_id = h.id
         LEFT JOIN water_logs w ON w.household_id = h.id AND w.period_year = :y AND w.period_month = :m
         WHERE h.apartment_id = :aid
-        ORDER BY w.daily_liters_per_person IS NULL ASC, w.daily_liters_per_person ASC, h.unit_label ASC
+        ORDER BY
+            CASE WHEN w.daily_liters_per_person IS NULL THEN 1 ELSE 0 END ASC,
+            w.daily_liters_per_person ASC,
+            h.unit_label ASC
     ");
     $unitsStmt->execute([
         ':y'   => $year,
