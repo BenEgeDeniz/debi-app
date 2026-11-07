@@ -17,7 +17,16 @@ function save_water_log(array $user, array $input): array
     $providerName  = trim((string) ($input['provider_name'] ?? ''));
     $billImagePath = trim((string) ($input['bill_image_path'] ?? ''));
     $notes         = trim($input['notes'] ?? '');
-    $shareOnFeed   = !empty($input['share_on_feed']);
+    $feedScope     = trim((string) ($input['feed_scope'] ?? ''));
+    if ($feedScope === '') {
+        $feedScope = !empty($input['share_on_feed']) ? 'friends' : 'none';
+    }
+    if (!in_array($feedScope, ['none', 'friends', 'apartment', 'public'], true)) {
+        $feedScope = 'friends';
+    }
+    if ($feedScope === 'apartment' && empty($user['apartment_id'])) {
+        $feedScope = 'friends';
+    }
 
     if ($year < 2020 || $year > 2035 || $month < 1 || $month > 12) {
         return ['ok' => false, 'error' => 'Geçersiz dönem seçimi.'];
@@ -81,8 +90,8 @@ function save_water_log(array $user, array $input): array
 
     $monthName = turkish_month_name($month) . ' ' . $year;
 
-    // İsteğe bağlı olarak sosyal akışta başarı paylaşımı oluştur
-    if ($shareOnFeed) {
+    // Seçilen akışta (Arkadaşlar / Apartman / Genel Debi) fatura paylaşımı oluştur
+    if ($feedScope !== 'none') {
         $provTag  = $providerName !== '' ? " ({$providerName})" : '';
         $postText = "{$monthName} dönemi{$provTag} su faturamızı kaydettik: Toplam {$consumptionM3} m³ (Kişi başı günde ortalama {$dailyLitersPerPerson} L).";
         if ($notes !== '') {
@@ -91,12 +100,13 @@ function save_water_log(array $user, array $input): array
 
         $pStmt = $pdo->prepare("
             INSERT INTO posts (user_id, neighborhood_id, apartment_id, visibility, category, content)
-            VALUES (:uid, :nid, :aid, 'public', 'achievement', :content)
+            VALUES (:uid, :nid, :aid, :vis, 'achievement', :content)
         ");
         $pStmt->execute([
             ':uid'     => (int) $user['id'],
             ':nid'     => (int) $user['neighborhood_id'],
             ':aid'     => !empty($user['apartment_id']) ? (int) $user['apartment_id'] : null,
+            ':vis'     => $feedScope,
             ':content' => $postText,
         ]);
     }

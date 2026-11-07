@@ -72,6 +72,7 @@ require_once __DIR__ . '/includes/header.php';
             $initM3       = (float) ($ext['consumption_m3'] ?: 0);
             $initDays     = max(1, (int) ($ext['reading_days'] ?: 30));
             $previewDaily = $initM3 > 0 ? round(($initM3 * 1000) / ($initDays * $residentCnt), 1) : 0;
+            $selectedFeed = $_POST['feed_scope'] ?? (!empty($currentUser['apartment_id']) ? 'apartment' : 'friends');
             ?>
             <!-- ADIM 2: "BU BİLGİLER DOĞRU MU?" ONAY KARTI -->
             <section class="panel-card bill-confirm-card">
@@ -168,15 +169,24 @@ require_once __DIR__ . '/includes/header.php';
                             <strong id="liveDailyLiters"><?= $previewDaily > 0 ? number_format($previewDaily, 1, ',', '.') . ' L / gün' : '—' ?></strong>
                         </div>
 
-                        <div class="form-group">
-                            <label for="notes">Kısa Not (İsteğe bağlı)</label>
-                            <input type="text" id="notes" name="notes" placeholder="Örn: Bu ay musluk başlıklarını değiştirdik.">
-                        </div>
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label for="notes">Kısa Not (İsteğe bağlı)</label>
+                                <input type="text" id="notes" name="notes" placeholder="Örn: Bu ay musluk başlıklarını değiştirdik.">
+                            </div>
 
-                        <label class="checkbox-inline">
-                            <input type="checkbox" name="share_on_feed" value="1" checked>
-                            <span>Fatura sonucunu sosyal akışta paylaş</span>
-                        </label>
+                            <div class="form-group">
+                                <label for="feed_scope">Hangi Akışta Paylaşılsın?</label>
+                                <select id="feed_scope" name="feed_scope">
+                                    <option value="friends" <?= $selectedFeed === 'friends' ? 'selected' : '' ?>>Arkadaşlarım Akışında Paylaş</option>
+                                    <?php if (!empty($currentUser['apartment_id'])): ?>
+                                        <option value="apartment" <?= $selectedFeed === 'apartment' ? 'selected' : '' ?>>Apartmanım (<?= e($currentUser['apartment_name']) ?>) Akışında Paylaş</option>
+                                    <?php endif; ?>
+                                    <option value="public" <?= $selectedFeed === 'public' ? 'selected' : '' ?>>Genel Debi Akışında Paylaş</option>
+                                    <option value="none" <?= $selectedFeed === 'none' ? 'selected' : '' ?>>Akışta Paylaşma (Sadece Kaydet)</option>
+                                </select>
+                            </div>
+                        </div>
 
                         <div class="bill-confirm-actions">
                             <button type="submit" class="btn btn-primary">Evet, Doğru — Faturayı Kaydet</button>
@@ -219,7 +229,17 @@ require_once __DIR__ . '/includes/header.php';
                     </label>
 
                     <div class="composer-submit-row">
-                        <span class="field-hint">Veriler kaydedilmeden önce size sorulur ve onayınız alınır.</span>
+                        <div class="composer-bar-left">
+                            <label for="initial_feed_scope" class="field-hint" style="font-weight: 700;">Paylaşım Akışı:</label>
+                            <select id="initial_feed_scope" name="feed_scope" class="composer-scope-select">
+                                <option value="friends">Arkadaşlarım</option>
+                                <?php if (!empty($currentUser['apartment_id'])): ?>
+                                    <option value="apartment" selected>Apartmanım (<?= e($currentUser['apartment_name']) ?>)</option>
+                                <?php endif; ?>
+                                <option value="public" <?= empty($currentUser['apartment_id']) ? 'selected' : '' ?>>Genel Debi</option>
+                                <option value="none">Akışta Paylaşma</option>
+                            </select>
+                        </div>
                         <button type="submit" class="btn btn-primary" id="billScanSubmitBtn">
                             Faturayı Yapay Zeka ile Okut
                         </button>
