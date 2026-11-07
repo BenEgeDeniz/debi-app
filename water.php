@@ -322,7 +322,7 @@ require_once __DIR__ . '/includes/header.php';
                             <span><?= e(turkish_month_name($nextWaterPeriod['month']) . ' ' . $nextWaterPeriod['year']) ?> faturası · aylar sırayla yüklenir</span>
                         </div>
                         <div class="bill-selected-preview" id="billSelectedPreview" hidden>
-                            <img id="billPreviewImg" src="" alt="Önizleme">
+                            <img id="billPreviewImg" src="" alt="">
                             <span id="billPreviewName"></span>
                         </div>
                     </label>

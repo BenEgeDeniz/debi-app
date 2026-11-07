@@ -2230,6 +2230,10 @@ a.timeline-meta-item:hover {
     gap: 8px;
 }
 
+.bill-selected-preview[hidden] {
+    display: none;
+}
+
 .bill-selected-preview img {
     max-height: 220px;
     max-width: 100%;
