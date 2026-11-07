@@ -39,10 +39,7 @@ $genLeaders    = $currentUser ? get_general_apartments_drops_leaderboard(6) : []
             ];
             $sidePondStage = $sidePondData['stage'] ?? 'dry';
             $sidePondImg   = brand_asset_path('pond_' . $sidePondStage);
-            $sideDrops     = (int) ($sidePondData['total_drops'] ?? 0);
-            $sideTarget    = (int) ($sidePondData['target_drops'] ?? 100);
             $sidePct       = (float) ($sidePondData['doluluk_yuzdesi'] ?? 0.0);
-            $sideSavedLit  = (int) ($sidePondData['saved_liters'] ?? 0);
             $sideUnitName  = format_unit_label($currentUser['unit_label'] ?? '', $currentUser['housing_type'] ?? 'apartment_unit');
             ?>
             <div class="panel-card sidebar-pond-card" id="daireGoleti">
@@ -53,10 +50,6 @@ $genLeaders    = $currentUser ? get_general_apartments_drops_leaderboard(6) : []
                             <?= e($sideUnitName) ?> &middot; <?= e($sidePondData['stage_title'] ?? '') ?>
                         </div>
                     </div>
-                    <span class="drop-motivation-badge">
-                        <span class="drop-badge-icon">💧</span>
-                        <strong><?= number_format($sideDrops, 0, ',', '.') ?> / <?= $sideTarget ?> Puan</strong>
-                    </span>
                 </div>
 
                 <div class="sidebar-pond-visual">
