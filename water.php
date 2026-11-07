@@ -281,7 +281,7 @@ require_once __DIR__ . '/includes/header.php';
                             <span class="drop-badge-icon">💧</span>
                             <strong><?= number_format((int) ($pondState['total_drops'] ?? 0), 0, ',', '.') ?> / <?= (int) ($pondState['target_drops'] ?? 100) ?></strong>
                         </a>
-                        <span class="tag"><?= e($currentUser['unit_label']) ?> · <?= (int) $currentUser['resident_count'] ?> Kişi</span>
+                        <span class="tag"><?= e($currentUser['unit_label']) ?> · <?= (int) $currentUser['resident_count'] ?> kişi</span>
                     </div>
                 </div>
 

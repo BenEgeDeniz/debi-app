@@ -178,7 +178,7 @@ require_once __DIR__ . '/includes/header.php';
                     <div>
                         <h2 class="page-title">🏠 <?= e($myUnitLabel) ?></h2>
                         <p class="page-subtitle">
-                            <strong><?= (int) $currentUser['resident_count'] ?> Kişi</strong>
+                            <strong><?= (int) $currentUser['resident_count'] ?> kişi</strong>
                             &middot; <strong><?= count($myResidents) ?> Hesap</strong>
                         </p>
                     </div>

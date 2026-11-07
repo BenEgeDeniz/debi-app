@@ -128,10 +128,6 @@ function register_user(array $input): array
         return ['ok' => false, 'error' => 'Şifreniz en az 6 karakter olmalıdır.'];
     }
 
-    if ($mode === 'apartment_invite') {
-        $residentCount = 1;
-    }
-
     // E-posta kontrolü
     $chk = $pdo->prepare("SELECT id FROM users WHERE email = :email LIMIT 1");
     $chk->execute([':email' => $email]);
@@ -308,12 +304,7 @@ function register_user(array $input): array
             $pdo->prepare("UPDATE households SET owner_user_id = :uid WHERE id = :hid")
                 ->execute([':uid' => $userId, ':hid' => $householdId]);
         } else {
-            // Mevcut daireye sakin katıldıysa kişi sayısının kayıtlı sakin sayısından az olmamasını sağla
-            $cntStmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE household_id = :hid");
-            $cntStmt->execute([':hid' => $householdId]);
-            $regMembers = (int) $cntStmt->fetchColumn();
-            $pdo->prepare("UPDATE households SET resident_count = GREATEST(resident_count, :cnt) WHERE id = :hid")
-                ->execute([':cnt' => $regMembers, ':hid' => $householdId]);
+
         }
 
         // Eğer apartman yöneticisiyse apartments.manager_user_id güncelle

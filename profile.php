@@ -267,9 +267,10 @@ require_once __DIR__ . '/includes/header.php';
                                    value="<?= e($currentUser['unit_label']) ?>" placeholder="Örn: Daire 4">
                         </div>
                         <div class="form-group">
-                            <label for="resident_count">Kişi Sayısı</label>
+                            <label for="resident_count">Hanedeki kişi sayısı</label>
                             <input type="number" id="resident_count" name="resident_count" min="1" max="20" required
                                    value="<?= (int) $currentUser['resident_count'] ?>">
+                            <small>Hanede yaşayan toplam kişi sayısı. Kişi başı kullanım hesabı buna göre yapılır.</small>
                         </div>
                     </div>
 

@@ -59,13 +59,6 @@ function join_apartment_for_existing_user(array $user, string $inviteCode, strin
                 ':uid' => (int) $user['id'],
             ]);
 
-            // Dairedeki kayıtlı kişi sayısını güncelle
-            $cntStmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE household_id = :hid");
-            $cntStmt->execute([':hid' => $targetHid]);
-            $regMembers = (int) $cntStmt->fetchColumn();
-            $pdo->prepare("UPDATE households SET resident_count = GREATEST(resident_count, :cnt) WHERE id = :hid")
-                ->execute([':cnt' => $regMembers, ':hid' => $targetHid]);
-
             $pdo->commit();
             return ['ok' => true, 'joined_as' => 'resident', 'unit_label' => $targetHh['unit_label']];
         }

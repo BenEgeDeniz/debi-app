@@ -194,11 +194,12 @@ require_once __DIR__ . '/includes/header.php';
                         <input type="password" id="password" name="password" required placeholder="••••••">
                     </div>
                     <div class="form-group" id="residentCountGroup"
-                         <?= $mode === 'apartment_invite' ? 'hidden' : '' ?>>
-                        <label for="resident_count">Hanedeki Kişi Sayısı</label>
+                         <?= $mode === 'apartment_invite' && $inviteType !== 'manager' ? 'hidden' : '' ?>>
+                        <label for="resident_count">Hanedeki kişi sayısı</label>
                         <input type="number" id="resident_count" name="resident_count" min="1" max="20" required
-                               value="<?= e($_POST['resident_count'] ?? '') ?>"
-                               <?= $mode === 'apartment_invite' ? 'disabled' : '' ?>>
+                               value="<?= e($_POST['resident_count'] ?? '1') ?>"
+                               <?= $mode === 'apartment_invite' && $inviteType !== 'manager' ? 'disabled' : '' ?>>
+                        <small>Hanede yaşayan ve kişi başı kullanım hesabına dahil edilecek toplam kişi sayısını girin.</small>
                     </div>
                 </div>
             </div>

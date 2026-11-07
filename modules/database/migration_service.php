@@ -113,7 +113,6 @@ function discover_database_migrations(string $migrationDir): array
         throw new RuntimeException("Migration klasörü okunamadı: {$migrationDir}");
     }
 
-    sort($paths, SORT_STRING);
     $migrations = [];
     $numbers = [];
     foreach ($paths as $path) {
@@ -132,6 +131,10 @@ function discover_database_migrations(string $migrationDir): array
             'checksum' => hash_file('sha256', $path),
         ];
     }
+
+    usort($migrations, static function (array $left, array $right): int {
+        return $left['number'] <=> $right['number'];
+    });
 
     return $migrations;
 }
