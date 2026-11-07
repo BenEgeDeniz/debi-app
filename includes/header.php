@@ -47,11 +47,6 @@ if (!empty($currentUser)) {
 
             <?php if (!empty($currentUser)): ?>
                 <div class="topbar-user">
-                    <a href="index.php#daireGoleti" class="topbar-drop-pill" title="Daire Göletinizdeki Toplam Damla (Gölet Doluluğu: %<?= number_format($headerPondPct, 0, ',', '.') ?>)">
-                        <span class="topbar-drop-icon">💧</span>
-                        <span class="topbar-drop-count"><?= number_format($headerPondDrops, 0, ',', '.') ?> Damla</span>
-                    </a>
-
                     <?php if ($pendingFriendCnt > 0): ?>
                         <a href="friends.php" class="topbar-notif-pill" title="Gelen Arkadaşlık İstekleri">
                             <span><?= $pendingFriendCnt ?> yeni istek</span>
@@ -62,13 +57,6 @@ if (!empty($currentUser)) {
                         <?= render_avatar($currentUser, 'avatar-sm') ?>
                         <div class="user-chip-meta">
                             <span class="user-chip-name"><?= e($currentUser['full_name']) ?></span>
-                            <span class="user-chip-sub">
-                                <?php if (!empty($currentUser['apartment_id'])): ?>
-                                    <?= e($currentUser['apartment_name']) ?>
-                                <?php else: ?>
-                                    <?= e($currentUser['neighborhood_district']) ?>
-                                <?php endif; ?>
-                            </span>
                         </div>
                     </a>
                     <a href="logout.php" class="btn btn-outline btn-sm">Çıkış</a>

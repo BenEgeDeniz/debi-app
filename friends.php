@@ -88,9 +88,6 @@ require_once __DIR__ . '/includes/header.php';
                                         <?= render_avatar($u) ?>
                                         <div class="friend-compact-meta">
                                             <strong><?= e($u['full_name']) ?></strong>
-                                            <span>
-                                                <?= !empty($u['apartment_name']) ? e($u['apartment_name']) : e($u['district']) ?>
-                                            </span>
                                         </div>
                                     </a>
 
@@ -235,9 +232,6 @@ require_once __DIR__ . '/includes/header.php';
                                 <?= render_avatar($fr) ?>
                                 <div class="friend-compact-meta">
                                     <strong><?= e($fr['full_name']) ?></strong>
-                                    <span>
-                                        <?= !empty($fr['apartment_name']) ? e($fr['apartment_name']) : e($fr['district']) ?>
-                                    </span>
                                 </div>
                             </div>
                             <?php if ($fr['daily_liters_per_person'] !== null): ?>

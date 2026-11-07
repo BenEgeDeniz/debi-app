@@ -43,13 +43,6 @@ require_once __DIR__ . '/includes/header.php';
         <section class="panel-card">
             <div class="panel-card-header">
                 <h1 class="section-title">Su Analizi</h1>
-                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                    <a href="index.php#daireGoleti" class="drop-motivation-badge" title="Daire Göleti">
-                        <span class="drop-badge-icon">💧</span>
-                        <strong id="userWalletPointsText"><?= number_format($totalDrops, 0, ',', '.') ?> Damla</strong>
-                    </a>
-                    <a href="water.php" class="btn btn-primary btn-sm">📷 Fatura Yükle</a>
-                </div>
             </div>
 
             <div class="analytics-kpi-grid">

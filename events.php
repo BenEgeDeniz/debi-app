@@ -51,7 +51,7 @@ function render_event_card(array $event, array $currentUser, array $managedAtten
 {
     $isCreator = (int) $event['creator_id'] === (int) $currentUser['id'];
     $isAttendee = !empty($event['attendee_status']);
-    $needsPhoto = $event['ended'] && $event['attendee_status'] === 'attended' && $event['photo_status'] !== 'approved';
+    $needsPhoto = $event['ended'] && !$event['cancelled'] && $event['attendee_status'] === 'attended' && $event['photo_status'] !== 'approved';
     ?>
     <article class="event-card<?= $event['ended'] ? ' event-card-ended' : '' ?>">
         <div class="panel-card-header">
@@ -66,7 +66,7 @@ function render_event_card(array $event, array $currentUser, array $managedAtten
         <div class="event-meta-row">
             <span>Oluşturan: <?= e($event['creator_name']) ?></span>
             <span><?= (int) $event['attendee_count'] ?> katılımcı</span>
-            <span class="tag"><?= $event['ended'] ? 'Etkinlik sona erdi' : ($event['started'] ? 'Etkinlik devam ediyor' : 'Başlamadı') ?></span>
+            <span class="tag"><?= $event['cancelled'] ? 'Etkinlik iptal edildi' : ($event['ended'] ? 'Etkinlik sona erdi' : ($event['started'] ? 'Etkinlik devam ediyor' : 'Başlamadı')) ?></span>
         </div>
         <details class="event-reason">
             <summary>AI puan gerekçesi</summary>
@@ -82,7 +82,7 @@ function render_event_card(array $event, array $currentUser, array $managedAtten
             <div class="event-attendance-locked">Etkinlik sona erdi; artık katılım kaydı alınamıyor.</div>
         <?php elseif ($isAttendee): ?>
             <div class="event-participation">
-                <strong><?= $isCreator ? 'Etkinliği siz oluşturuyorsunuz; katılımınız otomatik kaydedildi.' : ($event['attendee_status'] === 'attended' ? 'Yoklamada katıldığınız işaretlendi.' : ($event['ended'] ? 'Yoklamada yok yazıldınız.' : 'Katılımınız kayıtlı, yoklama bekleniyor.')) ?></strong>
+                <strong><?= $event['cancelled'] ? 'Etkinlik başlamadan süresi dolduğu için iptal edildi.' : ($isCreator ? 'Etkinliği siz oluşturuyorsunuz; katılımınız otomatik kaydedildi.' : ($event['attendee_status'] === 'attended' ? 'Yoklamada katıldığınız işaretlendi.' : ($event['ended'] ? 'Yoklamada yok yazıldınız.' : 'Katılımınız kayıtlı, yoklama bekleniyor.'))) ?></strong>
                 <?php if ($needsPhoto): ?>
                     <div class="event-form-heading">
                         <span>Katılım fotoğrafı</span>

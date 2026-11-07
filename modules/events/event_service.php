@@ -38,10 +38,12 @@ function get_event_time_state(array $event): array
 {
     $startAt = strtotime($event['event_date'] . ' ' . $event['start_time']);
     $now = time();
+    $expired = empty($event['ended_at']) && $startAt !== false && $now >= $startAt;
 
     return [
         'started' => $startAt !== false && $now >= $startAt,
-        'ended' => !empty($event['ended_at']),
+        'ended' => !empty($event['ended_at']) || $expired,
+        'cancelled' => $expired,
     ];
 }
 
@@ -89,7 +91,7 @@ function categorize_events_for_user(array $events): array
 
     foreach ($events as $event) {
         $status = $event['attendee_status'] ?? null;
-        $needsPhoto = $event['ended']
+        $needsPhoto = $event['ended'] && !$event['cancelled']
             && $status === 'attended'
             && ($event['photo_status'] ?? null) !== 'approved';
 
@@ -202,7 +204,7 @@ function upload_event_photo(array $user, int $eventId, array $file): array
     db()->prepare("INSERT INTO event_photos (event_id, user_id, image_path, ai_status, ai_reason, reviewed_at) VALUES (:eid, :uid, :path, :status, :reason, NOW()) ON DUPLICATE KEY UPDATE image_path = VALUES(image_path), ai_status = VALUES(ai_status), ai_reason = VALUES(ai_reason), reviewed_at = NOW()")->execute([
         ':eid' => $eventId, ':uid' => (int) $user['id'], ':path' => $relPath, ':status' => $ai['approved'] ? 'approved' : 'rejected', ':reason' => $ai['reason'],
     ]);
-    if (!$ai['approved']) return ['ok' => true, 'approved' => false, 'message' => 'Fotoğraf etkinlikle ilişkili bulunmadı: ' . $ai['reason']];
+    if (!$ai['approved']) return ['ok' => false, 'approved' => false, 'error' => 'Fotoğraf etkinlikle ilişkili bulunmadı: ' . $ai['reason']];
     award_event_points_if_eligible($eventId, (int) $user['id'], $event);
     return ['ok' => true, 'approved' => true, 'message' => 'Fotoğraf doğrulandı; etkinlik puanınız hanenize eklendi.'];
 }

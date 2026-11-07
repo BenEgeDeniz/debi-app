@@ -128,11 +128,7 @@ require_once __DIR__ . '/includes/header.php';
                         <p class="page-subtitle">
                             <?= e($profileUser['neighborhood_district'] . ' / ' . $profileUser['neighborhood_city']) ?>
                             &middot;
-                            <?php if (!empty($profileUser['apartment_id'])): ?>
-                                <strong><?= e($profileUser['apartment_name']) ?></strong> &middot; <?= e($profileUnitName) ?>
-                            <?php else: ?>
-                                <strong><?= e($profileUnitName) ?></strong>
-                            <?php endif; ?>
+                            <strong><?= e($profileUnitName) ?></strong>
                         </p>
 
                         <?php if (!empty($profileUser['bio'])): ?>
