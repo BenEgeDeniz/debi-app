@@ -78,13 +78,46 @@ function get_events_for_user(array $user): array
     }
 }
 
+function categorize_events_for_user(array $events): array
+{
+    $sections = [
+        'active' => [],
+        'attending' => [],
+        'available' => [],
+        'past' => [],
+    ];
+
+    foreach ($events as $event) {
+        $status = $event['attendee_status'] ?? null;
+        $needsPhoto = $event['ended']
+            && $status === 'attended'
+            && ($event['photo_status'] ?? null) !== 'approved';
+
+        if ($event['started'] && !$event['ended']) {
+            $sections['active'][] = $event;
+        } elseif ($needsPhoto) {
+            $sections['active'][] = $event;
+        } elseif (!$event['started'] && $status) {
+            $sections['attending'][] = $event;
+        } elseif (!$event['started']) {
+            $sections['available'][] = $event;
+        } else {
+            $sections['past'][] = $event;
+        }
+    }
+
+    return $sections;
+}
+
 function join_event(array $user, int $eventId): array
 {
     $stmt = db()->prepare("SELECT * FROM events WHERE id = :id AND (scope = 'public' OR neighborhood_id = :nid) LIMIT 1");
     $stmt->execute([':id' => $eventId, ':nid' => (int) $user['neighborhood_id']]);
     $event = $stmt->fetch();
     if (!$event) return ['ok' => false, 'error' => 'Etkinlik bulunamadı.'];
-    if (get_event_time_state($event)['ended']) return ['ok' => false, 'error' => 'Bitirilmiş etkinliğe artık katılım yapılamaz.'];
+    $state = get_event_time_state($event);
+    if ($state['ended']) return ['ok' => false, 'error' => 'Bitirilmiş etkinliğe artık katılım yapılamaz.'];
+    if ($state['started']) return ['ok' => false, 'error' => 'Etkinlik başladı; artık katılım kaydı alınamıyor.'];
     $stmt = db()->prepare("INSERT IGNORE INTO event_attendees (event_id, user_id) VALUES (:eid, :uid)");
     $stmt->execute([':eid' => $eventId, ':uid' => (int) $user['id']]);
     return ['ok' => true, 'message' => 'Etkinliğe katılımınız kaydedildi.'];

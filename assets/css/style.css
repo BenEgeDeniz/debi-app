@@ -507,6 +507,41 @@ code {
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
+.event-section {
+    margin-bottom: 28px;
+}
+
+.event-section > .panel-card-header {
+    margin-bottom: 10px;
+}
+
+.event-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.event-list .event-card {
+    margin: 0;
+}
+
+.event-info-box {
+    padding: 14px 16px;
+    color: var(--text-secondary);
+    background: var(--brand-primary-bg);
+    border: 1px solid #bae6fd;
+    border-radius: var(--radius-sm);
+    font-size: 0.84rem;
+}
+
+.event-info-box strong {
+    color: var(--brand-primary-dark);
+}
+
+.event-info-box p {
+    margin: 5px 0 0;
+}
+
 .event-card .section-title {
     margin-bottom: 4px;
 }
