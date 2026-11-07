@@ -11,12 +11,31 @@ require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/modules/database/migration_service.php';
 
 try {
-    $results = run_database_migrations(db());
+    $pdo = db();
+    $action = PHP_SAPI === 'cli'
+        ? ($argv[1] ?? 'migrate')
+        : ($_GET['action'] ?? 'migrate');
+
     header('Content-Type: text/plain; charset=utf-8');
-    foreach ($results as $result) {
-        printf("%s: %s\n", $result['file'], $result['status']);
+    if ($action === 'status') {
+        foreach (get_database_migration_status($pdo) as $result) {
+            printf(
+                "%s: %s%s\n",
+                $result['file'],
+                $result['status'],
+                $result['checksum_changed'] ? ' (checksum changed)' : ''
+            );
+        }
+    } elseif ($action === 'migrate') {
+        foreach (run_database_migrations($pdo) as $result) {
+            printf("%s: %s\n", $result['file'], $result['status']);
+        }
+        echo "Migration tamamlandı.\n";
+    } else {
+        http_response_code(400);
+        echo "Kullanım: migrate.php?action=status veya migrate.php?action=migrate\n";
+        exit(1);
     }
-    echo "Migration tamamlandı.\n";
 } catch (Throwable $e) {
     http_response_code(500);
     header('Content-Type: text/plain; charset=utf-8');

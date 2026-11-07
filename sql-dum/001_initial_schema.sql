@@ -94,24 +94,6 @@ INSERT INTO `comments` (`id`, `post_id`, `user_id`, `content`, `created_at`) VAL
 -- --------------------------------------------------------
 
 --
--- Table structure for table `debi_schema_versions`
---
-
-CREATE TABLE `debi_schema_versions` (
-  `version` varchar(80) NOT NULL,
-  `applied_at` datetime NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `debi_schema_versions`
---
-
-INSERT INTO `debi_schema_versions` (`version`, `applied_at`) VALUES
-('001_initial_schema', '2026-11-07 20:30:00');
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `friendships`
 --
 
@@ -489,13 +471,6 @@ ALTER TABLE `comments`
   ADD KEY `idx_comments_post` (`post_id`,`created_at`),
   ADD KEY `idx_comments_user` (`user_id`);
 
---
--- Indexes for table `debi_schema_versions`
---
-ALTER TABLE `debi_schema_versions`
-  ADD PRIMARY KEY (`version`);
-
---
 -- Indexes for table `friendships`
 --
 ALTER TABLE `friendships`
