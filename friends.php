@@ -3,6 +3,7 @@
  * DEBI - Arkadaşlarım ( Kompakt 2 Sütunlu Sayfalı Liste & Kişi Arama )
  */
 require_once __DIR__ . '/includes/init.php';
+require_once __DIR__ . '/modules/friends/apartment_suggestions.php';
 
 $currentUser = require_login();
 
