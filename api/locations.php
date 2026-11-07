@@ -1,11 +1,11 @@
 <?php
 /**
  * DEBI - İl, İlçe ve Mahalle Seçimi API Servisi
- * Kaynak: TurkiyeAPI + Yerel JSON Önbellekleme
+ * Kaynak: TurkiyeAPI v2 + Yerel JSON Önbellekleme
  */
 
 header('Content-Type: application/json; charset=utf-8');
-header('Cache-Control: public, max-age=86400');
+header('Cache-Control: no-cache, must-revalidate');
 
 $action = $_GET['action'] ?? 'provinces';
 
@@ -98,32 +98,61 @@ function get_static_provinces(): array
 }
 
 /**
+ * Türkçe alfabetik sıralama yardımcısı
+ */
+function sort_by_turkish_name(array &$items): void
+{
+    $trMap = [
+        'ç' => 'c~', 'Ç' => 'c~',
+        'ğ' => 'g~', 'Ğ' => 'g~',
+        'ı' => 'i',  'I' => 'i',
+        'İ' => 'i~', 'i' => 'i~',
+        'ö' => 'o~', 'Ö' => 'o~',
+        'ş' => 's~', 'Ş' => 's~',
+        'ü' => 'u~', 'Ü' => 'u~',
+    ];
+    usort($items, function ($a, $b) use ($trMap) {
+        $na = strtr(mb_strtolower($a['name'] ?? '', 'UTF-8'), $trMap);
+        $nb = strtr(mb_strtolower($b['name'] ?? '', 'UTF-8'), $trMap);
+        return strcmp($na, $nb);
+    });
+}
+
+/**
  * Verilen URL'den JSON verisi çeker
  */
 function http_get_json(string $url): ?array
 {
-    $context = stream_context_create([
-        'http' => [
-            'method'  => 'GET',
-            'header'  => "User-Agent: Debi-App/1.0\r\nAccept: application/json\r\n",
-            'timeout' => 6,
-        ],
-        'ssl' => [
-            'verify_peer'      => false,
-            'verify_peer_name' => false,
-        ],
-    ]);
+    $raw = null;
 
-    $raw = @file_get_contents($url, false, $context);
-
-    if (!$raw && function_exists('curl_init')) {
+    if (function_exists('curl_init')) {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
         curl_setopt($ch, CURLOPT_USERAGENT, 'Debi-App/1.0');
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        $raw = curl_exec($ch);
+        $raw  = curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+        if ($code >= 400) {
+            $raw = null;
+        }
+    }
+
+    if (!$raw) {
+        $context = stream_context_create([
+            'http' => [
+                'method'  => 'GET',
+                'header'  => "User-Agent: Debi-App/1.0\r\nAccept: application/json\r\n",
+                'timeout' => 8,
+            ],
+            'ssl' => [
+                'verify_peer'      => false,
+                'verify_peer_name' => false,
+            ],
+        ]);
+        $raw = @file_get_contents($url, false, $context);
     }
 
     if ($raw) {
@@ -156,6 +185,7 @@ function get_cached_or_remote(string $cacheFileName, callable $fetcher): ?array
 
     $list = $fetcher();
     if (is_array($list) && count($list) > 0) {
+        sort_by_turkish_name($list);
         if (!is_dir($cacheDir)) {
             @mkdir($cacheDir, 0755, true);
         }
@@ -179,16 +209,10 @@ try {
             exit;
         }
 
-        $data = get_cached_or_remote("districts_{$provinceId}.json", function () use ($provinceId) {
-            // 1. v2 API dene
-            $resV2 = http_get_json("https://api.turkiyeapi.dev/v2/provinces/{$provinceId}/districts?fields=id,name&sort=name&limit=1000");
-            if (!empty($resV2['data']) && is_array($resV2['data'])) {
-                return $resV2['data'];
-            }
-            // 2. v1 API yedek dene
-            $resV1 = http_get_json("https://turkiyeapi.dev/api/v1/provinces/{$provinceId}");
-            if (!empty($resV1['data']['districts']) && is_array($resV1['data']['districts'])) {
-                return array_map(fn($d) => ['id' => $d['id'], 'name' => $d['name']], $resV1['data']['districts']);
+        $data = get_cached_or_remote("districts_v2_{$provinceId}.json", function () use ($provinceId) {
+            $res = http_get_json("https://api.turkiyeapi.dev/v2/provinces/{$provinceId}/districts");
+            if (!empty($res['data']) && is_array($res['data'])) {
+                return array_map(fn($d) => ['id' => (int) $d['id'], 'name' => (string) $d['name']], $res['data']);
             }
             return null;
         });
@@ -209,16 +233,10 @@ try {
             exit;
         }
 
-        $data = get_cached_or_remote("neighborhoods_{$districtId}.json", function () use ($districtId) {
-            // 1. v2 API dene
-            $resV2 = http_get_json("https://api.turkiyeapi.dev/v2/districts/{$districtId}/neighborhoods?fields=id,name&sort=name&limit=1000");
-            if (!empty($resV2['data']) && is_array($resV2['data'])) {
-                return $resV2['data'];
-            }
-            // 2. v1 API yedek dene
-            $resV1 = http_get_json("https://turkiyeapi.dev/api/v1/districts/{$districtId}");
-            if (!empty($resV1['data']['neighborhoods']) && is_array($resV1['data']['neighborhoods'])) {
-                return array_map(fn($n) => ['id' => $n['id'], 'name' => $n['name']], $resV1['data']['neighborhoods']);
+        $data = get_cached_or_remote("neighborhoods_v2_{$districtId}.json", function () use ($districtId) {
+            $res = http_get_json("https://api.turkiyeapi.dev/v2/neighborhoods?districtId={$districtId}&limit=100");
+            if (!empty($res['data']) && is_array($res['data'])) {
+                return array_map(fn($n) => ['id' => (int) $n['id'], 'name' => (string) $n['name']], $res['data']);
             }
             return null;
         });

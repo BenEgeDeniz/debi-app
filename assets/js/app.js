@@ -142,48 +142,28 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Yerel uç nokta hata verirse doğrudan API'ye geç
             }
 
-            // 2. Doğrudan TurkiyeAPI v2 dene
+            // 2. Doğrudan TurkiyeAPI v2 dene (Test edilmiş gerçek uç noktalar)
             try {
                 let v2Url = '';
                 if (action === 'districts') {
-                    v2Url = 'https://api.turkiyeapi.dev/v2/provinces/' + encodeURIComponent(paramVal) + '/districts?fields=id,name&sort=name&limit=1000';
+                    v2Url = 'https://api.turkiyeapi.dev/v2/provinces/' + encodeURIComponent(paramVal) + '/districts';
                 } else if (action === 'neighborhoods') {
-                    v2Url = 'https://api.turkiyeapi.dev/v2/districts/' + encodeURIComponent(paramVal) + '/neighborhoods?fields=id,name&sort=name&limit=1000';
+                    v2Url = 'https://api.turkiyeapi.dev/v2/neighborhoods?districtId=' + encodeURIComponent(paramVal) + '&limit=100';
                 }
                 if (v2Url) {
                     const resV2 = await fetch(v2Url);
                     if (resV2.ok) {
                         const jsonV2 = await resV2.json();
                         if (jsonV2 && Array.isArray(jsonV2.data) && jsonV2.data.length > 0) {
-                            return jsonV2.data;
+                            const sorted = jsonV2.data.slice().sort(function (a, b) {
+                                return (a.name || '').localeCompare(b.name || '', 'tr');
+                            });
+                            return sorted;
                         }
                     }
                 }
             } catch (e2) {
-                // v2 başarısızsa v1 dene
-            }
-
-            // 3. Doğrudan TurkiyeAPI v1 yedek dene
-            try {
-                if (action === 'districts') {
-                    const resV1 = await fetch('https://turkiyeapi.dev/api/v1/provinces/' + encodeURIComponent(paramVal));
-                    if (resV1.ok) {
-                        const jsonV1 = await resV1.json();
-                        if (jsonV1 && jsonV1.data && Array.isArray(jsonV1.data.districts)) {
-                            return jsonV1.data.districts;
-                        }
-                    }
-                } else if (action === 'neighborhoods') {
-                    const resV1 = await fetch('https://turkiyeapi.dev/api/v1/districts/' + encodeURIComponent(paramVal));
-                    if (resV1.ok) {
-                        const jsonV1 = await resV1.json();
-                        if (jsonV1 && jsonV1.data && Array.isArray(jsonV1.data.neighborhoods)) {
-                            return jsonV1.data.neighborhoods;
-                        }
-                    }
-                }
-            } catch (e3) {
-                console.error('Konum verisi çekilemedi:', e3);
+                console.error('Konum verisi çekilemedi:', e2);
             }
 
             return [];
@@ -217,7 +197,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 opt.value = d.name;
                 opt.setAttribute('data-id', d.id);
                 opt.textContent = d.name;
-                if (prefillDistrict && prefillDistrict.toLowerCase() === d.name.toLowerCase()) {
+                if (prefillDistrict && prefillDistrict.toLocaleLowerCase('tr-TR') === d.name.toLocaleLowerCase('tr-TR')) {
                     opt.selected = true;
                 }
                 districtSelect.appendChild(opt);
