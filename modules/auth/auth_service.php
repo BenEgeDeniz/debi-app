@@ -268,10 +268,6 @@ function register_user(array $input): array
 
         $pdo->commit();
 
-        if (function_exists('award_points')) {
-            award_points($userId, $householdId, 'welcome_bonus', 50, '🎉 Debi ağına katıldın!', 'welcome_' . $userId);
-        }
-
         return ['ok' => true, 'user_id' => $userId];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {

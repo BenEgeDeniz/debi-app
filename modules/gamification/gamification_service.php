@@ -108,6 +108,16 @@ function ensure_gamification_schema(): void
             }
         }
 
+        $pointsPolicyDone = $hasPointCleanup && (bool) $pdo->query("
+            SELECT 1 FROM debi_schema_versions WHERE version = '104_invoice_only_points'
+        ")->fetchColumn();
+        if (!$pointsPolicyDone) {
+            $sql104 = __DIR__ . '/../../sql-dum/104_invoice_only_points.sql';
+            if (file_exists($sql104)) {
+                run_sql_migration_file($pdo, $sql104);
+            }
+        }
+
         // Mevcut hanelerde owner_user_id veya unit_invite_code eksikse otomatik tamamla
         $pdo->exec("
             UPDATE households h
@@ -219,6 +229,9 @@ function award_points(
     if ($points <= 0 || $userId <= 0 || $householdId <= 0) {
         return 0;
     }
+    if ($actionCode !== 'bill_drops_earned') {
+        return 0;
+    }
 
     $pdo = db();
 
@@ -252,9 +265,6 @@ function award_points(
 
         $pdo->prepare("UPDATE households SET total_points = total_points + :pts WHERE id = :hid")
             ->execute([':pts' => $points, ':hid' => $householdId]);
-
-        // Rozet kontrolü yap
-        check_and_award_badges($userId, $householdId);
 
         return $points;
     } catch (Throwable $e) {
