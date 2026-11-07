@@ -32,7 +32,22 @@ function create_event(array $user, array $input): array
         ':title' => $title, ':description' => $description, ':location' => $location, ':date' => $date,
         ':start' => $start, ':end' => $end, ':points' => $ai['points'], ':reason' => $ai['reason'],
     ]);
-    return ['ok' => true, 'event_id' => (int) db()->lastInsertId(), 'ai' => $ai];
+    $eventId = (int) db()->lastInsertId();
+    db()->prepare("INSERT INTO event_attendees (event_id, user_id) VALUES (:eid, :uid)")
+        ->execute([':eid' => $eventId, ':uid' => (int) $user['id']]);
+    return ['ok' => true, 'event_id' => $eventId, 'ai' => $ai];
+}
+
+function get_event_time_state(array $event): array
+{
+    $startAt = strtotime($event['event_date'] . ' ' . $event['start_time']);
+    $endAt = strtotime($event['event_date'] . ' ' . ($event['end_time'] ?: $event['start_time']));
+    $now = time();
+
+    return [
+        'started' => $startAt !== false && $now >= $startAt,
+        'ended' => $endAt !== false && $now >= $endAt,
+    ];
 }
 
 function get_events_for_user(array $user): array
@@ -54,7 +69,12 @@ function get_events_for_user(array $user): array
             ':photo_uid' => (int) $user['id'],
             ':nid' => (int) $user['neighborhood_id'],
         ]);
-        return $stmt->fetchAll();
+        $events = $stmt->fetchAll();
+        foreach ($events as &$event) {
+            $event = array_merge($event, get_event_time_state($event));
+        }
+        unset($event);
+        return $events;
     } catch (PDOException $e) {
         $message = stripos($e->getMessage(), 'table') !== false
             ? 'Etkinlik tabloları bulunamadı. Migration durumu applied görünüyorsa uygulamanın bağlı olduğu veritabanını kontrol edin.'
@@ -75,15 +95,22 @@ function join_event(array $user, int $eventId): array
 
 function mark_event_attendance(array $user, int $eventId, array $attendeeIds): array
 {
-    $stmt = db()->prepare("SELECT id FROM events WHERE id = :eid AND creator_id = :uid LIMIT 1");
+    $stmt = db()->prepare("SELECT * FROM events WHERE id = :eid AND creator_id = :uid LIMIT 1");
     $stmt->execute([':eid' => $eventId, ':uid' => (int) $user['id']]);
-    if (!$stmt->fetchColumn()) return ['ok' => false, 'error' => 'Bu etkinlik için yoklama yetkiniz yok.'];
-    db()->prepare("UPDATE event_attendees SET status = 'absent', marked_at = NOW() WHERE event_id = :eid")->execute([':eid' => $eventId]);
+    $event = $stmt->fetch();
+    if (!$event) return ['ok' => false, 'error' => 'Bu etkinlik için yoklama yetkiniz yok.'];
+    if (!get_event_time_state($event)['started']) {
+        return ['ok' => false, 'error' => 'Yoklama etkinliğin başlama saatinde açılır.'];
+    }
+    db()->prepare("UPDATE event_attendees SET status = 'absent', marked_at = NOW() WHERE event_id = :eid AND user_id <> :creator_id")
+        ->execute([':eid' => $eventId, ':creator_id' => (int) $user['id']]);
     if ($attendeeIds) {
         $sql = "UPDATE event_attendees SET status = 'attended', marked_at = NOW() WHERE event_id = :eid AND user_id IN (" . implode(',', array_fill(0, count($attendeeIds), '?')) . ")";
         $stmt = db()->prepare($sql);
         $stmt->execute(array_merge([$eventId], array_map('intval', $attendeeIds)));
     }
+    db()->prepare("UPDATE event_attendees SET status = 'attended', marked_at = NOW() WHERE event_id = :eid AND user_id = :creator_id")
+        ->execute([':eid' => $eventId, ':creator_id' => (int) $user['id']]);
     return ['ok' => true, 'message' => 'Yoklama kaydedildi. Fotoğrafı onaylanan katılımcılara puan verilecek.'];
 }
 

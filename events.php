@@ -95,24 +95,50 @@ require_once __DIR__ . '/includes/header.php';
             <div class="panel-card-header"><h1 class="section-title">Etkinlikler</h1></div>
             <?php if (!$events): ?><div class="empty-inline">Henüz etkinlik yok.</div><?php endif; ?>
             <?php foreach ($events as $event): ?>
-                <article class="panel-card" style="margin-top:12px;">
+                <?php
+                $isCreator = (int) $event['creator_id'] === (int) $currentUser['id'];
+                $isAttendee = !empty($event['attendee_status']);
+                ?>
+                <article class="event-card" style="margin-top:16px;">
                     <div class="panel-card-header">
-                        <div><h2 class="section-title"><?= e($event['title']) ?></h2><p><?= e($event['event_date']) ?> · <?= e(substr($event['start_time'], 0, 5)) ?><?= $event['end_time'] ? '–' . e(substr($event['end_time'], 0, 5)) : '' ?> · <?= e($event['location']) ?></p></div>
-                        <span class="tag"><?= (int) $event['points'] ?> DP</span>
+                        <div>
+                            <span class="event-scope-label"><?= $event['scope'] === 'public' ? 'Genel Debi' : 'Mahalle Etkinliği' ?></span>
+                            <h2 class="section-title"><?= e($event['title']) ?></h2>
+                            <p><?= e($event['event_date']) ?> · <?= e(substr($event['start_time'], 0, 5)) ?><?= $event['end_time'] ? '–' . e(substr($event['end_time'], 0, 5)) : '' ?> · <?= e($event['location']) ?></p>
+                        </div>
+                        <div class="event-points"><strong><?= (int) $event['points'] ?></strong><span>DP</span></div>
                     </div>
                     <p><?= nl2br(e($event['description'])) ?></p>
-                    <p class="form-help">Puan gerekçesi: <?= e($event['points_reason']) ?></p>
-                    <p class="form-help">Oluşturan: <?= e($event['creator_name']) ?> · <?= (int) $event['attendee_count'] ?> katılımcı</p>
-                    <?php if ((int) $event['creator_id'] !== (int) $currentUser['id'] && !$event['attendee_status']): ?>
-                        <form method="post"><input type="hidden" name="action" value="join_event"><input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>"><?= csrf_field() ?><button class="btn btn-primary btn-sm">Katılacağım</button></form>
-                    <?php elseif ((int) $event['creator_id'] !== (int) $currentUser['id']): ?>
-                        <span class="tag"><?= $event['attendee_status'] === 'attended' ? 'Yoklama alındı' : 'Katılımınız kayıtlı' ?></span>
-                        <?php if ($event['attendee_status'] === 'attended' && $event['photo_status'] !== 'approved'): ?>
-                            <form method="post" enctype="multipart/form-data" class="form-stack" style="margin-top:10px;"><input type="hidden" name="action" value="upload_event_photo"><input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>"><?= csrf_field() ?><input type="file" name="event_photo" accept="image/jpeg,image/png,image/webp" required><button class="btn btn-outline btn-sm">Etkinlik Fotoğrafını Gönder</button></form>
-                        <?php elseif ($event['photo_status'] === 'approved'): ?><span class="tag">Fotoğraf doğrulandı, puan verildi</span><?php endif; ?>
+                    <div class="event-meta-row">
+                        <span>Oluşturan: <?= e($event['creator_name']) ?></span>
+                        <span><?= (int) $event['attendee_count'] ?> katılımcı</span>
+                        <span class="tag"><?= $event['ended'] ? 'Etkinlik sona erdi' : ($event['started'] ? 'Etkinlik devam ediyor' : 'Başlamadı') ?></span>
+                    </div>
+                    <details class="event-reason">
+                        <summary>AI puan gerekçesi</summary>
+                        <p><?= e($event['points_reason']) ?></p>
+                    </details>
+
+                    <?php if (!$isCreator && !$isAttendee): ?>
+                        <form method="post" class="event-action-row"><input type="hidden" name="action" value="join_event"><input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>"><?= csrf_field() ?><button class="btn btn-primary btn-sm">Katılacağım</button></form>
+                    <?php elseif ($isAttendee): ?>
+                        <div class="event-participation">
+                            <strong><?= $isCreator ? 'Etkinliği siz oluşturuyorsunuz; katılımınız otomatik kaydedildi.' : ($event['attendee_status'] === 'attended' ? 'Yoklamada katıldığınız işaretlendi.' : 'Katılımınız kayıtlı, yoklama bekleniyor.') ?></strong>
+                            <?php if ($event['attendee_status'] === 'attended' && $event['photo_status'] !== 'approved' && $event['ended']): ?>
+                                <form method="post" enctype="multipart/form-data" class="event-photo-form"><input type="hidden" name="action" value="upload_event_photo"><input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>"><?= csrf_field() ?><input type="file" name="event_photo" accept="image/jpeg,image/png,image/webp" required><button class="btn btn-outline btn-sm">Fotoğraf yükle ve doğrula</button></form>
+                            <?php elseif ($event['attendee_status'] === 'attended' && !$event['ended']): ?>
+                                <span class="form-help">Etkinlik sona erince fotoğraf yükleyebilirsiniz.</span>
+                            <?php elseif ($event['photo_status'] === 'approved'): ?>
+                                <span class="tag">Fotoğraf doğrulandı, puan verildi</span>
+                            <?php endif; ?>
+                        </div>
                     <?php endif; ?>
-                    <?php if ((int) $event['creator_id'] === (int) $currentUser['id']): ?>
-                        <form method="post" class="form-stack" style="margin-top:12px;"><input type="hidden" name="action" value="mark_attendance"><input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>"><?= csrf_field() ?><strong>Yoklama</strong><?php foreach ($managedAttendees[(int) $event['id']] as $attendee): ?><label><input type="checkbox" name="attendee_ids[]" value="<?= (int) $attendee['user_id'] ?>" <?= $attendee['status'] === 'attended' ? 'checked' : '' ?>> <?= e($attendee['full_name']) ?></label><?php endforeach; ?><button class="btn btn-outline btn-sm">Yoklamayı Kaydet</button></form>
+                    <?php if ($isCreator): ?>
+                        <?php if ($event['started']): ?>
+                            <form method="post" class="event-attendance"><input type="hidden" name="action" value="mark_attendance"><input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>"><?= csrf_field() ?><h3>Yoklama</h3><p class="form-help">Etkinlik başladı; yalnızca gerçekten gelenleri işaretleyin.</p><?php foreach ($managedAttendees[(int) $event['id']] as $attendee): ?><label><input type="checkbox" name="attendee_ids[]" value="<?= (int) $attendee['user_id'] ?>" <?= $attendee['user_id'] == $currentUser['id'] || $attendee['status'] === 'attended' ? 'checked' : '' ?> <?= $attendee['user_id'] == $currentUser['id'] ? 'disabled' : '' ?>> <?= e($attendee['full_name']) ?><?= $attendee['user_id'] == $currentUser['id'] ? ' (oluşturan)' : '' ?></label><?php endforeach; ?><button class="btn btn-outline btn-sm">Yoklamayı kaydet</button></form>
+                        <?php else: ?>
+                            <div class="event-attendance-locked">Yoklama, etkinliğin başlama saatinde açılacak.</div>
+                        <?php endif; ?>
                     <?php endif; ?>
                 </article>
             <?php endforeach; ?>
