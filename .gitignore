@@ -1,0 +1,12 @@
+# Yerel veritabanı kimlik bilgileri (Public GitHub sızıntısını önlemek için)
+config/database.local.php
+
+# Kullanıcı tarafından yüklenen içerikler
+uploads/posts/*
+!uploads/posts/.gitkeep
+!uploads/.htaccess
+
+# Sistem ve editör dosyaları
+.DS_Store
+Thumbs.db
+*.log

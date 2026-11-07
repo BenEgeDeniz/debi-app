@@ -1,0 +1,274 @@
+<?php
+/**
+ * DEBI - Sosyal Medya Akış Modülü (Gönderi, Damla Tepkisi, Yorum)
+ */
+
+/**
+ * Yeni Gönderi Oluşturma (Opsiyonel Görsel Yükleme Desteği ile)
+ */
+function create_post(array $user, array $input, ?array $file = null): array
+{
+    $content          = trim($input['content'] ?? '');
+    $category         = trim($input['category'] ?? 'tip');
+    $visibility       = trim($input['visibility'] ?? 'neighborhood');
+    $waterSavedLiters = !empty($input['water_saved_liters']) ? max(1, (int) $input['water_saved_liters']) : null;
+    $isPinned         = (!empty($input['is_pinned']) && $user['role'] === 'manager') ? 1 : 0;
+    $imagePath        = null;
+
+    if (mb_strlen($content, 'UTF-8') < 4) {
+        return ['ok' => false, 'error' => 'Paylaşım metni çok kısa.'];
+    }
+
+    $allowedCategories = ['tip', 'achievement', 'question', 'alert', 'announcement'];
+    if (!in_array($category, $allowedCategories, true)) {
+        $category = 'tip';
+    }
+
+    if ($category === 'announcement' && $user['role'] !== 'manager') {
+        $category = 'tip';
+    }
+
+    $allowedVisibilities = ['apartment', 'neighborhood', 'public'];
+    if (!in_array($visibility, $allowedVisibilities, true)) {
+        $visibility = 'neighborhood';
+    }
+
+    // Bireysel kullanıcı (apartmanı yok) apartman içi paylaşım seçemez -> mahalleye düşer
+    if ($visibility === 'apartment' && empty($user['apartment_id'])) {
+        $visibility = 'neighborhood';
+    }
+
+    // Görsel yükleme kontrolü
+    if ($file && !empty($file['tmp_name']) && $file['error'] === UPLOAD_ERR_OK) {
+        $allowedMimes = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime  = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+
+        if (!isset($allowedMimes[$mime])) {
+            return ['ok' => false, 'error' => 'Sadece JPG, PNG veya WebP formatında görsel yükleyebilirsiniz.'];
+        }
+
+        if ($file['size'] > 5 * 1024 * 1024) {
+            return ['ok' => false, 'error' => 'Görsel boyutu en fazla 5MB olabilir.'];
+        }
+
+        $uploadDir = __DIR__ . '/../../uploads/posts';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        $fileName  = 'post_' . time() . '_' . bin2hex(random_bytes(6)) . '.' . $allowedMimes[$mime];
+        $target    = $uploadDir . '/' . $fileName;
+
+        if (move_uploaded_file($file['tmp_name'], $target)) {
+            $imagePath = 'uploads/posts/' . $fileName;
+        }
+    }
+
+    $stmt = db()->prepare("
+        INSERT INTO posts (
+            user_id, neighborhood_id, apartment_id, visibility,
+            category, content, water_saved_liters, image_path, is_pinned
+        ) VALUES (
+            :uid, :nid, :aid, :vis,
+            :cat, :content, :saved, :img, :pinned
+        )
+    ");
+    $stmt->execute([
+        ':uid'     => (int) $user['id'],
+        ':nid'     => (int) $user['neighborhood_id'],
+        ':aid'     => !empty($user['apartment_id']) ? (int) $user['apartment_id'] : null,
+        ':vis'     => $visibility,
+        ':cat'     => $category,
+        ':content' => $content,
+        ':saved'   => $waterSavedLiters,
+        ':img'     => $imagePath,
+        ':pinned'  => $isPinned,
+    ]);
+
+    return ['ok' => true, 'post_id' => (int) db()->lastInsertId()];
+}
+
+/**
+ * Akış Gönderilerini Listeleme
+ * $scope: 'neighborhood' (Mahallem), 'apartment' (Apartmanım), 'public' (Genel / Tüm Debi)
+ */
+function get_feed_posts(array $user, string $scope = 'neighborhood', ?string $categoryFilter = null): array
+{
+    $pdo    = db();
+    $params = [':current_uid' => (int) $user['id']];
+    $where  = [];
+
+    if ($scope === 'apartment') {
+        if (empty($user['apartment_id'])) {
+            return [];
+        }
+        $where[]        = "p.apartment_id = :aid";
+        $params[':aid'] = (int) $user['apartment_id'];
+    } elseif ($scope === 'public') {
+        $where[] = "p.visibility = 'public'";
+    } else {
+        // 'neighborhood' (Mahallem): Bu mahallede paylaşılan 'neighborhood' ve 'public' gönderiler
+        // + eğer kullanıcının kendi apartmanıysa o apartmanın gönderileri
+        if (!empty($user['apartment_id'])) {
+            $where[]        = "(p.neighborhood_id = :nid AND (p.visibility IN ('neighborhood', 'public') OR p.apartment_id = :my_aid))";
+            $params[':nid']    = (int) $user['neighborhood_id'];
+            $params[':my_aid'] = (int) $user['apartment_id'];
+        } else {
+            $where[]        = "(p.neighborhood_id = :nid AND p.visibility IN ('neighborhood', 'public'))";
+            $params[':nid'] = (int) $user['neighborhood_id'];
+        }
+    }
+
+    if ($categoryFilter && in_array($categoryFilter, ['tip', 'achievement', 'question', 'alert', 'announcement'], true)) {
+        $where[]        = "p.category = :cat";
+        $params[':cat'] = $categoryFilter;
+    }
+
+    $whereSql = implode(' AND ', $where);
+
+    $sql = "
+        SELECT
+            p.*,
+            u.full_name,
+            u.role AS user_role,
+            u.avatar_color,
+            h.housing_type,
+            h.unit_label,
+            n.city AS post_city,
+            n.district AS post_district,
+            n.name AS post_neighborhood,
+            a.name AS post_apartment,
+            (SELECT COUNT(*) FROM post_reactions pr WHERE pr.post_id = p.id) AS reaction_count,
+            (SELECT COUNT(*) FROM post_reactions pr2 WHERE pr2.post_id = p.id AND pr2.user_id = :current_uid) AS user_reacted,
+            (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count
+        FROM posts p
+        INNER JOIN users u ON u.id = p.user_id
+        INNER JOIN households h ON h.id = u.household_id
+        INNER JOIN neighborhoods n ON n.id = p.neighborhood_id
+        LEFT JOIN apartments a ON a.id = p.apartment_id
+        WHERE {$whereSql}
+        ORDER BY p.is_pinned DESC, p.created_at DESC
+        LIMIT 40
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $posts = $stmt->fetchAll();
+
+    if (!$posts) {
+        return [];
+    }
+
+    // Gönderilerin yorumlarını tek sorguda çek
+    $postIds      = array_map(fn($r) => (int) $r['id'], $posts);
+    $placeholders = implode(',', array_fill(0, count($postIds), '?'));
+
+    $cStmt = $pdo->prepare("
+        SELECT
+            c.*,
+            u.full_name,
+            u.avatar_color,
+            h.unit_label,
+            a.name AS apartment_name
+        FROM comments c
+        INNER JOIN users u ON u.id = c.user_id
+        INNER JOIN households h ON h.id = u.household_id
+        LEFT JOIN apartments a ON a.id = u.apartment_id
+        WHERE c.post_id IN ({$placeholders})
+        ORDER BY c.created_at ASC
+    ");
+    $cStmt->execute($postIds);
+    $allComments = $cStmt->fetchAll();
+
+    $commentsByPost = [];
+    foreach ($allComments as $comment) {
+        $commentsByPost[(int) $comment['post_id']][] = $comment;
+    }
+
+    foreach ($posts as &$post) {
+        $post['comments'] = $commentsByPost[(int) $post['id']] ?? [];
+    }
+    unset($post);
+
+    return $posts;
+}
+
+/**
+ * Gönderiye "Damla" Desteği Verme / Geri Çekme
+ */
+function toggle_post_reaction(int $postId, int $userId): array
+{
+    $pdo = db();
+
+    $chk = $pdo->prepare("SELECT id FROM post_reactions WHERE post_id = :pid AND user_id = :uid LIMIT 1");
+    $chk->execute([':pid' => $postId, ':uid' => $userId]);
+    $existingId = $chk->fetchColumn();
+
+    if ($existingId) {
+        $del = $pdo->prepare("DELETE FROM post_reactions WHERE id = :id");
+        $del->execute([':id' => $existingId]);
+        $reacted = false;
+    } else {
+        $ins = $pdo->prepare("INSERT INTO post_reactions (post_id, user_id) VALUES (:pid, :uid)");
+        $ins->execute([':pid' => $postId, ':uid' => $userId]);
+        $reacted = true;
+    }
+
+    $cntStmt = $pdo->prepare("SELECT COUNT(*) FROM post_reactions WHERE post_id = :pid");
+    $cntStmt->execute([':pid' => $postId]);
+    $count = (int) $cntStmt->fetchColumn();
+
+    return ['ok' => true, 'reacted' => $reacted, 'count' => $count];
+}
+
+/**
+ * Gönderiye Yorum Ekleme
+ */
+function add_post_comment(int $postId, int $userId, string $content): array
+{
+    $content = trim($content);
+    if (mb_strlen($content, 'UTF-8') < 2) {
+        return ['ok' => false, 'error' => 'Yorum metni boş olamaz.'];
+    }
+
+    $stmt = db()->prepare("
+        INSERT INTO comments (post_id, user_id, content)
+        VALUES (:pid, :uid, :content)
+    ");
+    $stmt->execute([
+        ':pid'     => $postId,
+        ':uid'     => $userId,
+        ':content' => $content,
+    ]);
+
+    return ['ok' => true];
+}
+
+/**
+ * Gönderi Silme (Gönderi sahibi veya aynı apartmanın yöneticisi)
+ */
+function delete_post(int $postId, array $user): bool
+{
+    $pdo  = db();
+    $stmt = $pdo->prepare("SELECT user_id, apartment_id FROM posts WHERE id = :id LIMIT 1");
+    $stmt->execute([':id' => $postId]);
+    $post = $stmt->fetch();
+
+    if (!$post) {
+        return false;
+    }
+
+    $canDelete = ((int) $post['user_id'] === (int) $user['id']) ||
+        ($user['role'] === 'manager' && !empty($user['apartment_id']) && (int) $post['apartment_id'] === (int) $user['apartment_id']);
+
+    if (!$canDelete) {
+        return false;
+    }
+
+    $del = $pdo->prepare("DELETE FROM posts WHERE id = :id");
+    $del->execute([':id' => $postId]);
+    return true;
+}
+
