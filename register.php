@@ -331,14 +331,14 @@ require_once __DIR__ . '/includes/header.php';
 <script>
 (() => {
     const form = document.getElementById('registerForm');
-    if (!form) {
-        return;
-    }
     const modeInput = document.getElementById('registerModeInput');
     const residentCountGroup = document.getElementById('residentCountGroup');
     const residentCount = document.getElementById('resident_count');
 
     const syncModeFields = (mode) => {
+        if (!residentCountGroup || !residentCount) {
+            return;
+        }
         const inviteMode = mode === 'apartment_invite';
         residentCountGroup.hidden = inviteMode;
         residentCount.disabled = inviteMode;
@@ -351,8 +351,12 @@ require_once __DIR__ . '/includes/header.php';
     document.querySelectorAll('[data-mode-target]').forEach((tab) => {
         tab.addEventListener('click', () => {
             const mode = tab.dataset.modeTarget;
-            if (mode === 'apartment_invite') {
-                window.location.href = 'register.php?mode=apartment_invite';
+            if (!form) {
+                window.location.href = `register.php?mode=${encodeURIComponent(mode)}`;
+                return;
+            }
+            if (!modeInput) {
+                window.location.href = `register.php?mode=${encodeURIComponent(mode)}`;
                 return;
             }
             modeInput.value = mode;
@@ -370,6 +374,8 @@ require_once __DIR__ . '/includes/header.php';
         });
     });
 
-    syncModeFields(modeInput.value);
+    if (modeInput) {
+        syncModeFields(modeInput.value);
+    }
 })();
 </script>
