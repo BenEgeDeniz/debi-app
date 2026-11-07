@@ -443,7 +443,7 @@ document.addEventListener('DOMContentLoaded', function () {
         function renderLineChart(dataPoints) {
             const W = 760;
             const H = 300;
-            const padL = 68;
+            const padL = 92;
             const padR = 36;
             const padT = 34;
             const padB = 58;
@@ -477,8 +477,8 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             // Axis Titles (ylab & xlab)
-            svgHtml += '<text x="16" y="' + (padT + plotH / 2) + '" transform="rotate(-90 16 ' + (padT + plotH / 2) + ')" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">Kullanılan Su (m³)</text>';
-            svgHtml += '<text x="' + (padL + plotW / 2) + '" y="' + (H - 8) + '" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">Zaman Çizelgesi (Ay)</text>';
+            svgHtml += '<text x="12" y="' + (padT + plotH / 2) + '" transform="rotate(-90 12 ' + (padT + plotH / 2) + ')" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">Kullanılan Su (m³)</text>';
+            svgHtml += '<text x="' + (padL + plotW / 2) + '" y="' + (H - 8) + '" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">Zaman</text>';
 
             // Area under line
             if (coords.length > 1) {
@@ -573,7 +573,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             if (withDrops) {
-                spawnFallingDrops(savedLiters >= 3000 ? 4 : (savedLiters >= 1000 ? 3 : 2));
+                spawnFallingDrops(savedLiters >= 3000 ? 2 : 1);
             }
 
             if (stageKey !== currentStageKey) {

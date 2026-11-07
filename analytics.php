@@ -8,11 +8,14 @@ require_once __DIR__ . '/modules/water/water_service.php';
 $currentUser = require_login();
 $analytics   = get_household_water_analytics($currentUser);
 
-$series      = $analytics['series'];
-$prevM3      = (float) $analytics['prev_m3'];
-$currM3      = (float) $analytics['curr_m3'];
-$savedLiters = (int) $analytics['saved_liters'];
-$initStage   = $analytics['pond_stage'];
+$series        = $analytics['series'];
+$sCount        = count($series);
+$prevMonthName = $series[$sCount - 2]['xlab'] ?? 'Önceki Ay';
+$currMonthName = $series[$sCount - 1]['xlab'] ?? 'Son Ay';
+$prevM3        = (float) $analytics['prev_m3'];
+$currM3        = (float) $analytics['curr_m3'];
+$savedLiters   = (int) $analytics['saved_liters'];
+$initStage     = $analytics['pond_stage'];
 
 $stageImageMap = [
     'dry'  => brand_asset_path('pond_dry'),
@@ -57,11 +60,11 @@ require_once __DIR__ . '/includes/header.php';
 
             <div class="analytics-kpi-grid">
                 <div class="analytics-kpi-box">
-                    <span class="analytics-kpi-label">Geçen Ay Tüketim</span>
+                    <span class="analytics-kpi-label"><?= e($prevMonthName) ?> Tüketimi</span>
                     <strong class="analytics-kpi-val" id="kpiPrevM3"><?= number_format($prevM3, 1, ',', '.') ?> m³</strong>
                 </div>
                 <div class="analytics-kpi-box">
-                    <span class="analytics-kpi-label">Bu Ay Tüketim</span>
+                    <span class="analytics-kpi-label"><?= e($currMonthName) ?> Tüketimi</span>
                     <strong class="analytics-kpi-val" id="kpiCurrM3"><?= number_format($currM3, 1, ',', '.') ?> m³</strong>
                 </div>
                 <div class="analytics-kpi-box">
@@ -77,15 +80,11 @@ require_once __DIR__ . '/includes/header.php';
             </div>
         </section>
 
-        <!-- 1. BÖLÜM: ZAMAN ÇİZELGESİ (xlab) VE KULLANILAN m³ (ylab) ÇİZGİ TABLOSU -->
+        <!-- 1. BÖLÜM: ZAMAN (xlab) VE KULLANILAN m³ (ylab) ÇİZGİ TABLOSU -->
         <section class="panel-card">
             <div class="panel-card-header">
                 <div>
                     <h2 class="section-title">Aylık Su Tüketimi Çizgi Tablosu</h2>
-                    <p class="panel-desc" style="margin-bottom: 0;">
-                        <strong>X Ekseni (xlab):</strong> Aylık Zaman Çizelgesi (Geçen Ay &rarr; Bu Ay) &middot;
-                        <strong>Y Ekseni (ylab):</strong> Kullanılan Su Miktarı (m³)
-                    </p>
                 </div>
                 <span class="tag">1 m³ = 1.000 Litre</span>
             </div>
@@ -99,10 +98,8 @@ require_once __DIR__ . '/includes/header.php';
         <section class="panel-card pond-widget-card" id="pondWidgetSection">
             <div class="panel-card-header">
                 <div>
-                    <div class="section-kicker">CANLI EKOSİSTEM SİMÜLASYONU</div>
                     <h2 class="section-title">Kurtarılan Su ile Yeşeren Debi Göleti</h2>
                 </div>
-                <span class="pond-stage-pill" id="pondStageBadge">Aşama Yükleniyor...</span>
             </div>
 
             <p class="panel-desc">
@@ -122,52 +119,6 @@ require_once __DIR__ . '/includes/header.php';
                          class="pond-stage-img">
                     <div class="pond-ripple-ring" id="pondRippleRing"></div>
                 </div>
-
-                <!-- Maskot Durum Balonu -->
-                <div class="pond-mascot-companion">
-                    <img id="pondMascotImg"
-                         src="<?= e($mascotImageMap[$initStage] ?? $mascotImageMap['dry']) ?>"
-                         alt="Debi Maskotu"
-                         class="pond-mascot-img">
-                    <div class="pond-mascot-speech">
-                        <strong id="pondMascotTitle">Gölet Durumu</strong>
-                        <span id="pondMascotDesc">Veriler hesaplanıyor...</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Canlı Su Seviyesi Çubuğu ve 3 Aşama Göstergesi -->
-            <div class="pond-meter-box">
-                <div class="pond-meter-top">
-                    <span>Gölet Canlılık &amp; Su Seviyesi</span>
-                    <strong id="pondMeterLitersText"><?= number_format($savedLiters, 0, ',', '.') ?> / 3.000+ L Kurtarılan Su</strong>
-                </div>
-                <div class="pond-meter-track">
-                    <div class="pond-meter-fill" id="pondMeterFill" style="width: 0%;"></div>
-                </div>
-                <div class="pond-stage-steps">
-                    <div class="pond-step-item" data-stage-step="dry">
-                        <span class="pond-step-dot">1</span>
-                        <div>
-                            <strong>Kurumuş Göl</strong>
-                            <small>0 – 999 L Tasarruf</small>
-                        </div>
-                    </div>
-                    <div class="pond-step-item" data-stage-step="half">
-                        <span class="pond-step-dot">2</span>
-                        <div>
-                            <strong>Yarı Dolu Göl</strong>
-                            <small>1.000 – 2.999 L Tasarruf</small>
-                        </div>
-                    </div>
-                    <div class="pond-step-item" data-stage-step="full">
-                        <span class="pond-step-dot">3</span>
-                        <div>
-                            <strong>Tam Dolu &amp; Yeşeren Göl</strong>
-                            <small>3.000+ L Tasarruf</small>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <!-- İnteraktif Tüketim & Damla Simülasyon Kontrolleri -->
@@ -175,7 +126,7 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="pond-sliders-grid">
                     <div class="pond-slider-group">
                         <div class="pond-slider-label">
-                            <label for="simPrevM3Input">Geçen Ay Harcanan Su (m³)</label>
+                            <label for="simPrevM3Input"><?= e($prevMonthName) ?> Harcanan Su (m³)</label>
                             <strong id="simPrevM3Label"><?= number_format($prevM3, 1, ',', '.') ?> m³</strong>
                         </div>
                         <input type="range" id="simPrevM3Input" min="4" max="30" step="0.5" value="<?= e((string) $prevM3) ?>">
@@ -183,7 +134,7 @@ require_once __DIR__ . '/includes/header.php';
 
                     <div class="pond-slider-group">
                         <div class="pond-slider-label">
-                            <label for="simCurrM3Input">Bu Ay Harcanan Su (m³) — <em>Azaltarak Göleti Doldurun</em></label>
+                            <label for="simCurrM3Input"><?= e($currMonthName) ?> Harcanan Su (m³)</label>
                             <strong id="simCurrM3Label"><?= number_format($currM3, 1, ',', '.') ?> m³</strong>
                         </div>
                         <input type="range" id="simCurrM3Input" min="4" max="30" step="0.5" value="<?= e((string) $currM3) ?>">
@@ -193,9 +144,6 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="pond-action-buttons">
                     <button type="button" class="btn btn-primary btn-sm" id="btnDropWater">
                         💧 Üstten Damla Gönder (+250 L Kurtar)
-                    </button>
-                    <button type="button" class="btn btn-outline btn-sm" id="btnAutoPlayStages">
-                        ▶ 3 Aşamayı Canlı İzle
                     </button>
                     <button type="button" class="btn btn-outline btn-sm" id="btnResetRealData">
                         Verilerime Sıfırla

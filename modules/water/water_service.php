@@ -286,19 +286,10 @@ function get_household_water_analytics(array $user): array
 
     if ($count >= 2) {
         $slice = array_slice($chronological, -6);
-        $sCount = count($slice);
-        foreach ($slice as $idx => $row) {
+        foreach ($slice as $row) {
             $mName = turkish_month_name((int) $row['period_month']);
-            $shortM = mb_substr($mName, 0, 3, 'UTF-8') . ' ' . $row['period_year'];
-            if ($idx === $sCount - 2) {
-                $xlab = 'Geçen Ay (' . $mName . ')';
-            } elseif ($idx === $sCount - 1) {
-                $xlab = 'Bu Ay (' . $mName . ')';
-            } else {
-                $xlab = $shortM;
-            }
             $series[] = [
-                'xlab'            => $xlab,
+                'xlab'            => $mName,
                 'period_label'    => $mName . ' ' . $row['period_year'],
                 'consumption_m3'  => round((float) $row['consumption_m3'], 2),
                 'daily_liters'    => round((float) $row['daily_liters_per_person'], 1),
@@ -315,13 +306,13 @@ function get_household_water_analytics(array $user): array
         $prevM3 = round($curM3 + 2.2, 2);
 
         $series[] = [
-            'xlab'           => 'Geçen Ay (' . turkish_month_name($prevM) . ')',
+            'xlab'           => turkish_month_name($prevM),
             'period_label'   => turkish_month_name($prevM) . ' ' . $prevY . ' (Referans)',
             'consumption_m3' => $prevM3,
             'daily_liters'   => round((float) $only['daily_liters_per_person'] * ($prevM3 / max(0.5, $curM3)), 1),
         ];
         $series[] = [
-            'xlab'           => 'Bu Ay (' . turkish_month_name($curM) . ')',
+            'xlab'           => turkish_month_name($curM),
             'period_label'   => turkish_month_name($curM) . ' ' . $curY,
             'consumption_m3' => $curM3,
             'daily_liters'   => round((float) $only['daily_liters_per_person'], 1),
@@ -336,16 +327,9 @@ function get_household_water_analytics(array $user): array
             $m = (int) date('n', $ts);
             $y = (int) date('Y', $ts);
             $mName = turkish_month_name($m);
-            if ($i === 1) {
-                $xlab = 'Geçen Ay (' . $mName . ')';
-            } elseif ($i === 0) {
-                $xlab = 'Bu Ay (' . $mName . ')';
-            } else {
-                $xlab = $i . ' Ay Önce (' . mb_substr($mName, 0, 3, 'UTF-8') . ')';
-            }
             $m3Val = $sampleM3[3 - $i];
             $series[] = [
-                'xlab'           => $xlab,
+                'xlab'           => $mName,
                 'period_label'   => $mName . ' ' . $y,
                 'consumption_m3' => $m3Val,
                 'daily_liters'   => round(($m3Val * 1000) / (30 * max(1, (int) ($user['resident_count'] ?? 3))), 1),
