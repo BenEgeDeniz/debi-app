@@ -106,28 +106,59 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </div>
 
-            <!-- MOD 1 ve MOD 3 İçin Ortak Mahalle Seçimi -->
+            <!-- MOD 1 ve MOD 3 İçin Ortak Mahalle Seçimi (Otomatik Çekilen Liste) -->
             <div class="form-section mode-panel" id="locationSection"
-                 style="<?= $mode === 'apartment_invite' ? 'display:none;' : '' ?>">
-                <h3 class="form-section-title">Mahalle Konumu</h3>
-                <p class="section-note">
-                    Aynı İl, İlçe ve Mahalle adını giren tüm apartmanlar ve bireysel evler otomatik olarak aynı mahalle çatısı altında buluşur.
-                </p>
-                <div class="form-grid-3">
+                 style="<?= $mode === 'apartment_invite' ? 'display:none;' : '' ?>"
+                 data-prefill-city="<?= e($_POST['city'] ?? '') ?>"
+                 data-prefill-district="<?= e($_POST['district'] ?? '') ?>"
+                 data-prefill-neighborhood="<?= e($_POST['neighborhood_name'] ?? '') ?>">
+                <div class="location-header-row">
+                    <div>
+                        <h3 class="form-section-title">Mahalle Konumu</h3>
+                        <p class="section-note">
+                            İl, ilçe ve mahallenizi seçin. Seçtiğiniz mahalledeki apartmanlar ve komşularınızla otomatik eşleşirsiniz.
+                        </p>
+                    </div>
+                    <button type="button" class="btn-link-subtle" id="toggleManualLocation">
+                        Listede bulamadım, elle yaz
+                    </button>
+                </div>
+
+                <!-- Otomatik İl > İlçe > Mahalle Seçim Menüleri -->
+                <div class="form-grid-3" id="autoLocationInputs">
                     <div class="form-group">
-                        <label for="city">İl</label>
-                        <input type="text" id="city" name="city"
-                               value="<?= e($_POST['city'] ?? '') ?>" placeholder="Örn: İstanbul">
+                        <label for="citySelect">İl Seçin</label>
+                        <select id="citySelect" name="city" class="loc-select">
+                            <option value="">İller yükleniyor...</option>
+                        </select>
                     </div>
                     <div class="form-group">
-                        <label for="district">İlçe</label>
-                        <input type="text" id="district" name="district"
-                               value="<?= e($_POST['district'] ?? '') ?>" placeholder="Örn: Kadıköy">
+                        <label for="districtSelect">İlçe Seçin</label>
+                        <select id="districtSelect" name="district" class="loc-select" disabled>
+                            <option value="">Önce il seçin</option>
+                        </select>
                     </div>
                     <div class="form-group">
-                        <label for="neighborhood_name">Mahalle</label>
-                        <input type="text" id="neighborhood_name" name="neighborhood_name"
-                               value="<?= e($_POST['neighborhood_name'] ?? '') ?>" placeholder="Örn: Moda">
+                        <label for="neighborhoodSelect">Mahalle Seçin</label>
+                        <select id="neighborhoodSelect" name="neighborhood_name" class="loc-select" disabled>
+                            <option value="">Önce ilçe seçin</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- İsteğe Bağlı Manuel Giriş Alanları (Gerektiğinde Açılır) -->
+                <div class="form-grid-3" id="manualLocationInputs" style="display: none;">
+                    <div class="form-group">
+                        <label for="manualCity">İl (Elle Giriş)</label>
+                        <input type="text" id="manualCity" placeholder="Örn: İstanbul" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label for="manualDistrict">İlçe (Elle Giriş)</label>
+                        <input type="text" id="manualDistrict" placeholder="Örn: Kadıköy" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label for="manualNeighborhood">Mahalle (Elle Giriş)</label>
+                        <input type="text" id="manualNeighborhood" placeholder="Örn: Moda Mah." disabled>
                     </div>
                 </div>
             </div>

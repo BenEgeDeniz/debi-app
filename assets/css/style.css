@@ -1520,6 +1520,41 @@ code {
     margin-bottom: 4px;
 }
 
+.location-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.btn-link-subtle {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--brand-primary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+    font-family: inherit;
+    flex-shrink: 0;
+}
+
+.btn-link-subtle:hover {
+    color: var(--brand-primary-hover);
+}
+
+.loc-select {
+    cursor: pointer;
+}
+
+.loc-select:disabled {
+    background-color: var(--bg-subtle);
+    color: var(--text-muted);
+    cursor: not-allowed;
+}
+
 /* ==========================================================
    UYARILAR, BOŞ DURUMLAR VE FOOTER
    ========================================================== */

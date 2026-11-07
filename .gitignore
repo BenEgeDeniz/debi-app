@@ -6,6 +6,10 @@ uploads/posts/*
 !uploads/posts/.gitkeep
 !uploads/.htaccess
 
+# İl/İlçe/Mahalle API önbellek dosyaları
+cache/locations/*
+!cache/locations/.gitkeep
+
 # Sistem ve editör dosyaları
 .DS_Store
 Thumbs.db
