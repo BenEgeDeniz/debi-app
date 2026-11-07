@@ -72,6 +72,12 @@ function render_event_card(array $event, array $currentUser, array $managedAtten
             <summary>AI puan gerekçesi</summary>
             <p><?= e($event['points_reason']) ?></p>
         </details>
+        <?php if (!empty($event['criteria_sources'])): ?>
+            <details class="event-reason">
+                <summary>Puanlama kaynakları</summary>
+                <p><?= nl2br(e($event['criteria_sources'])) ?></p>
+            </details>
+        <?php endif; ?>
 
         <?php if (!$isCreator && !$isAttendee && !$event['started'] && !$event['ended']): ?>
             <form method="post" class="event-action-row">

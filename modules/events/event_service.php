@@ -22,11 +22,12 @@ function create_event(array $user, array $input): array
         return ['ok' => false, 'error' => 'Mahalle bilgisi olmayan kullanıcı mahalle etkinliği oluşturamaz.'];
     }
     $ai = score_event_with_ai($title, $description, $date, $start);
-    $stmt = db()->prepare("INSERT INTO events (creator_id, neighborhood_id, scope, title, description, location, event_date, start_time, points, points_reason) VALUES (:uid, :nid, :scope, :title, :description, :location, :date, :start, :points, :reason)");
+    $stmt = db()->prepare("INSERT INTO events (creator_id, neighborhood_id, scope, title, description, location, event_date, start_time, points, points_reason, criteria_sources) VALUES (:uid, :nid, :scope, :title, :description, :location, :date, :start, :points, :reason, :sources)");
     $stmt->execute([
         ':uid' => (int) $user['id'], ':nid' => (int) $user['neighborhood_id'], ':scope' => $scope,
         ':title' => $title, ':description' => $description, ':location' => $location, ':date' => $date,
         ':start' => $start, ':points' => $ai['points'], ':reason' => $ai['reason'],
+        ':sources' => $ai['criteria_sources'] ?? null,
     ]);
     $eventId = (int) db()->lastInsertId();
     db()->prepare("INSERT INTO event_attendees (event_id, user_id) VALUES (:eid, :uid)")

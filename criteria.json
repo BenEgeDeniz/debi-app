@@ -1,0 +1,269 @@
+{
+  "sistem_semasi": {
+    "arayuz_uyumlulugu": "Etkinlik Oluştur (Fiziksel Mahalle ve Genel Debi Çalışmaları)",
+    "kapsam_disi_birakilanlar": [
+      "Bireysel ev içi duş süresi kısaltma (0.1577 - 0.31545 L/dk debi değişimleri)",
+      "Ev içi küvet kullanımı (133 L)",
+      "Ev içi bireysel diş fırçalama / tıraş musluk kullanımı",
+      "Ev içi bireysel bulaşık ve çamaşır yıkama alışkanlıkları"
+    ],
+    "dogrulama_mekanizmasi": "Yoklama (Katılımcı Sayısı) + Etkinlik Fotoğrafının Görüntü İşleme (CV/VLM) ile Onaylanması",
+    "puan_hesaplama_formulu": "Toplam_Etkinlik_Puani = (Fiziksel_Birim_Miktari * ai_birim_puan_katsayisi) * (1 + (Onayli_Katilimci_Sayisi * 0.10))"
+  },
+  "referans_kaynaklar": [
+    {
+      "kaynak_kodu": "USDA_EPA_TREE",
+      "kurum_ve_yayin": "USDA Forest Service (CUFR-182 / CUFR-392), US EPA Stormwater Trees Technical Memo (2016), Penn State Extension, UC ANR",
+      "metrik_kapsami": "Kentsel ağaçların yıllık yağmur suyu tutumu (interception), yüzey akışı azaltımı ve dikim çukuru toprak hacmi standartları"
+    },
+    {
+      "kaynak_kodu": "FAO_CALPOLY_MULCH",
+      "kurum_ve_yayin": "FAO Irrigation and Drainage Paper 56, Cal Poly Surface Evaporation Study, PMC Arid Urban Mulching Study, MDPI Water",
+      "metrik_kapsami": "Malçlama (toprak örtüsü) kalınlığının ve m2 dozunun yüzeysel su buharlaşmasını (Ke) azaltma oranları"
+    },
+    {
+      "kaynak_kodu": "EPA_OCEANCARE_CB",
+      "kurum_ve_yayin": "US EPA Standard Acute Fish Bioassay (Slaughter et al., PMC3088407), OceanCare, University of Groningen (RUG), Wasser 3.0",
+      "metrik_kapsami": "Sigara izmaritlerinin tatlı ve tuzlu su organizmaları üzerindeki LC50 toksisitesi, mikroplastik lif sayısı ve kirlettiği su hacmi tahminleri"
+    },
+    {
+      "kaynak_kodu": "TAP_MIIT_BATTERY",
+      "kurum_ve_yayin": "TAP (APAK Yönetmeliği), Shu et al. Energy Reports (2021) / MIIT (2019), FCC Environment CEE, WastesService, Biomedres",
+      "metrik_kapsami": "Atık düğme pil ve standart pillerin yeraltı suyu ve toprak kirliliği hacimleri, güvenli toplama prosedürleri"
+    },
+    {
+      "kaynak_kodu": "WFN_HOEKSTRA_AWE",
+      "kurum_ve_yayin": "Water Footprint Network (Hoekstra 2008; Mekonnen & Hoekstra 2011), Alliance for Water Efficiency (2018), Residential End Uses of Water (2018) - PMC8239324",
+      "metrik_kapsami": "Düşük akımlı musluk/rezervuar debileri, tek kullanımlık tabak üretim suyu ve temel gıdaların sanal su ayak izi"
+    },
+    {
+      "kaynak_kodu": "CSB_SIFIR_ATIK_TEMA",
+      "kurum_ve_yayin": "T.C. Çevre, Şehircilik ve İklim Değişikliği Bakanlığı (Sıfır Atık), TEMA Vakfı, Uludağ Üniversitesi Atık Yönetimi Kılavuzu",
+      "metrik_kapsami": "Kağıt/karton, plastik ve cam geri dönüşümünün su kullanımı, su kirliliği, ağaç kurtarma, enerji ve petrol tasarrufu yüzdeleri"
+    }
+  ],
+  "etkinlik_kategorileri": [
+    {
+      "kategori_id": "KAT_01_YESIL_ALAN_VE_YAGMUR_SUYU",
+      "kategori_adi": "Park, Bahçe, Ağaçlandırma ve Toprak Nemi Koruma Çalışmaları",
+      "aktiviteler": [
+        {
+          "aktivite_id": "ACT_101",
+          "etkinlik_basligi_ornek": "Mahalle Parkı Ağaç Dikimi ve Yağmur Hendekleri Açılması",
+          "bulusma_yeri_tipi": "Mahalle Parkı, Sokak Ağaçlandırma Aksı, Okul/İbadethane Bahçesi",
+          "ne_yapilacak_anahtar_kelimeler": ["ağaç dikimi", "fidan dikimi", "ağaç çukuru", "yağmur suyu tutumu", "ibreli ağaç", "yaprak döken ağaç"],
+          "su_etki_turu": "Yeşil ve Mavi Su (Yağmur Suyu Hasadı ve Yüzey Akışı Önleme)",
+          "fiziksel_birim": "1 Adet Fidan / Ağaç",
+          "su_kazanimi_metrikleri": {
+            "orta_boy_agac_yillik_tutum_litre": 9009,
+            "orta_boy_agac_orijinal_veri": "2,380 US gallons/year rainfall interception",
+            "yaprak_doken_agac_aralik_litre": "2650 - 5678 (700 - 1,500 gallons/year)",
+            "herdem_yesil_agac_minimum_litre": 15142,
+            "herdem_yesil_orijinal_veri": ">4,000 US gallons/year rainfall interception",
+            "anlik_su_depolama_kapasitesi_litre": 378.5,
+            "yuzey_akisi_azaltim_orani_yuzde": 65
+          },
+          "fiziksel_uygulama_standartlari": {
+            "minimum_toprak_hacmi": "500 ft3 (~14.16 m3) / ağaç (Küçük: 600 ft3, Orta: 1000 ft3, Büyük: 1500 ft3)",
+            "hendek_standardi": "Çoklu dikimde en az 2.44 m (8 ft) genişlik x 0.91 m (3 ft) derinlikte organik/kompost katkılı toprak hendeği",
+            "yuzey_acikligi": "En az 2.23 m2 (24 ft2) geçirgen toprak açıklığı"
+          },
+          "ai_birim_puan_katsayisi": 35.0,
+          "ai_fotograf_dogrulama_kriterleri": {
+            "aranacak_nesneler": ["Dikilmiş fidanlar", "Açılmış toprak çukurları/hendekler", "Can suyu kovaları/kürekler", "Katılımcı grubu"],
+            "red_kriteri": "Sadece mevcut yetişkin ağaçların çekildiği, yeni dikim veya toprak işleme kanıtı olmayan fotoğraflar"
+          },
+          "kaynak_kodlari": ["USDA_EPA_TREE"]
+        },
+        {
+          "aktivite_id": "ACT_102",
+          "etkinlik_basligi_ornek": "Park Ağaç Diplerine ve Çiçekliklere Malçlama (Toprak Örtüsü) Uygulaması",
+          "bulusma_yeri_tipi": "Mahalle Parkı, Ortak Site/Apartman Bahçesi, Refüj Alanları",
+          "ne_yapilacak_anahtar_kelimeler": ["malçlama", "toprak örtüsü", "buharlaşma önleme", "organik malç", "yonga", "kuru yaprak örtüsü"],
+          "su_etki_turu": "Yeşil ve Mavi Su (Toprak Buharlaşma Kaybını Önleme)",
+          "fiziksel_birim": "10 Metrekare (m2) Malçlanan Toprak Yüzeyi",
+          "su_kazanimi_metrikleri": {
+            "yuzey_buharlasma_azaltim_orani_yuzde": 60.0,
+            "toprak_buharlasma_katsayisi_Ke_azaltimi_film_malc_yuzde": 62.5,
+            "fiziksel_uygulama_dozu": "0.25 - 0.50 kg/m2 (10 m2 için 2.5 - 5 kg malç materyali)",
+            "minimum_kalinlik_cm": 5
+          },
+          "ai_birim_puan_katsayisi": 25.0,
+          "ai_fotograf_dogrulama_kriterleri": {
+            "aranacak_nesneler": ["Toprak yüzeyine serilmiş en az 5 cm kalınlığında organik malç/ağaç kabuğu/yaprak katmanı", "Uygulama öncesi/sonrası toprak alanı", "Çuval veya el arabası"],
+            "red_kriteri": "Çıplak toprak veya sadece çim biçme fotoğrafı"
+          },
+          "kaynak_kodlari": ["FAO_CALPOLY_MULCH"]
+        }
+      ]
+    },
+    {
+      "kategori_id": "KAT_02_ORTAK_ALAN_SU_ALTYAPISI",
+      "kategori_adi": "Kamusal ve Ortak Alan Su Altyapısı Dönüşümü",
+      "aktiviteler": [
+        {
+          "aktivite_id": "ACT_201",
+          "etkinlik_basligi_ornek": "Mahalle Muhtarlığı, Okul ve İbadethane Musluklarını Tasarruflu Başlıkla Yenileme",
+          "bulusma_yeri_tipi": "Muhtarlık, Mahalle Evi, Okul, Cami Şadırvanı, Park Umumi WC",
+          "ne_yapilacak_anahtar_kelimeler": ["düşük akımlı musluk", "perlatör montajı", "musluk değişimi", "şadırvan", "ortak lavabo"],
+          "su_etki_turu": "Mavi Su (Doğrudan Şebeke Suyu Tasarrufu)",
+          "fiziksel_birim": "1 Adet Ortak Alan Musluğu Dönüşümü",
+          "su_kazanimi_metrikleri": {
+            "standart_musluk_debi_litre_dk": 18.97,
+            "dusuk_akimli_musluk_debi_litre_dk": 5.68,
+            "dakika_basi_net_tasarruf_litre": 13.29,
+            "tasarruf_orani_yuzde": 70.06,
+            "gunluk_tahmini_kullanim_30_dk_tasarruf_litre": 398.7
+          },
+          "ai_birim_puan_katsayisi": 40.0,
+          "ai_fotograf_dogrulama_kriterleri": {
+            "aranacak_nesneler": ["Kamusal/ortak lavabo veya şadırvan musluğu", "Montaj anahtarı/pense", "Yeni takılan düşük akımlı başlık/perlatör"],
+            "red_kriteri": "Ev tipi bireysel banyo/mutfak lavabosu fotoğrafları"
+          },
+          "kaynak_kodlari": ["WFN_HOEKSTRA_AWE"]
+        },
+        {
+          "aktivite_id": "ACT_202",
+          "etkinlik_basligi_ornek": "Ortak Alan / Park / Okul Tuvalet Rezervuarlarının Düşük Akımlı Sistemle Dönüşümü",
+          "bulusma_yeri_tipi": "Okul, Muhtarlık, Mahalle Kültür Merkezi, İbadethane/Park WC",
+          "ne_yapilacak_anahtar_kelimeler": ["rezervuar dönüşümü", "düşük akımlı tuvalet", "sifon tasarrufu", "ortak tuvalet onarımı"],
+          "su_etki_turu": "Mavi Su (Doğrudan Şebeke Suyu Tasarrufu)",
+          "fiziksel_birim": "1 Adet Ortak Alan Rezervuar Dönüşümü",
+          "su_kazanimi_metrikleri": {
+            "standart_rezervuar_tuketim_litre_sifon": 18.97,
+            "dusuk_akimli_rezervuar_tuketim_litre_sifon": 5.68,
+            "sifon_basi_net_tasarruf_litre": 13.29,
+            "kisi_basi_gunluk_5_sifon_tasarrufu_litre": 66.45
+          },
+          "ai_birim_puan_katsayisi": 45.0,
+          "ai_fotograf_dogrulama_kriterleri": {
+            "aranacak_nesneler": ["Ortak alan WC rezervuar iç takımı veya yeni düşük akımlı rezervuar montajı", "Tesisat ekipmanları"],
+            "red_kriteri": "Doğrulama detayı içermeyen kapalı kapı veya ev banyosu fotoğrafı"
+          },
+          "kaynak_kodlari": ["WFN_HOEKSTRA_AWE"]
+        }
+      ]
+    },
+    {
+      "kategori_id": "KAT_03_SU_KIRLILIGI_ONLEME_VE_ATIK_TOPLAMA",
+      "kategori_adi": "Su Kaynaklarını Koruyan Fiziksel Temizlik ve Tehlikeli Atık Kampanyaları",
+      "aktiviteler": [
+        {
+          "aktivite_id": "ACT_301",
+          "etkinlik_basligi_ornek": "Mahalle Parkı, Yağmur Izgaraları ve Kıyı Sigara İzmariti Temizliği",
+          "bulusma_yeri_tipi": "Mahalle Parkı, Kaldırım ve Yağmur Suyu Izgaraları, Sahil/Dere Yatağı",
+          "ne_yapilacak_anahtar_kelimeler": ["izmarit toplama", "sigara izmariti", "park temizliği", "mikroplastik önleme", "yağmur ızgarası temizliği"],
+          "su_etki_turu": "Gri Su (Yeraltı Suyu, Nehir ve Deniz Toksisitesi Önleme)",
+          "fiziksel_birim": "100 Adet Toplanan Sigara İzmariti (~1 Litrelik Pet Şişe / Kavanoz Dolusu)",
+          "su_kazanimi_metrikleri": {
+            "tek_izmarit_ortalama_su_kirliligi_onleme_litre": 500,
+            "tek_izmarit_maksimum_su_kirliligi_onleme_litre": 1000,
+            "birim_100_izmarit_korunan_su_hacmi_litre": "50000 - 100000",
+            "akut_balik_toksisitesi_LC50_esigi": "1 içilmiş izmarit / 1 Litre su (96 saatte %50 ölümcül konsantrasyon)",
+            "onlenen_mikroplastik_lif_sayisi_100_adet": 1500000,
+            "kimyasal_icerik": "İzmarit başına 15.000 selüloz asetat mikroplastik lif ve 4.000 - 7.000+ kimyasal (arsenik, kurşun, kadmiyum, nikotin, PAH)"
+          },
+          "ai_birim_puan_katsayisi": 15.0,
+          "ai_puan_normalizasyon_notu": "Çevre kuruluşlarına göre 100 izmarit 50.000 - 100.000 L su kirliliğini önlese de, fiziksel toplama süresi (~15-20 dk) baz alınarak puan 15.0 olarak sınırlandırılmıştır.",
+          "ai_fotograf_dogrulama_kriterleri": {
+            "aranacak_nesneler": ["Şeffaf şişe, kavanoz veya atık torbası içinde toplanmış sigara izmaritleri", "Eldiven/çöp maşası kullanan katılımcılar", "Park/sokak arka planı"],
+            "red_kriteri": "İçeriği görünmeyen siyah poşet veya ev küllüğü fotoğrafı"
+          },
+          "kaynak_kodlari": ["EPA_OCEANCARE_CB"]
+        },
+        {
+          "aktivite_id": "ACT_302",
+          "etkinlik_basligi_ornek": "Mahalle Atık Pil ve Düğme Pil Toplama Seferberliği",
+          "bulusma_yeri_tipi": "Muhtarlık Önü, Okul Girişi, Site Yönetimi, Belediye Atık Noktası",
+          "ne_yapilacak_anahtar_kelimeler": ["atık pil", "düğme pil", "TAP kutusu", "ağır metal kirliliği", "pil toplama"],
+          "su_etki_turu": "Gri Su (Yeraltı Suyu Ağır Metal Sızıntısı Önleme)",
+          "fiziksel_birim": "10 Adet Atık Pil (Standart veya Düğme Pil Karışımı)",
+          "su_kazanimi_metrikleri": {
+            "tek_dugme_pil_kirlilik_ust_sinir_litre": 600000,
+            "tek_dugme_pil_alternatif_endustri_verisi_litre": 400,
+            "tek_standart_pil_icme_suyu_kirliligi_litre": 167000,
+            "korunan_toprak_hacmi_veya_alani": "Pil başına 1 m3 (veya 1 m2 - 20 m2) toprak",
+            "onlenen_toksik_metaller": ["Cıva (Hg)", "Kadmiyum (Cd)", "Kurşun (Pb)", "Çinko (Zn)", "Lityum (Li)", "Nikel (Ni)"]
+          },
+          "ai_birim_puan_katsayisi": 20.0,
+          "ai_puan_normalizasyon_notu": "Literatürde ve sektörel kaynaklarda 1 düğme pil için 400 L ile 600.000 L arasında değişen tahminler bulunduğundan, puanlama ham litre üzerinden değil, toplanan her 10 pilin resmi TAP/Belediye kutusuna teslimi üzerinden sabitlenmiştir.",
+          "ai_fotograf_dogrulama_kriterleri": {
+            "aranacak_nesneler": ["Toplanan atık piller", "Resmi TAP atık pil kutusu veya Muhtarlık/Belediye teslim noktası"],
+            "red_kriteri": "Yeni/paketinde piller veya teslim noktası kanıtı olmayan fotoğraflar"
+          },
+          "kaynak_kodlari": ["TAP_MIIT_BATTERY"]
+        },
+        {
+          "aktivite_id": "ACT_303",
+          "etkinlik_basligi_ornek": "Mahalle Kağıt, Karton, Plastik ve Cam Geri Dönüşüm Ayrıştırma Etkinliği",
+          "bulusma_yeri_tipi": "Mahalle Mobil Atık Getirme Merkezi, Sokak/Park Geri Dönüşüm Noktası, Okul Bahçesi",
+          "ne_yapilacak_anahtar_kelimeler": ["kağıt geri dönüşümü", "karton toplama", "plastik atık", "cam şişe toplama", "sıfır atık"],
+          "su_etki_turu": "Mavi, Yeşil ve Gri Su (Endüstriyel Su Tüketimi Azaltımı, Su Kirliliği Önleme ve Ağaç Koruma)",
+          "fiziksel_birim": "50 kg Ayrıştırılmış Geri Dönüşüm Atığı (Örn: Kağıt/Karton ağırlıklı toplama)",
+          "su_kazanimi_metrikleri": {
+            "kagit_uretimi_su_kullanimi_azaltim_yuzde": 45.0,
+            "kagit_uretimi_su_kirliligi_azaltim_yuzde": 35.0,
+            "kagit_1_ton_kurtarilan_yetiskin_agac_adedi": 17,
+            "kagit_50_kg_kurtarilan_agac_adedi": 0.85,
+            "kurtarilan_agaclarin_dolayli_yillik_yagmur_tutumu_litre": 7658,
+            "plastik_1_ton_enerji_ve_petrol_tasarrufu": "5.774 kWh enerji (%80-%95 tasarruf), 16 varil petrol, 2.3-2.4 m3 (veya 23 m3) depolama alanı",
+            "cam_1_ton_petrol_tasarrufu_litre": 100
+          },
+          "ai_birim_puan_katsayisi": 25.0,
+          "ai_fotograf_dogrulama_kriterleri": {
+            "aranacak_nesneler": ["Mavi (kağıt/karton), sarı/diğer (plastik) veya yeşil (cam) geri dönüşüm kutuları/torbaları", "İstiflenmiş karton/kağıt balyaları veya ayrıştırılmış şeffaf atık poşetleri"],
+            "red_kriteri": "Karışık evsel çöp konteyneri fotoğrafı"
+          },
+          "kaynak_kodlari": ["CSB_SIFIR_ATIK_TEMA", "USDA_EPA_TREE"]
+        }
+      ]
+    },
+    {
+      "kategori_id": "KAT_04_TOPLULUK_GIDA_KURTARMA_VE_ATIKSIZ_ETKINLIK",
+      "kategori_adi": "Fiziksel Topluluk Gıda Kurtarma ve Tek Kullanımlık Atık Önleme Etkinlikleri",
+      "aktiviteler": [
+        {
+          "aktivite_id": "ACT_401",
+          "etkinlik_basligi_ornek": "Semt Pazarı Sonu Gıda ve Ekmek Kurtarma / Paylaşım Masası",
+          "bulusma_yeri_tipi": "Mahalle Semt Pazarı Çıkışı, Muhtarlık Paylaşım Noktası, Aşevi/Topluluk Mutfağı",
+          "ne_yapilacak_anahtar_kelimeler": ["pazar sonu gıda kurtarma", "meyve kurtarma", "ekmek israfı önleme", "paylaşım masası"],
+          "su_etki_turu": "Sanal Su (Yeşil, Mavi ve Gri Tarımsal Su Ayak İzi Korunumu)",
+          "fiziksel_birim": "10 kg Kurtarılan ve Paylaşılan Gıda (Ekmek veya Meyve)",
+          "su_kazanimi_metrikleri": {
+            "bugday_ekmegi_1_kg_su_ayak_izi_litre": 1600,
+            "elma_veya_armut_1_kg_su_ayak_izi_litre": 700,
+            "muz_1_kg_su_ayak_izi_litre": 860,
+            "sut_1_kg_su_ayak_izi_litre": 1000,
+            "sigir_eti_1_kg_su_ayak_izi_litre": 15500,
+            "ornek_10_kg_elma_armut_kurtarma_litre": 7000,
+            "ornek_10_kg_ekmek_kurtarma_litre": 16000
+          },
+          "ai_birim_puan_katsayisi": 30.0,
+          "ai_fotograf_dogrulama_kriterleri": {
+            "aranacak_nesneler": ["Pazar kasalarında ayrıştırılmış sağlam meyve/sebzeler veya fırın/paylaşım kasalarında ekmekler", "Topluluk paylaşım tezgahı ve gönüllüler"],
+            "red_kriteri": "Bireysel market alışverişi poşeti veya ev mutfağı fotoğrafı"
+          },
+          "kaynak_kodlari": ["WFN_HOEKSTRA_AWE"]
+        },
+        {
+          "aktivite_id": "ACT_402",
+          "etkinlik_basligi_ornek": "Mahalle Şenliği / İftar / Piknikte Tek Kullanımlık Tabak Yerine Çok Kullanımlık Servis Kullanımı",
+          "bulusma_yeri_tipi": "Mahalle Parkı, Sokak İftarı/Şenliği Alanı, Okul/Dernek Bahçesi",
+          "ne_yapilacak_anahtar_kelimeler": ["çok kullanımlık tabak", "tek kullanımlık plastik iptali", "atıksız şenlik", "topluluk sofrası"],
+          "su_etki_turu": "Sanal Su (Endüstriyel Üretim Suyu Önleme)",
+          "fiziksel_birim": "20 Kişilik Çok Kullanımlık Tabak Servisi (20 Adet Tek Kullanımlık Tabak İptali)",
+          "su_kazanimi_metrikleri": {
+            "tek_kullanimlik_1_tabak_uretim_suyu_litre": 19,
+            "birim_20_tabak_brut_uretim_tasarrufu_litre": 380
+          },
+          "ai_birim_puan_katsayisi": 20.0,
+          "ai_fotograf_dogrulama_kriterleri": {
+            "aranacak_nesneler": ["Topluluk masasında porselen/metal/çok kullanımlık tabaklar", "Toplu yemek/ikram alanı"],
+            "red_kriteri": "Plastik/köpük tabakların veya tek kullanımlık pet bardakların bulunduğu masa fotoğrafları"
+          },
+          "kaynak_kodlari": ["WFN_HOEKSTRA_AWE"]
+        }
+      ]
+    }
+  ]
+}
