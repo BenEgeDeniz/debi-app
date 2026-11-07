@@ -97,9 +97,11 @@ require_once __DIR__ . '/includes/header.php';
                                 Müstakil Ev
                             </option>
                         </select>
-                        <span class="field-hint">
-                            Bir apartmanın davet kodu ile apartmana bağlanmak isterseniz <a href="apartment.php">Apartmana Katıl</a> sayfasını kullanabilirsiniz.
-                        </span>
+                        <?php if (($currentUser['housing_type'] ?? '') !== 'detached_house'): ?>
+                            <span class="field-hint">
+                                Bir apartmanın davet kodu ile apartmana bağlanmak isterseniz <a href="apartment.php">Apartmana Katıl</a> sayfasını kullanabilirsiniz.
+                            </span>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
 

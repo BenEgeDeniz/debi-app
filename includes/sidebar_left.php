@@ -2,7 +2,8 @@
 /**
  * DEBI - Sol Navigasyon Sütunu (Masaüstü) & Alt Sabit Menü (Mobil)
  */
-$activeNav = $activeNav ?? 'feed';
+$activeNav      = $activeNav ?? 'feed';
+$isDetachedHome = !empty($currentUser) && ($currentUser['housing_type'] ?? '') === 'detached_house' && empty($currentUser['apartment_id']);
 ?>
 <aside class="sidebar-left">
     <nav class="side-nav" aria-label="Ana Menü">
@@ -18,11 +19,13 @@ $activeNav = $activeNav ?? 'feed';
             <span>Mahallem</span>
         </a>
 
-        <a href="apartment.php" class="side-nav-link <?= $activeNav === 'apartment' ? 'active' : '' ?>">
-            <span>
-                <?= !empty($currentUser['apartment_id']) ? 'Apartmanım' : 'Apartmana Katıl' ?>
-            </span>
-        </a>
+        <?php if (!$isDetachedHome): ?>
+            <a href="apartment.php" class="side-nav-link <?= $activeNav === 'apartment' ? 'active' : '' ?>">
+                <span>
+                    <?= !empty($currentUser['apartment_id']) ? 'Apartmanım' : 'Apartmana Katıl' ?>
+                </span>
+            </a>
+        <?php endif; ?>
 
         <a href="profile.php" class="side-nav-link <?= $activeNav === 'profile' ? 'active' : '' ?>">
             <span>Profil &amp; Hane</span>
@@ -53,7 +56,7 @@ $activeNav = $activeNav ?? 'feed';
                     </span>
                 </div>
                 <div class="meta-row">
-                    <span class="meta-label">Daire / Kişi</span>
+                    <span class="meta-label"><?= $isDetachedHome ? 'Hane / Kişi' : 'Daire / Kişi' ?></span>
                     <span class="meta-val"><?= e($currentUser['unit_label']) ?> (<?= (int) $currentUser['resident_count'] ?> kişi)</span>
                 </div>
             </div>
@@ -66,9 +69,9 @@ $activeNav = $activeNav ?? 'feed';
                         <button type="button" class="btn-copy" data-copy="<?= e($currentUser['apartment_invite_code']) ?>">Kopyala</button>
                     </div>
                 </div>
-            <?php else: ?>
+            <?php elseif (!$isDetachedHome): ?>
                 <div class="invite-mini-box">
-                    <span class="invite-mini-label">Bireysel Katılımcı</span>
+                    <span class="invite-mini-label">Bireysel Daire Katılımcısı</span>
                     <a href="apartment.php" class="link-subtle">Apartman davet kodunuz var mı? &rarr;</a>
                 </div>
             <?php endif; ?>
@@ -77,7 +80,7 @@ $activeNav = $activeNav ?? 'feed';
 </aside>
 
 <!-- Mobil Alt Sabit Menü -->
-<nav class="mobile-bottom-nav" aria-label="Mobil Menü">
+<nav class="mobile-bottom-nav <?= $isDetachedHome ? 'mobile-nav-4' : '' ?>" aria-label="Mobil Menü">
     <a href="index.php" class="mobile-nav-item <?= $activeNav === 'feed' ? 'active' : '' ?>">
         <span>Akış</span>
     </a>
@@ -87,9 +90,11 @@ $activeNav = $activeNav ?? 'feed';
     <a href="neighborhood.php" class="mobile-nav-item <?= $activeNav === 'neighborhood' ? 'active' : '' ?>">
         <span>Mahalle</span>
     </a>
-    <a href="apartment.php" class="mobile-nav-item <?= $activeNav === 'apartment' ? 'active' : '' ?>">
-        <span>Apartman</span>
-    </a>
+    <?php if (!$isDetachedHome): ?>
+        <a href="apartment.php" class="mobile-nav-item <?= $activeNav === 'apartment' ? 'active' : '' ?>">
+            <span>Apartman</span>
+        </a>
+    <?php endif; ?>
     <a href="profile.php" class="mobile-nav-item <?= $activeNav === 'profile' ? 'active' : '' ?>">
         <span>Profil</span>
     </a>

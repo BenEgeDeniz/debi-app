@@ -1111,6 +1111,10 @@ code {
     border-bottom: 2px solid var(--border-color);
 }
 
+.feed-tabs.feed-tabs-2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
 .feed-tab {
     padding: 12px 10px;
     text-align: center;
@@ -2585,6 +2589,10 @@ code {
         display: grid;
         grid-template-columns: repeat(5, 1fr);
         z-index: 60;
+    }
+
+    .mobile-bottom-nav.mobile-nav-4 {
+        grid-template-columns: repeat(4, 1fr);
     }
 
     .mobile-nav-item {
