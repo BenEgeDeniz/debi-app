@@ -145,6 +145,7 @@ function get_user_public_profile(int $userId): ?array
             h.housing_type,
             h.unit_label,
             h.resident_count,
+            h.owner_user_id AS household_owner_id,
             n.city AS neighborhood_city,
             n.district AS neighborhood_district,
             n.name AS neighborhood_name,

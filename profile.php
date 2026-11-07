@@ -92,12 +92,13 @@ $relation      = get_friendship_relation((int) $currentUser['id'], (int) $profil
 $friendCount   = count_user_friends((int) $profileUser['id']);
 $timelinePosts = get_user_timeline_posts($profileUser, $currentUser);
 
-$pageTitle = $profileUser['full_name'] . ' — Zaman Tüneli — Debi';
-$activeNav = $isOwnProfile ? 'profile' : 'friends';
+$pageTitle       = $profileUser['full_name'] . ' — Zaman Tüneli — Debi';
+$activeNav       = $isOwnProfile ? 'profile' : 'friends';
+$profileUnitName = format_unit_label($profileUser['unit_label'] ?? '', $profileUser['housing_type'] ?? 'apartment_unit');
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<div class="app-shell">
+<div class="app-shell app-shell-2col">
     <?php require_once __DIR__ . '/includes/sidebar_left.php'; ?>
 
     <main class="main-column">
@@ -115,17 +116,22 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="profile-title-row">
                             <h1 class="page-title"><?= e($profileUser['full_name']) ?></h1>
                             <?php if ($profileUser['role'] === 'manager'): ?>
-                                <span class="tag tag-manager">Apartman Yöneticisi</span>
+                                <span class="role-badge role-badge-apt">🏢 Apartman Yöneticisi</span>
+                            <?php endif; ?>
+                            <?php if (is_unit_manager($profileUser)): ?>
+                                <span class="role-badge role-badge-unit">🏠 <?= e($profileUnitName) ?> Yöneticisi</span>
+                            <?php else: ?>
+                                <span class="role-badge role-badge-resident">👤 <?= e($profileUnitName) ?> Sakini</span>
                             <?php endif; ?>
                         </div>
 
                         <p class="page-subtitle">
                             <?= e($profileUser['neighborhood_district'] . ' / ' . $profileUser['neighborhood_city']) ?>
-                            ·
+                            &middot;
                             <?php if (!empty($profileUser['apartment_id'])): ?>
-                                <strong><?= e($profileUser['apartment_name']) ?></strong> (<?= e($profileUser['unit_label']) ?>)
+                                <strong><?= e($profileUser['apartment_name']) ?></strong> &middot; <?= e($profileUnitName) ?>
                             <?php else: ?>
-                                <strong><?= e(housing_type_label($profileUser['housing_type'])) ?></strong> (<?= e($profileUser['unit_label']) ?>)
+                                <strong><?= e($profileUnitName) ?></strong>
                             <?php endif; ?>
                         </p>
 
@@ -438,8 +444,6 @@ require_once __DIR__ . '/includes/header.php';
             </div>
         <?php endif; ?>
     </main>
-
-    <?php require_once __DIR__ . '/includes/sidebar_right.php'; ?>
 </div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

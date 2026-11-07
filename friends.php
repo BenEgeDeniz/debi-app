@@ -57,7 +57,7 @@ $activeNav = 'friends';
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<div class="app-shell">
+<div class="app-shell app-shell-2col">
     <?php require_once __DIR__ . '/includes/sidebar_left.php'; ?>
 
     <main class="main-column">
@@ -216,8 +216,6 @@ require_once __DIR__ . '/includes/header.php';
             <?php endif; ?>
         </section>
     </main>
-
-    <?php require_once __DIR__ . '/includes/sidebar_right.php'; ?>
 </div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

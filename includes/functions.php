@@ -222,3 +222,18 @@ function is_unit_manager(array $user): bool
     return $ownerId === 0 || $ownerId === (int) ($user['id'] ?? 0);
 }
 
+/**
+ * Daire / Hane etiketini okunaklı hale getirir (Örn: "5" -> "Daire 5")
+ */
+function format_unit_label(?string $label, string $housingType = 'apartment_unit'): string
+{
+    $label = trim((string) $label);
+    if ($label === '') {
+        return $housingType === 'detached_house' ? 'Müstakil Ev' : 'Daire';
+    }
+    if (preg_match('/^\d+$/', $label)) {
+        return ($housingType === 'detached_house' ? 'No: ' : 'Daire ') . $label;
+    }
+    return $label;
+}
+

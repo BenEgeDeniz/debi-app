@@ -102,9 +102,9 @@ require_once __DIR__ . '/includes/header.php';
                     </a>
                     <span>
                         <?php if (!empty($currentUser['apartment_id'])): ?>
-                            <?= e($currentUser['apartment_name']) ?> (<?= e($currentUser['unit_label']) ?>)
+                            <?= e($currentUser['apartment_name']) ?> &middot; <?= e(format_unit_label($currentUser['unit_label'])) ?>
                         <?php else: ?>
-                            <?= e(housing_type_label($currentUser['housing_type'])) ?>
+                            <?= e(format_unit_label($currentUser['unit_label'], $currentUser['housing_type'])) ?>
                         <?php endif; ?>
                     </span>
                 </div>
@@ -212,9 +212,9 @@ require_once __DIR__ . '/includes/header.php';
                                         </div>
                                         <div class="post-location-line">
                                             <?php if (!empty($post['post_apartment'])): ?>
-                                                <strong><?= e($post['post_apartment']) ?></strong> (<?= e($post['unit_label']) ?>)
+                                                <strong><?= e($post['post_apartment']) ?></strong> &middot; <?= e(format_unit_label($post['unit_label'])) ?>
                                             <?php else: ?>
-                                                <span><?= e(housing_type_label($post['housing_type'])) ?></span>
+                                                <span><?= e(format_unit_label($post['unit_label'], $post['housing_type'])) ?></span>
                                             <?php endif; ?>
                                             · <time><?= e(time_ago($post['created_at'])) ?></time>
                                         </div>
