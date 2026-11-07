@@ -6,7 +6,7 @@ function get_event_criteria_context(string $title, string $description): array
     $path = __DIR__ . '/../../criteria.json';
     $criteria = is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
     if (!is_array($criteria)) {
-        return ['prompt' => '', 'sources' => 'criteria.json okunamadı'];
+        return ['prompt' => '', 'sources' => 'Genel su tasarrufu ve çevre etkisi kriterleri'];
     }
 
     $text = mb_strtolower($title . ' ' . $description, 'UTF-8');
@@ -53,12 +53,14 @@ function get_event_criteria_context(string $title, string $description): array
     $sourceLines = [];
     foreach (array_keys($sourceCodes) as $code) {
         $reference = $references[$code] ?? [];
-        $sourceLines[] = $code . ': ' . ($reference['kurum_ve_yayin'] ?? '') . ' — ' . ($reference['metrik_kapsami'] ?? '');
+        if (!empty($reference['kurum_ve_yayin'])) {
+            $sourceLines[] = $reference['kurum_ve_yayin'];
+        }
     }
 
     return [
         'prompt' => implode("\n", $activityLines),
-        'sources' => implode("\n", $sourceLines),
+        'sources' => implode("\n", array_unique($sourceLines)),
     ];
 }
 
@@ -80,10 +82,10 @@ Açıklama: {$description}
 Tarih: {$date}
 Başlangıç: {$startTime}
 Etkinlik, oluşturucu tarafından fiziksel çalışma tamamlandığında bitirilecek.
-criteria.json içindeki aşağıdaki aktivite, metrik ve katsayıları puanlama için temel al:
+Aşağıdaki bilimsel aktivite, metrik ve katsayı özetlerini puanlama için temel al:
 {$criteria['prompt']}
 Kriterleri birebir uygulamak zorunda değilsin; etkinliğin kapsamına göre makul çıkarımlar yapabilirsin. 5 ile 100 arasında adil bir tam sayı puan belirle ve gerekçende hangi fiziksel katkıyı esas aldığını kısaca belirt.
-Yanıtı yalnızca JSON ver: {"points": number, "reason": "Türkçe, en fazla iki cümlelik gerekçe", "criteria_sources": "Kısa kaynak kodu ve kurum/yayın özeti"}.
+Yanıtı yalnızca JSON ver: {"points": number, "reason": "Türkçe, tek kısa cümlelik gerekçe", "criteria_sources": "Kısa ve kullanıcı dostu kurum/yayın özeti"}.
 PROMPT;
 
     $payload = [
@@ -122,7 +124,7 @@ PROMPT;
     if ($httpCode >= 400 || $points < 5 || $points > 100 || $reason === '') {
         return ['ok' => true, 'points' => $fallbackPoints, 'reason' => $fallbackReason, 'criteria_sources' => $criteria['sources'], 'ai_used' => false];
     }
-    return ['ok' => true, 'points' => $points, 'reason' => $reason, 'criteria_sources' => trim((string) ($result['criteria_sources'] ?? $criteria['sources'])), 'ai_used' => true];
+    return ['ok' => true, 'points' => $points, 'reason' => $reason, 'criteria_sources' => $criteria['sources'], 'ai_used' => true];
 }
 
 function verify_event_photo_with_ai(string $fullPath, string $title, string $description): array

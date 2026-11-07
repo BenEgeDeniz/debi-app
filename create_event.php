@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($result['ok']) {
             set_flash(
                 'success',
-                'Etkinlik oluşturuldu. AI puanı: ' . $result['ai']['points'] . ' DP. Gerekçe: ' . $result['ai']['reason']
+                'Etkinlik oluşturuldu · ' . $result['ai']['points'] . ' DP'
             );
             redirect('events.php');
         }

@@ -46,6 +46,14 @@ document.addEventListener('DOMContentLoaded', function () {
             const originalLabel = btn.textContent;
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(text).then(function () {
+                    document.querySelectorAll('.alert').forEach(function (alert) {
+                        window.setTimeout(function () {
+                            alert.classList.add('is-dismissing');
+                            window.setTimeout(function () {
+                                if (alert.parentNode) alert.remove();
+                            }, 220);
+                        }, 5000);
+                    });
                     btn.textContent = 'Kopyalandı';
                     setTimeout(function () {
                         btn.textContent = originalLabel;
@@ -834,6 +842,12 @@ document.addEventListener('DOMContentLoaded', function () {
             alert.className = 'alert alert-error ajax-form-error';
             alert.textContent = message;
             form.insertBefore(alert, form.firstChild);
+            window.setTimeout(function () {
+                alert.classList.add('is-dismissing');
+                window.setTimeout(function () {
+                    if (alert.parentNode) alert.remove();
+                }, 220);
+            }, 5000);
         };
 
         fetch(actionUrl.href, {
@@ -872,6 +886,12 @@ document.addEventListener('DOMContentLoaded', function () {
                         const flashAlert = inlineFlash.cloneNode(true);
                         flashAlert.classList.add(inlineFlash.classList.contains('alert-error') ? 'ajax-form-error' : 'ajax-form-success');
                         updatedMain.insertBefore(flashAlert, updatedMain.firstChild);
+                        window.setTimeout(function () {
+                            flashAlert.classList.add('is-dismissing');
+                            window.setTimeout(function () {
+                                if (flashAlert.parentNode) flashAlert.remove();
+                            }, 220);
+                        }, 5000);
                     }
                 }
                 mainColumn.replaceWith(updatedMain);

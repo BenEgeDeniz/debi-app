@@ -75,7 +75,7 @@ function render_event_card(array $event, array $currentUser, array $managedAtten
         <?php if (!empty($event['criteria_sources'])): ?>
             <details class="event-reason">
                 <summary>Puanlama kaynakları</summary>
-                <p><?= nl2br(e($event['criteria_sources'])) ?></p>
+                <p><?= nl2br(e(str_replace('criteria.json', 'Bilimsel kaynaklar', (string) $event['criteria_sources']))) ?></p>
             </details>
         <?php endif; ?>
 
