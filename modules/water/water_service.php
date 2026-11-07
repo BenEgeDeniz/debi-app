@@ -185,9 +185,9 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
         }
 
         $stmt = $pdo->prepare("
-            SELECT id, user_id, period_year, period_month, consumption_m3,
+            SELECT id, user_id, period_year, period_month, consumption_m3, created_at,
                    previous_consumption_m3, saved_m3, saved_liters, saving_pct, earned_points, ai_verified,
-                   review_status
+                   review_status, points_credited
             FROM water_logs
             WHERE household_id = :hid
             ORDER BY period_year ASC, period_month ASC
@@ -270,11 +270,12 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
                 ]);
             }
 
-            if ($earnedPoints > 0) {
+            if ($earnedPoints > 0 && (int) ($cur['points_credited'] ?? 0) === 0) {
                 $targetUid = $userId > 0 ? $userId : (int) ($cur['user_id'] ?? 0);
                 if ($targetUid > 0) {
                     $mLabel = turkish_month_name((int) $cur['period_month']) . ' ' . (int) $cur['period_year'];
                     $invoicePointRows[] = [
+                        'log_id'  => (int) $cur['id'],
                         'user_id' => $targetUid,
                         'year'    => (int) $cur['period_year'],
                         'month'   => (int) $cur['period_month'],
@@ -302,19 +303,18 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
         }
 
         $pdo->beginTransaction();
-        // point_logs yalnızca audit/idempotency kaydıdır. Bakiye kaynağı
-        // households.total_points'tir; mevcut kayıtlar asla geri alınmaz.
-        $existingLogsStmt = $pdo->prepare("
-            SELECT ref_key
-            FROM point_logs
-            WHERE household_id = :hid AND action_code = 'bill_drops_earned'
+        // Puan kararı yalnızca water_logs.points_credited ve hane bakiyesiyle
+        // verilir. point_logs yalnızca sonradan görüntülenebilecek audit kaydıdır.
+        $creditMarkerStmt = $pdo->prepare("
+            UPDATE water_logs
+            SET points_credited = 1
+            WHERE id = :id AND points_credited = 0
         ");
-        $existingLogsStmt->execute([':hid' => $householdId]);
-        $existingLogs = [];
-        foreach ($existingLogsStmt->fetchAll() as $existingLog) {
-            $existingLogs[(string) $existingLog['ref_key']] = true;
-        }
-        $pointDelta = 0;
+        $creditBalanceStmt = $pdo->prepare("
+            UPDATE households
+            SET total_points = total_points + :points
+            WHERE id = :hid
+        ");
         $insertLogStmt = $pdo->prepare("
             INSERT INTO point_logs (
                 user_id, household_id, action_code, points, description, ref_key
@@ -323,10 +323,15 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
             )
         ");
         foreach ($invoicePointRows as $pointRow) {
-            $refKey = 'bill_drops_' . $pointRow['year'] . '_' . $pointRow['month'];
-            if (isset($existingLogs[$refKey])) {
+            $refKey = 'bill_drops_log_' . $pointRow['log_id'];
+            $creditMarkerStmt->execute([':id' => $pointRow['log_id']]);
+            if ($creditMarkerStmt->rowCount() !== 1) {
                 continue;
             }
+            $creditBalanceStmt->execute([
+                ':points' => $pointRow['points'],
+                ':hid' => $householdId,
+            ]);
             $insertLogStmt->execute([
                 ':uid'         => $pointRow['user_id'],
                 ':hid'         => $householdId,
@@ -334,17 +339,7 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
                 ':description' => $pointRow['label'],
                 ':ref_key'     => $refKey,
             ]);
-            $existingLogs[$refKey] = true;
-            $pointDelta += $pointRow['points'];
         }
-        $pdo->prepare("
-            UPDATE households
-            SET total_points = GREATEST(0, total_points + :point_delta)
-            WHERE id = :hid
-        ")->execute([
-            ':point_delta' => $pointDelta,
-            ':hid'         => $householdId,
-        ]);
 
         $pdo->commit();
 
