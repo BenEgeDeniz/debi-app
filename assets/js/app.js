@@ -788,4 +788,157 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }
+
+    // 13. Akış Kompozitör Modu (Gönderi / Etkinlik Oluştur)
+    const composerTypeBtns = document.querySelectorAll('.js-composer-type');
+    const postComposerBox  = document.getElementById('postComposerBox');
+    const eventComposerBox = document.getElementById('eventComposerBox');
+
+    if (composerTypeBtns.length > 0 && postComposerBox && eventComposerBox) {
+        composerTypeBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const target = btn.getAttribute('data-target');
+                composerTypeBtns.forEach(function (b) {
+                    b.classList.toggle('active', b === btn);
+                });
+                postComposerBox.style.display  = (target === 'postComposerBox') ? '' : 'none';
+                eventComposerBox.style.display = (target === 'eventComposerBox') ? '' : 'none';
+            });
+        });
+    }
+
+    // 14. Etkinlik RSVP (Katılacağım / Vazgeç) AJAX Desteği
+    const rsvpForms = document.querySelectorAll('.event-rsvp-form');
+    rsvpForms.forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const btn = form.querySelector('button[type="submit"]');
+
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (data && data.ok) {
+                    if (data.attending) {
+                        btn.classList.remove('btn-outline');
+                        btn.classList.add('btn-primary');
+                        btn.textContent = '✓ Katılıyorsun (Vazgeç)';
+                    } else {
+                        btn.classList.remove('btn-primary');
+                        btn.classList.add('btn-outline');
+                        btn.textContent = '+ Katılacağım';
+                    }
+
+                    // Katılımcı sayısını güncelle
+                    const card = form.closest('.event-feed-card');
+                    if (card && typeof data.count !== 'undefined') {
+                        const countEl = card.querySelector('.attendees-count-text strong');
+                        if (countEl) countEl.textContent = data.count;
+                    }
+                }
+            })
+            .catch(function () {
+                form.submit();
+            });
+        });
+    });
+
+    // 15. Canlı Etkinlik Sohbeti AJAX Gönderimi
+    const liveChatForm     = document.getElementById('liveChatForm');
+    const liveChatMessages = document.getElementById('liveChatMessages');
+    const liveChatInput    = document.getElementById('liveChatInput');
+
+    if (liveChatForm && liveChatMessages && liveChatInput) {
+        liveChatMessages.scrollTop = liveChatMessages.scrollHeight;
+
+        liveChatForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const text = liveChatInput.value.trim();
+            if (!text) return;
+
+            const formData = new FormData(liveChatForm);
+
+            fetch(liveChatForm.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (data && data.ok) {
+                    liveChatInput.value = '';
+                    const emptyNote = document.getElementById('emptyChatNote');
+                    if (emptyNote) emptyNote.remove();
+
+                    const safeName = (data.user_name || 'Ben').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const safeTime = (data.time_ago || 'Az önce').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const safeText = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = 'live-chat-msg is-me';
+                    msgDiv.innerHTML = `
+                        <div class="avatar avatar-xs" style="background-color: ${data.avatar_color || '#1b5670'}">
+                            ${data.avatar_photo ? `<img src="${data.avatar_photo}" alt="">` : `<span>${safeName.charAt(0).toUpperCase()}</span>`}
+                        </div>
+                        <div class="live-msg-content">
+                            <div class="live-msg-header">
+                                <strong>${safeName}</strong>
+                                <time>${safeTime}</time>
+                            </div>
+                            <div class="live-msg-text">${safeText}</div>
+                        </div>
+                    `;
+                    liveChatMessages.appendChild(msgDiv);
+                    liveChatMessages.scrollTop = liveChatMessages.scrollHeight;
+                }
+            })
+            .catch(function () {
+                liveChatForm.submit();
+            });
+        });
+    }
+
+    // 16. Yoklama Alma AJAX Desteği
+    const yoklamaForms = document.querySelectorAll('.yoklama-toggle-form');
+    yoklamaForms.forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const btn      = form.querySelector('button[type="submit"]');
+            const item     = form.closest('.yoklama-item');
+
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (data && data.ok) {
+                    if (data.attended) {
+                        btn.className = 'btn btn-sm yoklama-btn btn-attended';
+                        btn.textContent = '✓ Geldi';
+                        if (item) item.classList.add('is-attended');
+                    } else {
+                        btn.className = 'btn btn-sm yoklama-btn btn-outline';
+                        btn.textContent = 'Katılmadı';
+                        if (item) item.classList.remove('is-attended');
+                    }
+                }
+            })
+            .catch(function () {
+                form.submit();
+            });
+        });
+    });
 });

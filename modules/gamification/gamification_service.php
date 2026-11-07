@@ -93,6 +93,15 @@ function ensure_gamification_schema(): void
             }
         }
 
+        // 9. 103_events_and_ai_rewards.sql kontrolü (events, event_participants, event_messages)
+        $hasEventsTable = (bool) $pdo->query("SHOW TABLES LIKE 'events'")->fetchColumn();
+        if (!$hasEventsTable) {
+            $sql103 = __DIR__ . '/../../sql-dum/103_events_and_ai_rewards.sql';
+            if (file_exists($sql103)) {
+                run_sql_migration_file($pdo, $sql103);
+            }
+        }
+
         // Mevcut hanelerde owner_user_id veya unit_invite_code eksikse otomatik tamamla
         $pdo->exec("
             UPDATE households h
