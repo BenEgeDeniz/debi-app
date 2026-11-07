@@ -8,13 +8,33 @@ const DEBI_MIGRATION_TABLE = 'debi_migrations';
 /**
  * Migration klasöründeki SQL dosyalarını artan dosya adına göre uygular.
  */
-function run_database_migrations(PDO $pdo): array
+function run_database_migrations(
+    PDO $pdo,
+    ?int $from = null,
+    ?int $to = null,
+    bool $force = false
+): array
 {
+    if (!$force) {
+        throw new RuntimeException(
+            'Migration çalıştırmak için açıkça force seçeneği gereklidir.'
+        );
+    }
     $migrationDir = __DIR__ . '/../../sql-dum';
     $migrations = discover_database_migrations($migrationDir);
     ensure_migration_repository($pdo);
 
     $applied = load_applied_migrations($pdo);
+    if ($from !== null) {
+        foreach ($migrations as $migration) {
+            if ($migration['number'] >= $from || isset($applied[$migration['name']])) {
+                continue;
+            }
+            throw new RuntimeException(
+                "Sıra atlanamaz: {$migration['name']} önce uygulanmalı."
+            );
+        }
+    }
     $nextBatch = next_migration_batch($pdo);
     $results = [];
     $batchStarted = false;
@@ -22,11 +42,17 @@ function run_database_migrations(PDO $pdo): array
     foreach ($migrations as $migration) {
         $name = $migration['name'];
         $checksum = $migration['checksum'];
+        $number = $migration['number'];
+
+        if (($from !== null && $number < $from) || ($to !== null && $number > $to)) {
+            $results[] = ['file' => $name, 'status' => 'out-of-range'];
+            continue;
+        }
 
         if (isset($applied[$name])) {
             if (!hash_equals($applied[$name]['checksum'], $checksum)) {
                 throw new RuntimeException(
-                    "Uygulanmış migration değiştirilemez: {$name}"
+                    "Uygulanmış migration değiştirilemez: {$name}. Yeni sıra numarasıyla yeni dosya oluşturun."
                 );
             }
             $results[] = ['file' => $name, 'status' => 'skipped'];
@@ -67,6 +93,7 @@ function get_database_migration_status(PDO $pdo): array
         $name = $migration['name'];
         $status[] = [
             'file' => $name,
+            'number' => $migration['number'],
             'status' => isset($applied[$name]) ? 'applied' : 'pending',
             'checksum_changed' => isset($applied[$name])
                 && !hash_equals($applied[$name]['checksum'], $migration['checksum']),
@@ -89,15 +116,35 @@ function discover_database_migrations(string $migrationDir): array
 
     sort($paths, SORT_STRING);
     $migrations = [];
+    $numbers = [];
     foreach ($paths as $path) {
+        $name = basename($path);
+        $number = migration_number($name);
+        if (isset($numbers[$number])) {
+            throw new RuntimeException(
+                "Aynı sıra numarasını kullanan migration'lar var: {$numbers[$number]} ve {$name}"
+            );
+        }
+        $numbers[$number] = $name;
         $migrations[] = [
-            'name' => basename($path),
+            'name' => $name,
+            'number' => $number,
             'path' => $path,
             'checksum' => hash_file('sha256', $path),
         ];
     }
 
     return $migrations;
+}
+
+function migration_number(string $name): int
+{
+    if (!preg_match('/^(\d+)_.*\.sql$/', $name, $matches)) {
+        throw new RuntimeException(
+            "Migration dosya adı sıra_no_aciklama.sql biçiminde olmalı: {$name}"
+        );
+    }
+    return (int) $matches[1];
 }
 
 function ensure_migration_repository(PDO $pdo): void
