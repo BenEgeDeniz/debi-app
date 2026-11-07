@@ -7,6 +7,8 @@ require_once __DIR__ . '/modules/water/water_service.php';
 require_once __DIR__ . '/modules/water/bill_ai_service.php';
 
 $currentUser     = require_login();
+$demoMode        = isset($_GET['demo']) || isset($_POST['demo']);
+$waterRedirect   = $demoMode ? 'water.php?demo' : 'water.php';
 $scanResult      = null;
 $pondCelebration = $_SESSION['pond_celebration'] ?? null;
 unset($_SESSION['pond_celebration']);
@@ -14,7 +16,7 @@ unset($_SESSION['pond_celebration']);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf()) {
         set_flash('error', 'Güvenlik doğrulaması başarısız oldu.');
-        redirect('water.php');
+        redirect($waterRedirect);
     }
 
     $action = $_POST['action'] ?? '';
@@ -25,17 +27,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $res  = analyze_water_bill_image($file);
         if (!$res['ok']) {
             set_flash('error', $res['error']);
-            redirect('water.php');
+            redirect($waterRedirect);
         }
         $allowedPeriod = get_next_water_period($currentUser);
         $scannedPeriod = ((int) ($res['extracted']['period_year'] ?? 0) * 12)
             + (int) ($res['extracted']['period_month'] ?? 0);
         $allowedPeriodNumber = ($allowedPeriod['year'] * 12) + $allowedPeriod['month'];
-        if ($scannedPeriod > 0 && $scannedPeriod !== $allowedPeriodNumber) {
+        if (!$demoMode && $scannedPeriod > 0 && $scannedPeriod !== $allowedPeriodNumber) {
             set_flash('error', 'Bu fatura dönemi yükleme sırasına uygun değil. Yalnızca '
                 . turkish_month_name($allowedPeriod['month']) . ' ' . $allowedPeriod['year']
                 . ' faturası yüklenebilir.');
-            redirect('water.php');
+            redirect($waterRedirect);
         }
         $scanResult = $res;
         if (!empty($res['ai_used'])) {
@@ -86,6 +88,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $_POST['ai_verified'] = $aiUnmodified ? 1 : 0;
         $_POST['ai_used'] = !empty($aiScan['ai_used']) ? 1 : 0;
+        if ($demoMode) {
+            $_POST['demo'] = 1;
+        }
         $res = save_water_log($currentUser, $_POST);
 
         if ($res['ok']) {
@@ -116,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 set_flash('success', $msg);
             }
-            redirect('water.php');
+            redirect($waterRedirect);
         } else {
             set_flash('error', $res['error']);
             $scanResult = [
@@ -205,7 +210,7 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     <?php endif; ?>
 
-                    <form method="post" action="water.php" class="form-stack bill-confirm-form" id="billConfirmForm"
+                            <form method="post" action="water.php" class="form-stack bill-confirm-form" id="billConfirmForm"
                           data-residents="<?= $residentCnt ?>"
                           data-ai-used="<?= $aiWasUsed ? '1' : '0' ?>"
                           data-ai-month="<?= (int) $ext['period_month'] ?>"
@@ -216,6 +221,7 @@ require_once __DIR__ . '/includes/header.php';
                           data-ai-bill="<?= e((string) $ext['bill_amount']) ?>">
                         <?= csrf_field() ?>
                         <input type="hidden" name="action" value="confirm_bill">
+                        <?php if ($demoMode): ?><input type="hidden" name="demo" value="1"><?php endif; ?>
                         <input type="hidden" name="bill_image_path" value="<?= e($scanResult['bill_image_path'] ?? '') ?>">
 
                         <div class="form-grid-3">
@@ -230,7 +236,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <label for="period_month">Ay</label>
                                 <select id="period_month" name="period_month">
                                     <?php for ($m = 1; $m <= 12; $m++): ?>
-                                        <?php if ($m !== $nextWaterPeriod['month']): continue; endif; ?>
+                                        <?php if (!$demoMode && $m !== $nextWaterPeriod['month']): continue; endif; ?>
                                         <option value="<?= $m ?>" <?= $m === (int) $ext['period_month'] ? 'selected' : '' ?>>
                                             <?= e(turkish_month_name($m)) ?>
                                         </option>
@@ -241,7 +247,13 @@ require_once __DIR__ . '/includes/header.php';
                             <div class="form-group">
                                 <label for="period_year">Yıl</label>
                                 <select id="period_year" name="period_year">
-                                    <option value="<?= $nextWaterPeriod['year'] ?>" selected><?= $nextWaterPeriod['year'] ?></option>
+                                    <?php if ($demoMode): ?>
+                                        <?php for ($y = 2020; $y <= 2035; $y++): ?>
+                                            <option value="<?= $y ?>" <?= $y === (int) ($ext['period_year'] ?: $nextWaterPeriod['year']) ? 'selected' : '' ?>><?= $y ?></option>
+                                        <?php endfor; ?>
+                                    <?php else: ?>
+                                        <option value="<?= $nextWaterPeriod['year'] ?>" selected><?= $nextWaterPeriod['year'] ?></option>
+                                    <?php endif; ?>
                                 </select>
                             </div>
                         </div>
@@ -312,6 +324,7 @@ require_once __DIR__ . '/includes/header.php';
                 <form method="post" action="water.php" enctype="multipart/form-data" class="bill-upload-form" id="billScanForm">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="scan_bill">
+                    <?php if ($demoMode): ?><input type="hidden" name="demo" value="1"><?php endif; ?>
 
                     <label for="bill_image_input" class="bill-dropzone" id="billDropzone">
                         <input type="file" id="bill_image_input" name="bill_image" class="bill-file-input"
@@ -319,7 +332,7 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="bill-dropzone-content" id="billDropzoneText">
                             <div class="bill-dropzone-icon">📷</div>
                             <strong>Fatura Fotoğrafı Seç</strong>
-                            <span><?= e(turkish_month_name($nextWaterPeriod['month']) . ' ' . $nextWaterPeriod['year']) ?> faturası · aylar sırayla yüklenir</span>
+                            <span><?= $demoMode ? 'Demo modu: herhangi bir fatura dönemi seçilebilir' : e(turkish_month_name($nextWaterPeriod['month']) . ' ' . $nextWaterPeriod['year']) . ' faturası · aylar sırayla yüklenir' ?></span>
                         </div>
                         <div class="bill-selected-preview" id="billSelectedPreview" hidden>
                             <img id="billPreviewImg" src="" alt="">
