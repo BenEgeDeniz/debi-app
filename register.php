@@ -13,36 +13,40 @@ if ($currentUser) {
 }
 
 $inviteLookup = null;
+$error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'lookup_invite') {
-    header('Content-Type: application/json; charset=utf-8');
     if (!verify_csrf()) {
-        http_response_code(400);
-        echo json_encode(['ok' => false, 'error' => 'Oturum doğrulaması başarısız.']);
-        exit;
-    }
-    try {
+        $error = 'Oturum doğrulaması başarısız oldu, lütfen sayfayı yenileyip tekrar deneyin.';
+    } else {
         $lookup = lookup_registration_invite((string) ($_POST['invite_code'] ?? ''));
-        if ($lookup['ok']) {
+        if (!$lookup['ok']) {
+            $error = $lookup['error'];
+            $prefillInvite = strtoupper(trim((string) ($_POST['invite_code'] ?? '')));
+        } else {
             $_SESSION['registration_invite_code'] = strtoupper(trim((string) $_POST['invite_code']));
+            $_SESSION['registration_invite_type'] = $lookup['type'];
+            redirect('register.php?mode=apartment_invite');
         }
-        echo json_encode($lookup);
-    } catch (Throwable $exception) {
-        http_response_code(500);
-        echo json_encode(['ok' => false, 'error' => 'Davet kodu sorgulanamadı.']);
     }
-    exit;
 }
 
-$error = null;
 $mode  = $_POST['register_mode'] ?? ($_GET['mode'] ?? 'individual');
 if (!in_array($mode, ['individual', 'apartment_invite', 'apartment_manager'], true)) {
     $mode = 'individual';
 }
 
-$prefillInvite = strtoupper(trim($_GET['code'] ?? ($_POST['invite_code'] ?? '')));
+$prefillInvite = strtoupper(trim(
+    $_GET['code']
+    ?? ($_POST['invite_code'] ?? ($_SESSION['registration_invite_code'] ?? ''))
+));
 if ($prefillInvite !== '' && !isset($_POST['register_mode'])) {
     $mode = 'apartment_invite';
 }
+
+$inviteVerified = $mode === 'apartment_invite'
+    && !empty($_SESSION['registration_invite_code'])
+    && $_SESSION['registration_invite_code'] === $prefillInvite;
+$inviteType = $_SESSION['registration_invite_type'] ?? null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf()) {
@@ -55,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $res = register_user($_POST);
         if ($res['ok']) {
+            unset($_SESSION['registration_invite_code'], $_SESSION['registration_invite_type']);
             session_regenerate_id(true);
             $_SESSION['user_id'] = $res['user_id'];
             set_flash('success', 'Debi ağına hoş geldiniz! Hane ve mahalle bağlantınız oluşturuldu.');
@@ -95,9 +100,29 @@ require_once __DIR__ . '/includes/header.php';
             <div class="alert alert-error"><?= e($error) ?></div>
         <?php endif; ?>
 
+        <?php if ($mode === 'apartment_invite' && !$inviteVerified): ?>
+            <form method="post" action="register.php" class="form-stack" id="inviteGateForm">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="lookup_invite">
+                <input type="hidden" name="register_mode" value="apartment_invite">
+                <div class="form-section">
+                    <h3 class="form-section-title">Davet kodunuzu girin</h3>
+                    <div class="form-group">
+                        <label for="invite_gate_code">Davet Kodu</label>
+                        <input type="text" id="invite_gate_code" name="invite_code"
+                               value="<?= e($prefillInvite) ?>"
+                               placeholder="DEBI-... veya DAIRE-..." required autofocus>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Devam</button>
+            </form>
+        <?php elseif ($mode !== 'apartment_invite' || $inviteVerified): ?>
         <form method="post" action="register.php" class="form-stack" id="registerForm">
             <?= csrf_field() ?>
             <input type="hidden" name="register_mode" id="registerModeInput" value="<?= e($mode) ?>">
+            <?php if ($mode === 'apartment_invite'): ?>
+                <input type="hidden" name="invite_code" value="<?= e($prefillInvite) ?>">
+            <?php endif; ?>
 
             <!-- Ortak Kişisel Bilgiler -->
             <div class="form-section">
@@ -115,15 +140,29 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
 
+                <?php if ($mode === 'apartment_invite' && $inviteType === 'manager'): ?>
+                    <div class="form-section">
+                        <h3 class="form-section-title">Daire Yöneticisi Bilgileri</h3>
+                        <div class="form-group">
+                            <label for="invite_unit_label">Daire Numaranız</label>
+                            <input type="text" id="invite_unit_label" name="unit_label"
+                                   value="<?= e($_POST['unit_label'] ?? '') ?>"
+                                   placeholder="Örn: Daire 5" required>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
                 <div class="form-grid-2">
                     <div class="form-group">
                         <label for="password">Şifre (Min. 6 karakter)</label>
                         <input type="password" id="password" name="password" required placeholder="••••••">
                     </div>
-                    <div class="form-group" id="residentCountGroup">
+                    <div class="form-group" id="residentCountGroup"
+                         <?= $mode === 'apartment_invite' ? 'hidden' : '' ?>>
                         <label for="resident_count">Hanedeki Kişi Sayısı</label>
                         <input type="number" id="resident_count" name="resident_count" min="1" max="20" required
-                               value="<?= e($_POST['resident_count'] ?? '3') ?>">
+                               value="<?= e($_POST['resident_count'] ?? '3') ?>"
+                               <?= $mode === 'apartment_invite' ? 'disabled' : '' ?>>
                     </div>
                 </div>
             </div>
@@ -211,27 +250,6 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </div>
 
-            <!-- MOD 2: Davet Kodu ile Apartmana veya Daireye Katılım Alanları -->
-            <div class="form-section mode-specific" data-mode-box="apartment_invite"
-                 style="<?= $mode === 'apartment_invite' ? '' : 'display:none;' ?>">
-                <h3 class="form-section-title">Davet Kodu</h3>
-                <div class="form-grid-2">
-                    <div class="form-group">
-                        <label for="invite_code">Apartman (DEBI-...) veya Daire (DAIRE-...) Kodu</label>
-                        <input type="text" id="invite_code" name="invite_code"
-                               value="<?= e($prefillInvite) ?>" placeholder="Örn: DEBI-7K4M2 veya DAIRE-9P2X4">
-                    </div>
-                    <div class="form-group" id="inviteTargetBox" hidden>
-                        <label for="inv_unit_label">Daire No (Apartman kodu için)</label>
-                        <input type="text" id="inv_unit_label" name="unit_label"
-                               value="<?= e($_POST['unit_label'] ?? '') ?>"
-                               placeholder="Örn: Daire 5"
-                               disabled>
-                    </div>
-                </div>
-                <p id="inviteLookupResult" class="form-help" aria-live="polite"></p>
-            </div>
-
             <!-- MOD 3: Apartman Yöneticisi Alanları -->
             <div class="form-section mode-specific" data-mode-box="apartment_manager"
                  style="<?= $mode === 'apartment_manager' ? '' : 'display:none;' ?>">
@@ -264,6 +282,7 @@ require_once __DIR__ . '/includes/header.php';
 
             <button type="submit" class="btn btn-primary btn-block">Kayıt Ol</button>
         </form>
+        <?php endif; ?>
 
         <div class="auth-card-footer">
             Zaten hesabınız var mı? <a href="login.php">Giriş Yapın</a>
@@ -276,59 +295,12 @@ require_once __DIR__ . '/includes/header.php';
 <script>
 (() => {
     const form = document.getElementById('registerForm');
+    if (!form) {
+        return;
+    }
     const modeInput = document.getElementById('registerModeInput');
-    const inviteCode = document.getElementById('invite_code');
     const residentCountGroup = document.getElementById('residentCountGroup');
     const residentCount = document.getElementById('resident_count');
-    const targetBox = document.getElementById('inviteTargetBox');
-    const targetInput = document.getElementById('inv_unit_label');
-    const result = document.getElementById('inviteLookupResult');
-    const csrf = form.querySelector('input[name="csrf_token"]').value;
-    let lookupTimer;
-
-    const lookupInvite = async () => {
-        const code = inviteCode.value.trim().toUpperCase();
-        if (!code) {
-            result.textContent = '';
-            return;
-        }
-        if (!/^(DEBI|DAIRE)-[A-Z0-9]+$/.test(code)) {
-            result.textContent = '';
-            return;
-        }
-        result.textContent = 'Kod kontrol ediliyor...';
-        const body = new URLSearchParams({
-            action: 'lookup_invite',
-            invite_code: code,
-            csrf_token: csrf
-        });
-        try {
-            const response = await fetch('register.php', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body
-            });
-            const data = await response.json();
-            if (!data.ok) {
-                targetBox.hidden = true;
-                targetInput.disabled = true;
-                targetInput.required = false;
-                result.textContent = data.error;
-                return;
-            }
-            inviteCode.value = code;
-            const isManager = data.type === 'manager';
-            targetBox.hidden = !isManager;
-            targetInput.disabled = !isManager;
-            targetInput.required = isManager;
-            targetInput.value = data.unit_label || '';
-            result.textContent = isManager
-                ? `${data.apartment_name}: Daire Yöneticisi olarak devam edebilirsiniz.`
-                : `${data.unit_label}: Daire Sakini olarak devam edebilirsiniz.`;
-        } catch (error) {
-            result.textContent = 'Kod kontrol edilirken beklenmeyen bir hata oluştu.';
-        }
-    };
 
     const syncModeFields = (mode) => {
         const inviteMode = mode === 'apartment_invite';
@@ -343,6 +315,10 @@ require_once __DIR__ . '/includes/header.php';
     document.querySelectorAll('[data-mode-target]').forEach((tab) => {
         tab.addEventListener('click', () => {
             const mode = tab.dataset.modeTarget;
+            if (mode === 'apartment_invite') {
+                window.location.href = 'register.php?mode=apartment_invite';
+                return;
+            }
             modeInput.value = mode;
             syncModeFields(mode);
             document.querySelectorAll('[data-mode-box]').forEach((box) => {
@@ -358,17 +334,6 @@ require_once __DIR__ . '/includes/header.php';
         });
     });
 
-    inviteCode?.addEventListener('input', () => {
-        clearTimeout(lookupTimer);
-        lookupTimer = setTimeout(lookupInvite, 500);
-    });
-    inviteCode?.addEventListener('blur', lookupInvite);
-    inviteCode?.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            lookupInvite();
-        }
-    });
     syncModeFields(modeInput.value);
 })();
 </script>
