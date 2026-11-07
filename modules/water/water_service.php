@@ -212,6 +212,7 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
         $sumBillDrops     = 0;
         $sumSavedM3       = 0.0;
         $sumSavedLiters   = 0;
+        $invoicePointRows = [];
 
         for ($i = 0; $i < $totalRows; $i++) {
             $cur        = $rows[$i];
@@ -274,18 +275,17 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
                 ]);
             }
 
-            if ($earnedPoints > 0 && function_exists('award_points')) {
+            if ($earnedPoints > 0) {
                 $targetUid = $userId > 0 ? $userId : (int) ($cur['user_id'] ?? 0);
                 if ($targetUid > 0) {
                     $mLabel = turkish_month_name((int) $cur['period_month']) . ' ' . (int) $cur['period_year'];
-                    award_points(
-                        $targetUid,
-                        $householdId,
-                        'bill_drops_earned',
-                        $earnedPoints,
-                        "💧 {$mLabel} faturasından Daire Göletine +{$earnedPoints} Damla!",
-                        'bill_drops_' . (int) $cur['period_year'] . '_' . (int) $cur['period_month'] . '_' . $earnedPoints
-                    );
+                    $invoicePointRows[] = [
+                        'user_id' => $targetUid,
+                        'year'    => (int) $cur['period_year'],
+                        'month'   => (int) $cur['period_month'],
+                        'points'  => $earnedPoints,
+                        'label'   => "💧 {$mLabel} faturasından +{$earnedPoints} Puan",
+                    ];
                 }
             }
 
@@ -303,10 +303,78 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
             }
         }
 
-        // Hane tasarruf alışkanlıklarından gelen damla katkısı (her aktif alışkanlık +5 Damla)
-        $habStmt = $pdo->prepare("SELECT COUNT(*) FROM household_habits WHERE household_id = :hid");
-        $habStmt->execute([':hid' => $householdId]);
-        $habitDrops = ((int) $habStmt->fetchColumn()) * 5;
+        $pdo->beginTransaction();
+        $keptRefs = [];
+        $existingLogStmt = $pdo->prepare("
+            SELECT id
+            FROM point_logs
+            WHERE household_id = :hid AND ref_key = :ref_key
+            LIMIT 1
+        ");
+        $updateLogStmt = $pdo->prepare("
+            UPDATE point_logs
+            SET user_id = :uid, points = :points, description = :description
+            WHERE id = :id
+        ");
+        $insertLogStmt = $pdo->prepare("
+            INSERT INTO point_logs (
+                user_id, household_id, action_code, points, description, ref_key
+            ) VALUES (
+                :uid, :hid, 'bill_drops_earned', :points, :description, :ref_key
+            )
+        ");
+        foreach ($invoicePointRows as $pointRow) {
+            $refKey = 'bill_drops_' . $pointRow['year'] . '_' . $pointRow['month'];
+            $keptRefs[] = $refKey;
+            $existingLogStmt->execute([
+                ':hid'     => $householdId,
+                ':ref_key' => $refKey,
+            ]);
+            $existingLogId = $existingLogStmt->fetchColumn();
+            $logParams = [
+                ':uid'         => $pointRow['user_id'],
+                ':points'      => $pointRow['points'],
+                ':description' => $pointRow['label'],
+            ];
+            if ($existingLogId) {
+                $updateLogStmt->execute($logParams + [':id' => (int) $existingLogId]);
+            } else {
+                $insertLogStmt->execute($logParams + [
+                    ':hid'     => $householdId,
+                    ':ref_key' => $refKey,
+                ]);
+            }
+        }
+        if ($keptRefs) {
+            $staleParams = [':hid' => $householdId];
+            $staleKeys = [];
+            foreach (array_values(array_unique($keptRefs)) as $index => $refKey) {
+                $param = ':keep_ref_' . $index;
+                $staleKeys[] = $param;
+                $staleParams[$param] = $refKey;
+            }
+            $pdo->prepare("
+                DELETE FROM point_logs
+                WHERE household_id = :hid
+                  AND action_code = 'bill_drops_earned'
+                  AND ref_key NOT IN (" . implode(',', $staleKeys) . ")
+            ")->execute($staleParams);
+        } else {
+            $pdo->prepare("
+                DELETE FROM point_logs
+                WHERE household_id = :hid AND action_code = 'bill_drops_earned'
+            ")->execute([':hid' => $householdId]);
+        }
+        $pdo->prepare("
+            UPDATE households
+            SET total_points = COALESCE((
+                SELECT SUM(pl.points)
+                FROM point_logs pl
+                WHERE pl.household_id = households.id
+                  AND pl.action_code = 'bill_drops_earned'
+            ), 0)
+            WHERE id = :hid
+        ")->execute([':hid' => $householdId]);
 
         // Daire Bazlı Gölet (household_ponds) tablosunu güncelle
         $pondUpd = $pdo->prepare("
@@ -321,9 +389,13 @@ function recalculate_household_water_savings(int $householdId, int $userId = 0, 
             ':sm3'   => round($sumSavedM3, 2),
             ':slit'  => $sumSavedLiters,
         ]);
+        $pdo->commit();
 
         return $matchedResult ?? $latestResult;
     } catch (Throwable $e) {
+        if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         return $emptyResult;
     }
 }
@@ -445,19 +517,6 @@ function toggle_household_habit(int $householdId, int $habitId, int $userId = 0)
         $ins = $pdo->prepare("INSERT INTO household_habits (household_id, habit_id) VALUES (:hid, :hab)");
         $ins->execute([':hid' => $householdId, ':hab' => $habitId]);
 
-        if ($userId > 0 && function_exists('award_points')) {
-            $hSt = $pdo->prepare("SELECT title FROM saving_habits WHERE id = :id LIMIT 1");
-            $hSt->execute([':id' => $habitId]);
-            $hTitle = $hSt->fetchColumn() ?: 'Tasarruf Alışkanlığı';
-            return award_points(
-                $userId,
-                $householdId,
-                'habit_adopt',
-                40,
-                '🛠️ Yeni alışkanlık: ' . $hTitle,
-                'habit_' . $habitId
-            );
-        }
         return 0;
     }
 }

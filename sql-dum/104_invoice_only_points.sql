@@ -15,8 +15,29 @@ CREATE TABLE IF NOT EXISTS `debi_schema_versions` (
 ALTER TABLE `households`
     MODIFY COLUMN `total_points` INT UNSIGNED NOT NULL DEFAULT 0;
 
-DELETE FROM `point_logs`
-WHERE `action_code` <> 'bill_drops_earned';
+DELETE FROM `point_logs`;
+
+UPDATE `daily_quests` SET `points` = 0;
+UPDATE `badges` SET `bonus_points` = 0;
+
+ALTER TABLE `point_logs`
+    DROP INDEX `uq_user_ref_key`,
+    ADD UNIQUE KEY `uq_household_ref_key` (`household_id`, `ref_key`);
+
+INSERT INTO `point_logs` (
+    `user_id`, `household_id`, `action_code`, `points`, `description`, `ref_key`
+)
+SELECT
+    wl.`user_id`,
+    wl.`household_id`,
+    'bill_drops_earned',
+    wl.`earned_points`,
+    CONCAT('💧 ', wl.`period_year`, '-', LPAD(wl.`period_month`, 2, '0'), ' faturasından +', wl.`earned_points`, ' Puan'),
+    CONCAT('bill_drops_', wl.`period_year`, '_', wl.`period_month`)
+FROM `water_logs` wl
+INNER JOIN `households` h ON h.`id` = wl.`household_id`
+WHERE wl.`earned_points` > 0
+  AND h.`housing_type` IN ('apartment_unit', 'detached_house');
 
 UPDATE `households` h
 LEFT JOIN (

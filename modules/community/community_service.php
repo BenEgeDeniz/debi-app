@@ -442,11 +442,18 @@ function get_friends_drops_leaderboard(array $currentUser, int $limit = 6): arra
                 h.housing_type,
                 a.name AS apartment_name,
                 h.total_points AS total_drops
-            FROM users u
-            INNER JOIN households h ON h.id = u.household_id
-            LEFT JOIN household_ponds hp ON hp.household_id = h.id
+            FROM households h
+            INNER JOIN users u ON u.id = COALESCE(
+                NULLIF(h.owner_user_id, 0),
+                (SELECT MIN(owner_candidate.id) FROM users owner_candidate WHERE owner_candidate.household_id = h.id)
+            )
             LEFT JOIN apartments a ON a.id = h.apartment_id
-            WHERE u.id IN ({$placeholders})
+            WHERE EXISTS (
+                SELECT 1
+                FROM users member
+                WHERE member.household_id = h.id
+                  AND member.id IN ({$placeholders})
+            )
               AND h.housing_type IN ('apartment_unit', 'detached_house')
             ORDER BY h.total_points DESC, u.full_name ASC
             LIMIT " . (int) $limit;
@@ -484,7 +491,6 @@ function get_apartment_drops_leaderboard(array $currentUser, int $limit = 6): ar
                 h.total_points AS total_drops
             FROM households h
             LEFT JOIN users u ON u.id = h.owner_user_id
-            LEFT JOIN household_ponds hp ON hp.household_id = h.id
             WHERE h.apartment_id = :aid
             ORDER BY h.total_points DESC, h.unit_label ASC
             LIMIT " . (int) $limit;
@@ -515,7 +521,6 @@ function get_general_apartments_drops_leaderboard(int $limit = 6): array
             FROM apartments a
             INNER JOIN neighborhoods n ON n.id = a.neighborhood_id
             LEFT JOIN households h ON h.apartment_id = a.id
-            LEFT JOIN household_ponds hp ON hp.household_id = h.id
             GROUP BY a.id, a.name, n.district, n.city
             ORDER BY total_drops DESC, daire_count DESC, a.name ASC
             LIMIT " . (int) $limit;

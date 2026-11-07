@@ -357,21 +357,6 @@ function check_and_award_badges(int $userId, int $householdId): array
             $ins = $pdo->prepare("INSERT IGNORE INTO user_badges (user_id, badge_id) VALUES (:uid, :bid)");
             $ins->execute([':uid' => $userId, ':bid' => (int) $badge['id']]);
             if ($ins->rowCount() > 0) {
-                $bonus = (int) $badge['bonus_points'];
-                if ($bonus > 0) {
-                    $pdo->prepare("
-                        INSERT IGNORE INTO point_logs (user_id, household_id, action_code, points, description, ref_key)
-                        VALUES (:uid, :hid, 'badge_earned', :pts, :desc, :rkey)
-                    ")->execute([
-                        ':uid'  => $userId,
-                        ':hid'  => $householdId,
-                        ':pts'  => $bonus,
-                        ':desc' => $badge['emoji'] . ' "' . $badge['title'] . '" rozeti kazanıldı!',
-                        ':rkey' => 'badge_' . $badge['code'],
-                    ]);
-                    $pdo->prepare("UPDATE households SET total_points = total_points + :pts WHERE id = :hid")
-                        ->execute([':pts' => $bonus, ':hid' => $householdId]);
-                }
                 $newlyEarned[] = $badge;
             }
         }
@@ -412,65 +397,10 @@ function get_daily_quests_for_user(int $userId): array
  */
 function complete_daily_quest(array $user, int $questId): array
 {
-    ensure_gamification_schema();
-    $pdo   = db();
-    $today = date('Y-m-d');
-
-    try {
-        $qStmt = $pdo->prepare("SELECT * FROM daily_quests WHERE id = :id LIMIT 1");
-        $qStmt->execute([':id' => $questId]);
-        $quest = $qStmt->fetch();
-
-        if (!$quest) {
-            return ['ok' => false, 'error' => 'Görev bulunamadı.'];
-        }
-
-        $chk = $pdo->prepare("
-            SELECT id FROM user_daily_quests
-            WHERE user_id = :uid AND quest_id = :qid AND completed_date = :today
-            LIMIT 1
-        ");
-        $chk->execute([
-            ':uid'   => (int) $user['id'],
-            ':qid'   => $questId,
-            ':today' => $today,
-        ]);
-
-        if ($chk->fetchColumn()) {
-            return ['ok' => false, 'error' => 'Bu görevi bugün zaten tamamladın! Yarın tekrar yapabilirsin.'];
-        }
-
-        $ins = $pdo->prepare("
-            INSERT INTO user_daily_quests (user_id, quest_id, completed_date)
-            VALUES (:uid, :qid, :today)
-        ");
-        $ins->execute([
-            ':uid'   => (int) $user['id'],
-            ':qid'   => $questId,
-            ':today' => $today,
-        ]);
-
-        $pts = (int) $quest['points'];
-        $ref = 'quest_' . $questId . '_' . $today;
-        award_points(
-            (int) $user['id'],
-            (int) $user['household_id'],
-            'daily_quest',
-            $pts,
-            $quest['emoji'] . ' Günlük Görev: ' . $quest['title'],
-            $ref
-        );
-
-        return [
-            'ok'     => true,
-            'points' => $pts,
-            'title'  => $quest['title'],
-            'emoji'  => $quest['emoji'],
-            'liters' => (int) $quest['water_saved_liters'],
-        ];
-    } catch (Throwable $e) {
-        return ['ok' => false, 'error' => 'Görev tamamlanırken bir hata oluştu.'];
-    }
+    return [
+        'ok'    => false,
+        'error' => 'Puan yalnızca su faturası kaydı ve fatura tasarrufundan kazanılır.',
+    ];
 }
 
 /**
