@@ -2189,8 +2189,13 @@ a.timeline-meta-item:hover {
     border-color: var(--brand-primary);
 }
 
-.bill-dropzone input[type="file"] {
-    display: none;
+.bill-dropzone .bill-file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .bill-dropzone-content {

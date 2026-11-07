@@ -314,7 +314,7 @@ require_once __DIR__ . '/includes/header.php';
                     <input type="hidden" name="action" value="scan_bill">
 
                     <label for="bill_image_input" class="bill-dropzone" id="billDropzone">
-                        <input type="file" id="bill_image_input" name="bill_image"
+                        <input type="file" id="bill_image_input" name="bill_image" class="bill-file-input"
                                accept="image/jpeg,image/png,image/webp" capture="environment" required>
                         <div class="bill-dropzone-content" id="billDropzoneText">
                             <div class="bill-dropzone-icon">📷</div>
