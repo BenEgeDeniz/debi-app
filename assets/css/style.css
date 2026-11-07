@@ -1089,6 +1089,181 @@ code {
     padding-top: 6px;
 }
 
+/* ==========================================================
+   ARKADAŞLIK SİSTEMİ & KULLANICI ZAMAN TÜNELİ (TIMELINE)
+   ========================================================== */
+.author-link {
+    color: var(--text-main);
+    text-decoration: none;
+}
+
+.author-link:hover {
+    color: var(--brand-primary-dark);
+    text-decoration: underline;
+}
+
+.nav-badge-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    font-size: 0.75rem;
+    font-weight: 900;
+    color: #ffffff;
+    background-color: var(--brand-danger);
+    border-radius: var(--radius-pill);
+    margin-left: auto;
+}
+
+.timeline-hero-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.timeline-bio {
+    margin-top: 6px;
+    margin-bottom: 0;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.timeline-stats-strip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 2px dashed var(--border-color);
+}
+
+.timeline-stat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background-color: var(--bg-subtle);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-pill);
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.timeline-stat-pill strong {
+    color: var(--text-main);
+    font-weight: 900;
+}
+
+.timeline-friends-strip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 2px dashed var(--border-color);
+}
+
+.timeline-friends-label {
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: var(--text-muted);
+}
+
+.timeline-friends-avatars {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.friend-chip-mini {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px 4px 5px;
+    background-color: var(--bg-subtle);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-pill);
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: var(--text-main);
+    text-decoration: none !important;
+}
+
+.friend-chip-mini:hover {
+    border-color: var(--brand-primary);
+    background-color: var(--brand-primary-bg);
+}
+
+.timeline-section-header {
+    margin: 4px 0 12px 2px;
+}
+
+.user-cards-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.user-row-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 14px;
+    background-color: var(--bg-subtle);
+    border: 2px solid var(--border-color);
+    border-bottom-width: 3px;
+    border-radius: var(--radius-sm);
+}
+
+.user-row-main {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    color: var(--text-main);
+    text-decoration: none !important;
+    flex: 1;
+    min-width: 200px;
+}
+
+.user-row-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.user-row-info strong {
+    font-size: 0.96rem;
+    font-weight: 800;
+}
+
+.user-row-main:hover .user-row-info strong {
+    color: var(--brand-primary-dark);
+    text-decoration: underline;
+}
+
+.user-row-info span {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.user-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 @media (max-width: 768px) {
     .bill-verify-layout {
         grid-template-columns: 1fr;

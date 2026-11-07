@@ -312,4 +312,16 @@ document.addEventListener('DOMContentLoaded', function () {
         m3Input.addEventListener('input', updateLiveDaily);
         daysInput.addEventListener('input', updateLiveDaily);
     }
+
+    // 8. Zaman Tünelinde "Profili & Haneyi Düzenle" Kutusunu Aç/Kapat
+    const toggleEditProfileBtn = document.getElementById('toggleEditProfileBtn');
+    const editProfileSection = document.getElementById('editProfileSection');
+    if (toggleEditProfileBtn && editProfileSection) {
+        toggleEditProfileBtn.addEventListener('click', function () {
+            editProfileSection.hidden = !editProfileSection.hidden;
+            if (!editProfileSection.hidden) {
+                editProfileSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        });
+    }
 });

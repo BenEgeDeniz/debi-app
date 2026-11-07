@@ -28,14 +28,14 @@ function create_post(array $user, array $input, ?array $file = null): array
         $category = 'tip';
     }
 
-    $allowedVisibilities = ['apartment', 'neighborhood', 'public'];
+    $allowedVisibilities = ['apartment', 'friends', 'public'];
     if (!in_array($visibility, $allowedVisibilities, true)) {
-        $visibility = 'neighborhood';
+        $visibility = 'public';
     }
 
-    // Bireysel kullanıcı (apartmanı yok) apartman içi paylaşım seçemez -> mahalleye düşer
+    // Apartmanı olmayan kullanıcı apartman içi paylaşım seçemez -> arkadaşlara düşer
     if ($visibility === 'apartment' && empty($user['apartment_id'])) {
-        $visibility = 'neighborhood';
+        $visibility = 'friends';
     }
 
     // Görsel yükleme kontrolü
@@ -105,9 +105,9 @@ function create_post(array $user, array $input, ?array $file = null): array
 
 /**
  * Akış Gönderilerini Listeleme
- * $scope: 'neighborhood' (Mahallem), 'apartment' (Apartmanım), 'public' (Genel / Tüm Debi)
+ * $scope: 'friends' (Arkadaşlar), 'apartment' (Apartman), 'public' (Genel Debi)
  */
-function get_feed_posts(array $user, string $scope = 'neighborhood', ?string $categoryFilter = null): array
+function get_feed_posts(array $user, string $scope = 'friends', ?string $categoryFilter = null): array
 {
     $pdo    = db();
     $params = [':current_uid' => (int) $user['id']];
@@ -119,19 +119,20 @@ function get_feed_posts(array $user, string $scope = 'neighborhood', ?string $ca
         }
         $where[]        = "p.apartment_id = :aid";
         $params[':aid'] = (int) $user['apartment_id'];
-    } elseif ($scope === 'public') {
-        $where[] = "p.visibility = 'public'";
-    } else {
-        // 'neighborhood' (Mahallem): Bu mahallede paylaşılan 'neighborhood' ve 'public' gönderiler
-        // + eğer kullanıcının kendi apartmanıysa o apartmanın gönderileri
-        if (!empty($user['apartment_id'])) {
-            $where[]        = "(p.neighborhood_id = :nid AND (p.visibility IN ('neighborhood', 'public') OR p.apartment_id = :my_aid))";
-            $params[':nid']    = (int) $user['neighborhood_id'];
-            $params[':my_aid'] = (int) $user['apartment_id'];
-        } else {
-            $where[]        = "(p.neighborhood_id = :nid AND p.visibility IN ('neighborhood', 'public'))";
-            $params[':nid'] = (int) $user['neighborhood_id'];
+    } elseif ($scope === 'friends') {
+        $friendIds   = function_exists('get_user_friend_ids') ? get_user_friend_ids((int) $user['id']) : [];
+        $authorIds   = array_values(array_unique(array_merge([(int) $user['id']], $friendIds)));
+        $inParams    = [];
+        foreach ($authorIds as $idx => $fid) {
+            $key            = ':fid_' . $idx;
+            $inParams[]     = $key;
+            $params[$key]   = (int) $fid;
         }
+        $inSql   = implode(',', $inParams);
+        $where[] = "(p.user_id IN ({$inSql}) AND p.visibility IN ('friends', 'public', 'neighborhood'))";
+    } else {
+        // 'public' (Genel Debi)
+        $where[] = "p.visibility IN ('public', 'neighborhood')";
     }
 
     if ($categoryFilter && in_array($categoryFilter, ['tip', 'achievement', 'question', 'alert', 'announcement'], true)) {
@@ -141,6 +142,48 @@ function get_feed_posts(array $user, string $scope = 'neighborhood', ?string $ca
 
     $whereSql = implode(' AND ', $where);
 
+    return fetch_posts_with_comments($pdo, $whereSql, $params);
+}
+
+/**
+ * Kullanıcının Profil "Zaman Tüneli" (Timeline) Gönderilerini Listeleme
+ */
+function get_user_timeline_posts(array $profileUser, array $viewerUser): array
+{
+    $pdo       = db();
+    $profileId = (int) $profileUser['id'];
+    $viewerId  = (int) $viewerUser['id'];
+
+    $params = [
+        ':current_uid' => $viewerId,
+        ':author_uid'  => $profileId,
+    ];
+
+    if ($profileId === $viewerId) {
+        $whereSql = "p.user_id = :author_uid";
+    } else {
+        $allowedVis = ["'public'", "'neighborhood'"];
+        if (function_exists('get_friendship_relation')) {
+            $rel = get_friendship_relation($viewerId, $profileId);
+            if (($rel['state'] ?? '') === 'accepted') {
+                $allowedVis[] = "'friends'";
+            }
+        }
+        if (!empty($viewerUser['apartment_id']) && (int) $viewerUser['apartment_id'] === (int) ($profileUser['apartment_id'] ?? 0)) {
+            $allowedVis[] = "'apartment'";
+        }
+        $visList  = implode(',', $allowedVis);
+        $whereSql = "p.user_id = :author_uid AND p.visibility IN ({$visList})";
+    }
+
+    return fetch_posts_with_comments($pdo, $whereSql, $params);
+}
+
+/**
+ * Ortak Gönderi ve Yorum Sorgulayıcı
+ */
+function fetch_posts_with_comments(PDO $pdo, string $whereSql, array $params): array
+{
     $sql = "
         SELECT
             p.*,

@@ -7,9 +7,9 @@ require_once __DIR__ . '/modules/community/community_service.php';
 
 $currentUser = require_login();
 
-// Müstakil ev kullanıcıları apartmana katılamaz veya apartman oluşturamaz; doğrudan mahalle çatısına bağlıdır
+// Müstakil ev kullanıcıları apartmana katılamaz veya apartman oluşturamaz
 if (empty($currentUser['apartment_id']) && ($currentUser['housing_type'] ?? '') === 'detached_house') {
-    redirect('neighborhood.php');
+    redirect('index.php');
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -345,7 +345,9 @@ require_once __DIR__ . '/includes/header.php';
                                     <td><?= $unitDaily !== null ? '#' . ($idx + 1) : '—' ?></td>
                                     <td><strong><?= e($unit['unit_label']) ?></strong></td>
                                     <td>
-                                        <?= e($unit['full_name']) ?>
+                                        <a href="profile.php?id=<?= (int) $unit['user_id'] ?>" class="author-link">
+                                            <strong><?= e($unit['full_name']) ?></strong>
+                                        </a>
                                         <?php if ($unit['role'] === 'manager'): ?>
                                             <span class="tag tag-manager">Yönetici</span>
                                         <?php endif; ?>

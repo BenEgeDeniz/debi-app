@@ -45,6 +45,15 @@ function ensure_gamification_schema(): void
                 run_sql_migration_file($pdo, $sql007);
             }
         }
+
+        // 4. 008_friendships_and_timeline.sql kontrolü (friendships tablosu ve posts.visibility ENUM güncellemesi)
+        $hasFriendships = (bool) $pdo->query("SHOW TABLES LIKE 'friendships'")->fetchColumn();
+        if (!$hasFriendships) {
+            $sql008 = __DIR__ . '/../../sql-dum/008_friendships_and_timeline.sql';
+            if (file_exists($sql008)) {
+                run_sql_migration_file($pdo, $sql008);
+            }
+        }
     } catch (Throwable $e) {
         // Sessizce geç
     }
