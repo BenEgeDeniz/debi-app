@@ -252,6 +252,7 @@ require_once __DIR__ . '/includes/header.php';
         <section class="panel-card">
             <div class="panel-card-header">
                 <h2 class="section-title">Geçmiş Su Faturalarım</h2>
+                <a href="analytics.php" class="btn btn-outline btn-sm">Su Analizi &amp; Debi Göleti &rarr;</a>
             </div>
 
             <?php if (empty($history)): ?>

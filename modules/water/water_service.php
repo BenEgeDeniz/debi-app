@@ -271,3 +271,114 @@ function toggle_household_habit(int $householdId, int $habitId, int $userId = 0)
     }
 }
 
+/**
+ * Su Analizi Sayfası İçin Aylık m³ Zaman Çizelgesi ve Debi Göleti Tasarruf Verileri
+ */
+function get_household_water_analytics(array $user): array
+{
+    $rawHistory = get_household_water_history((int) ($user['household_id'] ?? 0));
+    $chronological = array_reverse($rawHistory);
+    $hasRealLogs = !empty($chronological);
+    $isSample = false;
+
+    $series = [];
+    $count = count($chronological);
+
+    if ($count >= 2) {
+        $slice = array_slice($chronological, -6);
+        $sCount = count($slice);
+        foreach ($slice as $idx => $row) {
+            $mName = turkish_month_name((int) $row['period_month']);
+            $shortM = mb_substr($mName, 0, 3, 'UTF-8') . ' ' . $row['period_year'];
+            if ($idx === $sCount - 2) {
+                $xlab = 'Geçen Ay (' . $mName . ')';
+            } elseif ($idx === $sCount - 1) {
+                $xlab = 'Bu Ay (' . $mName . ')';
+            } else {
+                $xlab = $shortM;
+            }
+            $series[] = [
+                'xlab'            => $xlab,
+                'period_label'    => $mName . ' ' . $row['period_year'],
+                'consumption_m3'  => round((float) $row['consumption_m3'], 2),
+                'daily_liters'    => round((float) $row['daily_liters_per_person'], 1),
+            ];
+        }
+    } elseif ($count === 1) {
+        $isSample = true;
+        $only = $chronological[0];
+        $curM = (int) $only['period_month'];
+        $curY = (int) $only['period_year'];
+        $prevM = $curM === 1 ? 12 : $curM - 1;
+        $prevY = $curM === 1 ? $curY - 1 : $curY;
+        $curM3 = round((float) $only['consumption_m3'], 2);
+        $prevM3 = round($curM3 + 2.2, 2);
+
+        $series[] = [
+            'xlab'           => 'Geçen Ay (' . turkish_month_name($prevM) . ')',
+            'period_label'   => turkish_month_name($prevM) . ' ' . $prevY . ' (Referans)',
+            'consumption_m3' => $prevM3,
+            'daily_liters'   => round((float) $only['daily_liters_per_person'] * ($prevM3 / max(0.5, $curM3)), 1),
+        ];
+        $series[] = [
+            'xlab'           => 'Bu Ay (' . turkish_month_name($curM) . ')',
+            'period_label'   => turkish_month_name($curM) . ' ' . $curY,
+            'consumption_m3' => $curM3,
+            'daily_liters'   => round((float) $only['daily_liters_per_person'], 1),
+        ];
+    } else {
+        $isSample = true;
+        $nowM = (int) date('n');
+        $nowY = (int) date('Y');
+        $sampleM3 = [14.8, 13.9, 13.2, 10.4];
+        for ($i = 3; $i >= 0; $i--) {
+            $ts = mktime(0, 0, 0, $nowM - $i, 1, $nowY);
+            $m = (int) date('n', $ts);
+            $y = (int) date('Y', $ts);
+            $mName = turkish_month_name($m);
+            if ($i === 1) {
+                $xlab = 'Geçen Ay (' . $mName . ')';
+            } elseif ($i === 0) {
+                $xlab = 'Bu Ay (' . $mName . ')';
+            } else {
+                $xlab = $i . ' Ay Önce (' . mb_substr($mName, 0, 3, 'UTF-8') . ')';
+            }
+            $m3Val = $sampleM3[3 - $i];
+            $series[] = [
+                'xlab'           => $xlab,
+                'period_label'   => $mName . ' ' . $y,
+                'consumption_m3' => $m3Val,
+                'daily_liters'   => round(($m3Val * 1000) / (30 * max(1, (int) ($user['resident_count'] ?? 3))), 1),
+            ];
+        }
+    }
+
+    $n = count($series);
+    $prevMonthM3 = $series[$n - 2]['consumption_m3'];
+    $currMonthM3 = $series[$n - 1]['consumption_m3'];
+    $diffM3      = round($prevMonthM3 - $currMonthM3, 2);
+    $savedM3     = max(0.0, $diffM3);
+    $savedLiters = (int) round($savedM3 * 1000);
+
+    if ($savedLiters >= 3000) {
+        $pondStage = 'full';
+    } elseif ($savedLiters >= 1000) {
+        $pondStage = 'half';
+    } else {
+        $pondStage = 'dry';
+    }
+
+    return [
+        'has_real_logs' => $hasRealLogs,
+        'is_sample'     => $isSample,
+        'series'        => $series,
+        'prev_m3'       => $prevMonthM3,
+        'curr_m3'       => $currMonthM3,
+        'diff_m3'       => $diffM3,
+        'saved_m3'      => $savedM3,
+        'saved_liters'  => $savedLiters,
+        'pond_stage'    => $pondStage,
+    ];
+}
+
+

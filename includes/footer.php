@@ -9,7 +9,8 @@
             <span class="footer-links">
                 <a href="index.php">Akış</a> ·
                 <a href="neighborhood.php">Mahalle</a> ·
-                <a href="water.php">Sayaç Takibi</a>
+                <a href="water.php">Sayaç Takibi</a> ·
+                <a href="analytics.php">Su Analizi</a>
             </span>
         </div>
     </footer>

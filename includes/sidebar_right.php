@@ -71,6 +71,10 @@ $incomingReqs = $currentUser ? get_incoming_friend_requests((int) $currentUser['
                     </div>
                 </div>
             <?php endif; ?>
+
+            <a href="analytics.php" class="btn btn-outline btn-sm btn-block" style="margin-top: 10px;">
+                Su Analizi &amp; Debi Göleti &rarr;
+            </a>
         </div>
 
         <!-- 2. Arkadaşlar & Apartman En Az Tüketenler -->

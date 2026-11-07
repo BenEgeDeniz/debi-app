@@ -243,16 +243,19 @@ function format_unit_label(?string $label, string $housingType = 'apartment_unit
 function brand_asset_path(string $key = 'logo'): string
 {
     $map = [
-        'logo'     => 'assets/logo/debi-logo.png',
-        'logo_jpg' => 'assets/logo/debi-logo.jpg',
-        'pond'     => 'assets/logo/debi-pond.png',
-        'pond_jpg' => 'assets/logo/debi-pond.jpg',
-        'smile'    => 'assets/logo/mascot-smile.png',
-        'default'  => 'assets/logo/mascot-smile.png',
-        'happy'    => 'assets/logo/mascot-happy.png',
-        'thumbsup' => 'assets/logo/mascot-thumbsup.png',
-        'thinking' => 'assets/logo/mascot-thinking.png',
-        'sheet'    => 'assets/logo/mascot-sheet.jpg',
+        'logo'      => 'assets/logo/debi-logo.png',
+        'logo_jpg'  => 'assets/logo/debi-logo.jpg',
+        'pond'      => 'assets/logo/debi-pond.png',
+        'pond_jpg'  => 'assets/logo/debi-pond.jpg',
+        'pond_dry'  => 'assets/logo/debi-pond-dry.png',
+        'pond_half' => 'assets/logo/debi-pond-half.png',
+        'pond_full' => 'assets/logo/debi-pond-full.png',
+        'smile'     => 'assets/logo/mascot-smile.png',
+        'default'   => 'assets/logo/mascot-smile.png',
+        'happy'     => 'assets/logo/mascot-happy.png',
+        'thumbsup'  => 'assets/logo/mascot-thumbsup.png',
+        'thinking'  => 'assets/logo/mascot-thinking.png',
+        'sheet'     => 'assets/logo/mascot-sheet.jpg',
     ];
     return $map[$key] ?? $map['logo'];
 }

@@ -70,6 +70,11 @@ $unitFormatted    = !empty($currentUser)
             <span>Su Faturalarım</span>
         </a>
 
+        <a href="analytics.php" class="side-nav-link <?= $activeNav === 'analytics' ? 'active' : '' ?>">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <span>Su Analizi &amp; Gölet</span>
+        </a>
+
         <?php if (!$isDetachedHome): ?>
             <a href="apartment.php" class="side-nav-link <?= $activeNav === 'apartment' ? 'active' : '' ?>">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
@@ -91,6 +96,9 @@ $unitFormatted    = !empty($currentUser)
     </a>
     <a href="water.php" class="mobile-nav-item <?= $activeNav === 'water' ? 'active' : '' ?>">
         <span>Fatura</span>
+    </a>
+    <a href="analytics.php" class="mobile-nav-item <?= $activeNav === 'analytics' ? 'active' : '' ?>">
+        <span>Analiz</span>
     </a>
     <?php if (!$isDetachedHome): ?>
         <a href="apartment.php" class="mobile-nav-item <?= $activeNav === 'apartment' ? 'active' : '' ?>">

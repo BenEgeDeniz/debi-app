@@ -369,4 +369,332 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+    // 9. Su Analizi Çizgi Tablosu (xlab / ylab) ve İnteraktif Debi Göleti (debi-pond) Widget'ı
+    const analyticsCfg = window.DEBI_ANALYTICS_DATA;
+    const svgChart = document.getElementById('waterLineChart');
+    const pondImg = document.getElementById('pondStageImg');
+
+    if (analyticsCfg && svgChart && pondImg) {
+        const baseSeries = JSON.parse(JSON.stringify(analyticsCfg.series || []));
+        let liveSeries = JSON.parse(JSON.stringify(baseSeries));
+        let currentStageKey = '';
+        let autoPlayTimer = null;
+
+        const kpiPrevM3 = document.getElementById('kpiPrevM3');
+        const kpiCurrM3 = document.getElementById('kpiCurrM3');
+        const kpiDiffM3 = document.getElementById('kpiDiffM3');
+        const kpiSavedLiters = document.getElementById('kpiSavedLiters');
+
+        const pondStageBadge = document.getElementById('pondStageBadge');
+        const pondDropLayer = document.getElementById('pondDropLayer');
+        const pondRippleRing = document.getElementById('pondRippleRing');
+        const pondMascotImg = document.getElementById('pondMascotImg');
+        const pondMascotTitle = document.getElementById('pondMascotTitle');
+        const pondMascotDesc = document.getElementById('pondMascotDesc');
+        const pondMeterLitersText = document.getElementById('pondMeterLitersText');
+        const pondMeterFill = document.getElementById('pondMeterFill');
+        const stageSteps = document.querySelectorAll('[data-stage-step]');
+
+        const simPrevInput = document.getElementById('simPrevM3Input');
+        const simCurrInput = document.getElementById('simCurrM3Input');
+        const simPrevLabel = document.getElementById('simPrevM3Label');
+        const simCurrLabel = document.getElementById('simCurrM3Label');
+        const btnDropWater = document.getElementById('btnDropWater');
+        const btnAutoPlay = document.getElementById('btnAutoPlayStages');
+        const btnResetReal = document.getElementById('btnResetRealData');
+
+        function formatTR(num, decimals) {
+            return Number(num).toLocaleString('tr-TR', {
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
+            });
+        }
+
+        function spawnFallingDrops(count) {
+            if (!pondDropLayer) return;
+            const total = Math.min(8, Math.max(1, count));
+            for (let i = 0; i < total; i++) {
+                setTimeout(function () {
+                    const drop = document.createElement('span');
+                    drop.className = 'falling-water-drop';
+                    drop.textContent = '💧';
+                    const offset = (Math.random() * 120) - 60;
+                    drop.style.left = 'calc(50% + ' + Math.round(offset) + 'px)';
+                    pondDropLayer.appendChild(drop);
+
+                    setTimeout(function () {
+                        if (pondRippleRing) {
+                            pondRippleRing.classList.remove('ripple-active');
+                            void pondRippleRing.offsetWidth;
+                            pondRippleRing.classList.add('ripple-active');
+                        }
+                    }, 520);
+
+                    setTimeout(function () {
+                        if (drop.parentNode) {
+                            drop.parentNode.removeChild(drop);
+                        }
+                    }, 750);
+                }, i * 130);
+            }
+        }
+
+        function renderLineChart(dataPoints) {
+            const W = 760;
+            const H = 300;
+            const padL = 68;
+            const padR = 36;
+            const padT = 34;
+            const padB = 58;
+            const plotW = W - padL - padR;
+            const plotH = H - padT - padB;
+
+            let maxM3 = 10;
+            let minM3 = 0;
+            dataPoints.forEach(function (pt) {
+                if (pt.consumption_m3 > maxM3) maxM3 = pt.consumption_m3;
+            });
+            maxM3 = Math.ceil(maxM3 * 1.2);
+            if (maxM3 % 2 !== 0) maxM3 += 1;
+
+            const n = dataPoints.length;
+            const coords = dataPoints.map(function (pt, idx) {
+                const x = n > 1 ? padL + (idx / (n - 1)) * plotW : padL + plotW / 2;
+                const y = padT + plotH - ((pt.consumption_m3 - minM3) / Math.max(1, maxM3 - minM3)) * plotH;
+                return { x: x, y: y, pt: pt };
+            });
+
+            let svgHtml = '';
+
+            // Y-Axis (ylab) Gridlines & Labels
+            const gridSteps = 4;
+            for (let g = 0; g <= gridSteps; g++) {
+                const val = (maxM3 / gridSteps) * g;
+                const gy = padT + plotH - (g / gridSteps) * plotH;
+                svgHtml += '<line x1="' + padL + '" y1="' + gy.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + gy.toFixed(1) + '" stroke="#e2e8f0" stroke-dasharray="4 4" stroke-width="1"/>';
+                svgHtml += '<text x="' + (padL - 10) + '" y="' + (gy + 4).toFixed(1) + '" text-anchor="end" fill="#64748b" font-size="12" font-weight="700">' + formatTR(val, 1) + ' m³</text>';
+            }
+
+            // Axis Titles (ylab & xlab)
+            svgHtml += '<text x="16" y="' + (padT + plotH / 2) + '" transform="rotate(-90 16 ' + (padT + plotH / 2) + ')" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">Kullanılan Su (m³)</text>';
+            svgHtml += '<text x="' + (padL + plotW / 2) + '" y="' + (H - 8) + '" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">Zaman Çizelgesi (Ay)</text>';
+
+            // Area under line
+            if (coords.length > 1) {
+                const areaPts = coords.map(function (c) { return c.x.toFixed(1) + ',' + c.y.toFixed(1); }).join(' ');
+                const firstX = coords[0].x.toFixed(1);
+                const lastX = coords[coords.length - 1].x.toFixed(1);
+                const baseY = (padT + plotH).toFixed(1);
+                svgHtml += '<polygon points="' + firstX + ',' + baseY + ' ' + areaPts + ' ' + lastX + ',' + baseY + '" fill="rgba(14, 165, 233, 0.12)" />';
+            }
+
+            // Line segments
+            for (let i = 0; i < coords.length - 1; i++) {
+                const c1 = coords[i];
+                const c2 = coords[i + 1];
+                const isLastSeg = (i === coords.length - 2);
+                const isSaving = c2.pt.consumption_m3 < c1.pt.consumption_m3;
+                const strokeColor = isLastSeg ? (isSaving ? '#16a34a' : '#0ea5e9') : '#0ea5e9';
+                svgHtml += '<line x1="' + c1.x.toFixed(1) + '" y1="' + c1.y.toFixed(1) + '" x2="' + c2.x.toFixed(1) + '" y2="' + c2.y.toFixed(1) + '" stroke="' + strokeColor + '" stroke-width="3.5" stroke-linecap="round"/>';
+            }
+
+            // Points & Labels
+            coords.forEach(function (c, idx) {
+                const isLast = (idx === coords.length - 1);
+                const isPrev = (idx === coords.length - 2);
+                const dotColor = isLast ? '#16a34a' : (isPrev ? '#0284c7' : '#0ea5e9');
+
+                // X-axis label (xlab)
+                svgHtml += '<text x="' + c.x.toFixed(1) + '" y="' + (padT + plotH + 24) + '" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="800">' + c.pt.xlab + '</text>';
+
+                // Data circle
+                svgHtml += '<circle cx="' + c.x.toFixed(1) + '" cy="' + c.y.toFixed(1) + '" r="6.5" fill="#ffffff" stroke="' + dotColor + '" stroke-width="3.5"/>';
+
+                // Value pill above point
+                const valText = formatTR(c.pt.consumption_m3, 1) + ' m³';
+                const boxW = 64;
+                const boxH = 22;
+                const bx = c.x - boxW / 2;
+                const by = c.y - 32;
+                svgHtml += '<rect x="' + bx.toFixed(1) + '" y="' + by.toFixed(1) + '" width="' + boxW + '" height="' + boxH + '" rx="6" fill="#0f172a"/>';
+                svgHtml += '<text x="' + c.x.toFixed(1) + '" y="' + (by + 15).toFixed(1) + '" text-anchor="middle" fill="#ffffff" font-size="11.5" font-weight="800">' + valText + '</text>';
+            });
+
+            svgChart.innerHTML = svgHtml;
+        }
+
+        function updateAnalyticsAndPond(withDrops) {
+            const n = liveSeries.length;
+            const prevM3 = liveSeries[n - 2].consumption_m3;
+            const currM3 = liveSeries[n - 1].consumption_m3;
+            const diffM3 = prevM3 - currM3;
+            const savedM3 = Math.max(0, diffM3);
+            const savedLiters = Math.round(savedM3 * 1000);
+
+            if (kpiPrevM3) kpiPrevM3.textContent = formatTR(prevM3, 1) + ' m³';
+            if (kpiCurrM3) kpiCurrM3.textContent = formatTR(currM3, 1) + ' m³';
+            if (kpiDiffM3) {
+                kpiDiffM3.textContent = diffM3 >= 0
+                    ? '-' + formatTR(diffM3, 1) + ' m³ (Tasarruf)'
+                    : '+' + formatTR(Math.abs(diffM3), 1) + ' m³ (Artış)';
+                kpiDiffM3.style.color = diffM3 > 0 ? 'var(--brand-green-dark)' : (diffM3 < 0 ? 'var(--brand-danger-dark)' : 'var(--text-main)');
+            }
+            if (kpiSavedLiters) kpiSavedLiters.textContent = formatTR(savedLiters, 0) + ' L';
+
+            if (simPrevLabel) simPrevLabel.textContent = formatTR(prevM3, 1) + ' m³';
+            if (simCurrLabel) simCurrLabel.textContent = formatTR(currM3, 1) + ' m³';
+
+            renderLineChart(liveSeries);
+
+            // Stage Determination:
+            // dry: 0 - 999 L | half: 1000 - 2999 L | full: 3000+ L
+            let stageKey = 'dry';
+            let stageTitle = 'Aşama 1: Kurumuş Göl';
+            let mascotTitle = 'Gölet Su Bekliyor';
+            let mascotDesc = 'Bu ayki su tüketiminizi (m³) geçen aya göre düşürdükçe üstten damlalar düşer ve gölet canlanmaya başlar.';
+            let badgeClass = 'stage-dry';
+
+            if (savedLiters >= 3000) {
+                stageKey = 'full';
+                stageTitle = 'Aşama 3: Tam Dolu & Yeşeren Göl';
+                mascotTitle = 'Harika! Gölet Tamamen Doldu ve Yeşerdi!';
+                mascotDesc = 'Geçen aya göre ' + formatTR(savedM3, 1) + ' m³ (' + formatTR(savedLiters, 0) + ' Litre) su kurtardınız. Gölet tam kapasiteye ulaştı!';
+                badgeClass = 'stage-full';
+            } else if (savedLiters >= 1000) {
+                stageKey = 'half';
+                stageTitle = 'Aşama 2: Yarı Dolu Göl';
+                mascotTitle = 'Gölet Yükseliyor ve Çevresi Yeşeriyor!';
+                mascotDesc = formatTR(savedLiters, 0) + ' Litre su kurtardınız! Tam dolu ve yemyeşil gölet aşamasına ' + formatTR(3000 - savedLiters, 0) + ' L kaldı.';
+                badgeClass = 'stage-half';
+            } else if (savedLiters > 0) {
+                mascotTitle = 'İlk Damlalar Gölete Ulaştı!';
+                mascotDesc = formatTR(savedLiters, 0) + ' Litre su kurtardınız. Yarı dolu gölet aşamasına geçmek için ' + formatTR(1000 - savedLiters, 0) + ' L daha tasarruf edin.';
+            }
+
+            if (withDrops) {
+                spawnFallingDrops(savedLiters >= 3000 ? 4 : (savedLiters >= 1000 ? 3 : 2));
+            }
+
+            if (stageKey !== currentStageKey) {
+                currentStageKey = stageKey;
+                pondImg.classList.add('pond-stage-switching');
+                setTimeout(function () {
+                    pondImg.src = analyticsCfg.images[stageKey] || analyticsCfg.images.dry;
+                    pondImg.classList.remove('pond-stage-switching');
+                }, 140);
+
+                if (pondMascotImg && analyticsCfg.mascots) {
+                    pondMascotImg.src = analyticsCfg.mascots[stageKey] || analyticsCfg.mascots.dry;
+                }
+            }
+
+            if (pondStageBadge) {
+                pondStageBadge.textContent = stageTitle;
+                pondStageBadge.className = 'pond-stage-pill ' + badgeClass;
+            }
+            if (pondMascotTitle) pondMascotTitle.textContent = mascotTitle;
+            if (pondMascotDesc) pondMascotDesc.textContent = mascotDesc;
+
+            const pct = Math.min(100, Math.round((savedLiters / 3200) * 100));
+            if (pondMeterFill) pondMeterFill.style.width = pct + '%';
+            if (pondMeterLitersText) {
+                pondMeterLitersText.textContent = formatTR(savedLiters, 0) + ' / 3.000+ L Kurtarılan Su';
+            }
+
+            stageSteps.forEach(function (el) {
+                const st = el.getAttribute('data-stage-step');
+                const isActive = (st === stageKey) ||
+                    (stageKey === 'half' && st === 'dry') ||
+                    (stageKey === 'full' && (st === 'dry' || st === 'half'));
+                el.classList.toggle('active', isActive);
+                el.classList.toggle('current', st === stageKey);
+            });
+        }
+
+        if (simPrevInput) {
+            simPrevInput.addEventListener('input', function () {
+                const n = liveSeries.length;
+                const oldSaved = Math.max(0, liveSeries[n - 2].consumption_m3 - liveSeries[n - 1].consumption_m3);
+                liveSeries[n - 2].consumption_m3 = parseFloat(simPrevInput.value);
+                const newSaved = Math.max(0, liveSeries[n - 2].consumption_m3 - liveSeries[n - 1].consumption_m3);
+                updateAnalyticsAndPond(newSaved > oldSaved);
+            });
+        }
+
+        if (simCurrInput) {
+            simCurrInput.addEventListener('input', function () {
+                const n = liveSeries.length;
+                const oldSaved = Math.max(0, liveSeries[n - 2].consumption_m3 - liveSeries[n - 1].consumption_m3);
+                liveSeries[n - 1].consumption_m3 = parseFloat(simCurrInput.value);
+                const newSaved = Math.max(0, liveSeries[n - 2].consumption_m3 - liveSeries[n - 1].consumption_m3);
+                updateAnalyticsAndPond(newSaved > oldSaved);
+            });
+        }
+
+        if (btnDropWater) {
+            btnDropWater.addEventListener('click', function () {
+                if (autoPlayTimer) {
+                    clearInterval(autoPlayTimer);
+                    autoPlayTimer = null;
+                }
+                const n = liveSeries.length;
+                const nextCurr = Math.max(4, +(liveSeries[n - 1].consumption_m3 - 0.25).toFixed(2));
+                if (nextCurr === liveSeries[n - 1].consumption_m3) {
+                    liveSeries[n - 2].consumption_m3 = +(liveSeries[n - 2].consumption_m3 + 0.25).toFixed(2);
+                    if (simPrevInput) simPrevInput.value = liveSeries[n - 2].consumption_m3;
+                } else {
+                    liveSeries[n - 1].consumption_m3 = nextCurr;
+                    if (simCurrInput) simCurrInput.value = nextCurr;
+                }
+                updateAnalyticsAndPond(true);
+            });
+        }
+
+        if (btnAutoPlay) {
+            btnAutoPlay.addEventListener('click', function () {
+                if (autoPlayTimer) {
+                    clearInterval(autoPlayTimer);
+                    autoPlayTimer = null;
+                }
+                const n = liveSeries.length;
+                const basePrev = Math.max(12, liveSeries[n - 2].consumption_m3);
+                liveSeries[n - 2].consumption_m3 = basePrev;
+                liveSeries[n - 1].consumption_m3 = basePrev;
+                if (simPrevInput) simPrevInput.value = basePrev;
+                if (simCurrInput) simCurrInput.value = basePrev;
+                updateAnalyticsAndPond(false);
+
+                let steps = 0;
+                autoPlayTimer = setInterval(function () {
+                    steps++;
+                    liveSeries[n - 1].consumption_m3 = Math.max(4, +(liveSeries[n - 1].consumption_m3 - 0.5).toFixed(2));
+                    if (simCurrInput) simCurrInput.value = liveSeries[n - 1].consumption_m3;
+                    updateAnalyticsAndPond(true);
+                    if (steps >= 7) {
+                        clearInterval(autoPlayTimer);
+                        autoPlayTimer = null;
+                    }
+                }, 650);
+            });
+        }
+
+        if (btnResetReal) {
+            btnResetReal.addEventListener('click', function () {
+                if (autoPlayTimer) {
+                    clearInterval(autoPlayTimer);
+                    autoPlayTimer = null;
+                }
+                liveSeries = JSON.parse(JSON.stringify(baseSeries));
+                const n = liveSeries.length;
+                if (simPrevInput) simPrevInput.value = liveSeries[n - 2].consumption_m3;
+                if (simCurrInput) simCurrInput.value = liveSeries[n - 1].consumption_m3;
+                updateAnalyticsAndPond(true);
+            });
+        }
+
+        // İlk açılışta çizgi tablosunu ve göleti başlat
+        const initSaved = Math.max(0, liveSeries[liveSeries.length - 2].consumption_m3 - liveSeries[liveSeries.length - 1].consumption_m3);
+        updateAnalyticsAndPond(initSaved > 0);
+    }
 });
