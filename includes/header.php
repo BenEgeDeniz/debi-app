@@ -9,6 +9,16 @@ $flash            = get_flash();
 $pendingFriendCnt = !empty($currentUser) && function_exists('count_incoming_friend_requests')
     ? count_incoming_friend_requests((int) $currentUser['id'])
     : 0;
+$headerPondDrops  = 0;
+$headerPondPct    = 0.0;
+if (!empty($currentUser)) {
+    if (!function_exists('get_household_pond_state')) {
+        require_once __DIR__ . '/../modules/water/water_service.php';
+    }
+    $headerPond      = get_household_pond_state((int) ($currentUser['household_id'] ?? 0));
+    $headerPondDrops = (int) ($headerPond['total_drops'] ?? 0);
+    $headerPondPct   = (float) ($headerPond['doluluk_yuzdesi'] ?? 0.0);
+}
 ?>
 <!DOCTYPE html>
 <html lang="tr">
@@ -37,6 +47,11 @@ $pendingFriendCnt = !empty($currentUser) && function_exists('count_incoming_frie
 
             <?php if (!empty($currentUser)): ?>
                 <div class="topbar-user">
+                    <a href="index.php#daireGoleti" class="topbar-drop-pill" title="Daire Göletinizdeki Toplam Damla (Gölet Doluluğu: %<?= number_format($headerPondPct, 0, ',', '.') ?>)">
+                        <span class="topbar-drop-icon">💧</span>
+                        <span class="topbar-drop-count"><?= number_format($headerPondDrops, 0, ',', '.') ?> Damla</span>
+                    </a>
+
                     <?php if ($pendingFriendCnt > 0): ?>
                         <a href="friends.php" class="topbar-notif-pill" title="Gelen Arkadaşlık İstekleri">
                             <span><?= $pendingFriendCnt ?> yeni istek</span>

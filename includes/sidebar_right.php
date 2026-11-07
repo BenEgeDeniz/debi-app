@@ -22,36 +22,69 @@ $incomingReqs  = $currentUser ? get_incoming_friend_requests((int) $currentUser[
             </div>
         <?php endif; ?>
 
-        <!-- 0. Debi Puan Göleti (Tıklandığında Analiz Sayfası Açılır) -->
+        <!-- 0. Daire Göleti & Damla Motivasyon Kartı (Daire Bazlı Gerçek Gölet) -->
         <?php if ($pondAnalytics): ?>
             <?php
-            $sidePondStage = $pondAnalytics['pond_stage'] ?? 'dry';
-            $sidePondImg   = brand_asset_path('pond_' . $sidePondStage);
-            $sidePondData  = $pondAnalytics['collective_pond'] ?? [
-                'golet_mevcut_su_m3' => 0,
-                'golet_hedef_m3'     => 500,
-                'golet_toplam_puan'  => 0,
-                'doluluk_yuzdesi'    => 0,
+            $sidePondData  = $pondAnalytics['household_pond'] ?? [
+                'total_drops'     => 0,
+                'target_drops'    => 100,
+                'saved_m3'        => 0.0,
+                'saved_liters'    => 0,
+                'doluluk_yuzdesi' => 0.0,
+                'stage'           => 'dry',
+                'stage_title'     => 'Kurumuş Gölet (Başlangıç)',
+                'next_stage_hint' => 'Yarı Dolu Gölet aşamasına 30 Damla 💧 kaldı',
             ];
+            $sidePondStage = $sidePondData['stage'] ?? 'dry';
+            $sidePondImg   = brand_asset_path('pond_' . $sidePondStage);
+            $sideDrops     = (int) ($sidePondData['total_drops'] ?? 0);
+            $sideTarget    = (int) ($sidePondData['target_drops'] ?? 100);
+            $sidePct       = (float) ($sidePondData['doluluk_yuzdesi'] ?? 0.0);
+            $sideSavedLit  = (int) ($sidePondData['saved_liters'] ?? 0);
+            $sideUnitName  = format_unit_label($currentUser['unit_label'] ?? '', $currentUser['housing_type'] ?? 'apartment_unit');
             ?>
-            <a href="analytics.php" class="panel-card sidebar-pond-card" title="Su Analizi ve Debi Puan Göleti sayfasını aç">
+            <div class="panel-card sidebar-pond-card" id="daireGoleti">
                 <div class="panel-card-header">
-                    <span class="panel-title">Debi Puan Göleti</span>
-                    <span class="panel-period">+<?= number_format((int) $sidePondData['golet_toplam_puan'], 0, ',', '.') ?> Debi Puanı</span>
+                    <div>
+                        <span class="panel-title">Daire Göletimiz</span>
+                        <div style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted);">
+                            <?= e($sideUnitName) ?> &middot; <?= e($sidePondData['stage_title'] ?? '') ?>
+                        </div>
+                    </div>
+                    <span class="drop-motivation-badge">
+                        <span class="drop-badge-icon">💧</span>
+                        <strong><?= number_format($sideDrops, 0, ',', '.') ?> Damla</strong>
+                    </span>
                 </div>
+
+                <!-- Motivasyon Damla Gösterge Kutusu -->
+                <div class="sidebar-drop-hero">
+                    <div class="sidebar-drop-hero-main">
+                        <span class="sidebar-drop-big">💧 <?= number_format($sideDrops, 0, ',', '.') ?> <small>/ <?= $sideTarget ?> Damla</small></span>
+                        <span class="sidebar-drop-sub"><?= e($sidePondData['next_stage_hint'] ?? '') ?></span>
+                    </div>
+                </div>
+
                 <div class="sidebar-pond-visual">
-                    <img src="<?= e($sidePondImg) ?>" alt="Debi Puan Göleti" class="sidebar-pond-img">
+                    <img src="<?= e($sidePondImg) ?>" alt="Daire Su Göleti" class="sidebar-pond-img">
                 </div>
+
                 <div class="sidebar-pond-footer">
-                    <div class="comp-row" style="margin-top: 8px; margin-bottom: 4px;">
-                        <span>Ortak Havuz Doluluğu (%<?= number_format((float) $sidePondData['doluluk_yuzdesi'], 1, ',', '.') ?>)</span>
-                        <strong><?= number_format((float) $sidePondData['golet_mevcut_su_m3'], 1, ',', '.') ?> / <?= number_format((float) $sidePondData['golet_hedef_m3'], 0, ',', '.') ?> m³</strong>
+                    <div class="comp-row" style="margin-top: 10px; margin-bottom: 5px;">
+                        <span>Gölet Doluluğu (%<?= number_format($sidePct, 0, ',', '.') ?>)</span>
+                        <strong>
+                            <?= $sideSavedLit > 0 ? number_format($sideSavedLit, 0, ',', '.') . ' L Su Kurtarıldı' : $sideDrops . ' / ' . $sideTarget . ' Damla' ?>
+                        </strong>
                     </div>
-                    <div class="progress-track">
-                        <div class="progress-fill fill-green" style="width: <?= min(100, max(2, (float) $sidePondData['doluluk_yuzdesi'])) ?>%;"></div>
+                    <div class="progress-track" style="height: 10px;">
+                        <div class="progress-fill fill-green" style="width: <?= min(100, max(3, $sidePct)) ?>%;"></div>
                     </div>
+
+                    <a href="water.php" class="btn btn-primary btn-sm btn-block" style="margin-top: 12px;">
+                        📷 Fatura Yükle &amp; Damla Kazan
+                    </a>
                 </div>
-            </a>
+            </div>
         <?php endif; ?>
 
         <!-- 1. Bu Ayki Fatura & Debi Özeti -->
@@ -106,7 +139,7 @@ $incomingReqs  = $currentUser ? get_incoming_friend_requests((int) $currentUser[
             <?php endif; ?>
 
             <a href="analytics.php" class="btn btn-outline btn-sm btn-block" style="margin-top: 10px;">
-                Su Analizi &amp; Debi Puan Göleti &rarr;
+                Su Tüketim Analizi (m³ Grafiği) &rarr;
             </a>
         </div>
 

@@ -83,6 +83,16 @@ function ensure_gamification_schema(): void
             }
         }
 
+        // 8. 102_household_pond_and_ai_drops.sql kontrolü (household_ponds tablosu ve water_logs.ai_verified sütunu)
+        $hasHouseholdPond = (bool) $pdo->query("SHOW TABLES LIKE 'household_ponds'")->fetchColumn();
+        $hasAiVerifiedCol = (bool) $pdo->query("SHOW COLUMNS FROM `water_logs` LIKE 'ai_verified'")->fetchColumn();
+        if (!$hasHouseholdPond || !$hasAiVerifiedCol) {
+            $sql102 = __DIR__ . '/../../sql-dum/102_household_pond_and_ai_drops.sql';
+            if (file_exists($sql102)) {
+                run_sql_migration_file($pdo, $sql102);
+            }
+        }
+
         // Mevcut hanelerde owner_user_id veya unit_invite_code eksikse otomatik tamamla
         $pdo->exec("
             UPDATE households h

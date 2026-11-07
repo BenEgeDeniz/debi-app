@@ -6,8 +6,10 @@ require_once __DIR__ . '/includes/init.php';
 require_once __DIR__ . '/modules/water/water_service.php';
 require_once __DIR__ . '/modules/water/bill_ai_service.php';
 
-$currentUser = require_login();
-$scanResult  = null;
+$currentUser     = require_login();
+$scanResult      = null;
+$pondCelebration = $_SESSION['pond_celebration'] ?? null;
+unset($_SESSION['pond_celebration']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf()) {
@@ -26,20 +28,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('water.php');
         }
         $scanResult = $res;
+        $_SESSION['pending_ai_scan'] = [
+            'ai_used'        => !empty($res['ai_used']),
+            'period_month'   => (int) ($res['extracted']['period_month'] ?? 0),
+            'period_year'    => (int) ($res['extracted']['period_year'] ?? 0),
+            'consumption_m3' => round((float) str_replace(',', '.', (string) ($res['extracted']['consumption_m3'] ?? '0')), 2),
+            'reading_days'   => (int) ($res['extracted']['reading_days'] ?? 30),
+            'bill_amount'    => trim((string) ($res['extracted']['bill_amount'] ?? '')),
+        ];
     }
 
     // 2. Adım: Kullanıcının "Evet, Doğru" diyerek onayladığı fatura verisini kaydet
     if ($action === 'confirm_bill') {
-        $res = save_water_log($currentUser, $_POST);
-        if ($res['ok']) {
-            $msg = 'Faturanız kaydedildi. Kişi başı günlük ortalamanız: ' . number_format($res['daily_liters'], 1, ',', '.') . ' L.';
-            if (!empty($res['saved_liters']) && $res['saved_liters'] > 0) {
-                $msg .= ' Önceki aya göre ' . number_format((int) $res['saved_liters'], 0, ',', '.') . ' L (%' . number_format((float) $res['saving_pct'], 1, ',', '.') . ') su kurtarıldı ve Debi Puan Göleti\'ne eklendi!';
-                if (!empty($res['points_awarded']) && $res['points_awarded'] > 0) {
-                    $msg .= ' (%10 barajı geçildiği için +' . (int) $res['points_awarded'] . ' Debi Puanı kazandınız!)';
-                }
+        $householdId  = (int) ($currentUser['household_id'] ?? 0);
+        $pondBefore   = get_household_pond_state($householdId);
+        $aiScan       = $_SESSION['pending_ai_scan'] ?? null;
+        unset($_SESSION['pending_ai_scan']);
+
+        $aiUnmodified = false;
+        if (!empty($aiScan) && !empty($aiScan['ai_used'])) {
+            $subMonth    = (int) ($_POST['period_month'] ?? 0);
+            $subYear     = (int) ($_POST['period_year'] ?? 0);
+            $subM3       = round((float) str_replace(',', '.', trim((string) ($_POST['consumption_m3'] ?? '0'))), 2);
+            $subDays     = (int) ($_POST['reading_days'] ?? 30);
+            $subBillRaw  = trim((string) ($_POST['bill_amount'] ?? ''));
+            $aiBillRaw   = trim((string) ($aiScan['bill_amount'] ?? ''));
+            $billMatches = ($aiBillRaw === '' && $subBillRaw === '') ||
+                (round((float) str_replace(',', '.', $subBillRaw), 2) === round((float) str_replace(',', '.', $aiBillRaw), 2));
+
+            if (
+                $subMonth === (int) $aiScan['period_month'] &&
+                $subYear === (int) $aiScan['period_year'] &&
+                abs($subM3 - (float) $aiScan['consumption_m3']) < 0.001 &&
+                $subDays === (int) $aiScan['reading_days'] &&
+                $billMatches
+            ) {
+                $aiUnmodified = true;
             }
-            set_flash('success', $msg);
+        }
+
+        $_POST['ai_verified'] = $aiUnmodified ? 1 : 0;
+        $res = save_water_log($currentUser, $_POST);
+
+        if ($res['ok']) {
+            $pondAfter = get_household_pond_state($householdId);
+
+            if ($aiUnmodified) {
+                $_SESSION['pond_celebration'] = [
+                    'earned_drops'    => max(10, (int) ($res['points_awarded'] ?? 10)),
+                    'drop_reasons'    => !empty($res['drop_reasons']) ? $res['drop_reasons'] : ['✨ Yapay Zeka Doğrulaması: +10 Damla'],
+                    'drops_before'    => (int) ($pondBefore['total_drops'] ?? 0),
+                    'drops_after'     => (int) ($pondAfter['total_drops'] ?? 10),
+                    'target_drops'    => (int) ($pondAfter['target_drops'] ?? 100),
+                    'fill_before'     => (float) ($pondBefore['doluluk_yuzdesi'] ?? 0.0),
+                    'fill_after'      => (float) ($pondAfter['doluluk_yuzdesi'] ?? 10.0),
+                    'stage_before'    => $pondBefore['stage'] ?? 'dry',
+                    'stage_after'     => $pondAfter['stage'] ?? 'dry',
+                    'stage_title'     => $pondAfter['stage_title'] ?? 'Kurumuş Gölet',
+                    'next_stage_hint' => $pondAfter['next_stage_hint'] ?? '',
+                    'period_label'    => $res['period_label'] ?? '',
+                    'consumption_m3'  => (float) ($res['consumption_m3'] ?? 0),
+                    'saved_liters'    => (int) ($res['saved_liters'] ?? 0),
+                    'unit_label'      => format_unit_label($currentUser['unit_label'] ?? '', $currentUser['housing_type'] ?? 'apartment_unit'),
+                ];
+            } else {
+                $msg = 'Faturanız kaydedildi. Kişi başı günlük ortalamanız: ' . number_format($res['daily_liters'], 1, ',', '.') . ' L.';
+                if (!empty($res['saved_liters']) && $res['saved_liters'] > 0) {
+                    $msg .= ' Önceki faturanıza göre ' . number_format((int) $res['saved_liters'], 0, ',', '.') . ' L (%' . number_format((float) $res['saving_pct'], 1, ',', '.') . ') su kurtarıldı!';
+                }
+                if (!empty($res['points_awarded']) && $res['points_awarded'] > 0) {
+                    $msg .= ' Daire Göletinize +' . (int) $res['points_awarded'] . ' Damla 💧 eklendi!';
+                }
+                set_flash('success', $msg);
+            }
             redirect('water.php');
         } else {
             set_flash('error', $res['error']);
@@ -61,7 +122,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$history = get_household_water_history((int) $currentUser['household_id']);
+$history   = get_household_water_history((int) $currentUser['household_id']);
+$pondState = get_household_pond_state((int) $currentUser['household_id']);
 
 $pageTitle = 'Su Faturası Takibi — Debi';
 $activeNav = 'water';
@@ -80,7 +142,7 @@ require_once __DIR__ . '/includes/header.php';
             $initDays     = max(1, (int) ($ext['reading_days'] ?: 30));
             $previewDaily = $initM3 > 0 ? round(($initM3 * 1000) / ($initDays * $residentCnt), 1) : 0;
             $selectedFeed = $_POST['feed_scope'] ?? (!empty($currentUser['apartment_id']) ? 'apartment' : 'friends');
-            $defaultPrevM3 = $_POST['previous_consumption_m3'] ?? (!empty($history[0]['consumption_m3']) ? (string) $history[0]['consumption_m3'] : '');
+            $aiWasUsed    = !empty($scanResult['ai_used']);
             ?>
             <!-- ADIM 2: "BU BİLGİLER DOĞRU MU?" ONAY KARTI -->
             <section class="panel-card bill-confirm-card">
@@ -107,6 +169,16 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 <?php endif; ?>
 
+                <?php if ($aiWasUsed): ?>
+                    <div class="ai-verify-reward-banner" id="aiVerifyRewardBanner">
+                        <span class="ai-verify-icon" id="aiVerifyIcon">✨</span>
+                        <div class="ai-verify-text" id="aiVerifyText">
+                            <strong>Yapay Zeka Doğrulama Ödülü Hazır (+10 Damla 💧 Garantili):</strong>
+                            <span>Okunan fatura bilgilerini değiştirmeden onayladığınızda ekran kararır ve Daire Göletinize anında damlalar yağar!</span>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
                 <div class="bill-verify-layout">
                     <?php if (!empty($scanResult['bill_image_path'])): ?>
                         <div class="bill-preview-column">
@@ -117,7 +189,14 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     <?php endif; ?>
 
-                    <form method="post" action="water.php" class="form-stack bill-confirm-form" id="billConfirmForm" data-residents="<?= $residentCnt ?>">
+                    <form method="post" action="water.php" class="form-stack bill-confirm-form" id="billConfirmForm"
+                          data-residents="<?= $residentCnt ?>"
+                          data-ai-used="<?= $aiWasUsed ? '1' : '0' ?>"
+                          data-ai-month="<?= (int) $ext['period_month'] ?>"
+                          data-ai-year="<?= (int) $ext['period_year'] ?>"
+                          data-ai-m3="<?= e((string) $ext['consumption_m3']) ?>"
+                          data-ai-days="<?= (int) $ext['reading_days'] ?>"
+                          data-ai-bill="<?= e((string) $ext['bill_amount']) ?>">
                         <?= csrf_field() ?>
                         <input type="hidden" name="action" value="confirm_bill">
                         <input type="hidden" name="bill_image_path" value="<?= e($scanResult['bill_image_path'] ?? '') ?>">
@@ -197,7 +276,9 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
 
                         <div class="bill-confirm-actions">
-                            <button type="submit" class="btn btn-primary">Evet, Doğru — Faturayı Kaydet</button>
+                            <button type="submit" class="btn btn-primary" id="billConfirmSubmitBtn">
+                                <?= $aiWasUsed ? '💧 Evet, Doğru — Faturayı Onayla &amp; Damla Kazan' : 'Evet, Doğru — Faturayı Kaydet' ?>
+                            </button>
                             <a href="water.php" class="btn btn-outline">İptal / Yeniden Yükle</a>
                         </div>
                     </form>
@@ -211,11 +292,17 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="section-kicker">YAPAY ZEKA DESTEKLİ FATURA OKUMA</div>
                         <h1 class="section-title">Su Faturanızın Fotoğrafını Yükleyin</h1>
                     </div>
-                    <span class="tag"><?= e($currentUser['unit_label']) ?> · <?= (int) $currentUser['resident_count'] ?> Kişi</span>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <a href="index.php#daireGoleti" class="drop-motivation-badge" title="Daire Göletinizdeki Toplam Damla Sayısı">
+                            <span class="drop-badge-icon">💧</span>
+                            <span>Daire Göletimiz: <strong><?= number_format((int) ($pondState['total_drops'] ?? 0), 0, ',', '.') ?> / <?= (int) ($pondState['target_drops'] ?? 100) ?> Damla</strong></span>
+                        </a>
+                        <span class="tag"><?= e($currentUser['unit_label']) ?> · <?= (int) $currentUser['resident_count'] ?> Kişi</span>
+                    </div>
                 </div>
 
                 <p class="panel-desc">
-                    Faturanızın fotoğrafını çekin veya seçin. Yapay zeka (Gemini) fatura dönemini, harcanan metreküpü (<strong>m³</strong>) ve fatura tutarını otomatik çıkarıp onayınıza sunar.
+                    Faturanızın fotoğrafını çekin veya seçin. Yapay zeka (Gemini) fatura dönemini ve harcanan metreküpü (<strong>m³</strong>) otomatik okuduğunda bilgileri değiştirmeden onaylayarak <strong>Daire Göletinize anında +10 Damla 💧</strong> (ve tasarruf oranınıza göre <strong>+30 Damla'ya kadar</strong>) yağdırabilirsiniz!
                 </p>
 
                 <form method="post" action="water.php" enctype="multipart/form-data" class="bill-upload-form" id="billScanForm">
@@ -260,7 +347,7 @@ require_once __DIR__ . '/includes/header.php';
         <section class="panel-card">
             <div class="panel-card-header">
                 <h2 class="section-title">Geçmiş Su Faturalarım</h2>
-                <a href="analytics.php" class="btn btn-outline btn-sm">Su Analizi &amp; Debi Göleti &rarr;</a>
+                <a href="analytics.php" class="btn btn-outline btn-sm">Su Tüketim Analizi &rarr;</a>
             </div>
 
             <?php if (empty($history)): ?>
@@ -311,13 +398,18 @@ require_once __DIR__ . '/includes/header.php';
                                 <th>Kurum</th>
                                 <th>Tüketim</th>
                                 <th>Kişi Başı Günlük</th>
+                                <th>Kazanılan Damla</th>
                                 <th>Tutar</th>
                                 <th>Fatura Görseli</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($history as $row): ?>
-                                <?php $daily = (float) $row['daily_liters_per_person']; ?>
+                                <?php
+                                $daily    = (float) $row['daily_liters_per_person'];
+                                $rowDrops = (int) ($row['earned_points'] ?? 0);
+                                $rowAiVer = (int) ($row['ai_verified'] ?? 0) === 1;
+                                ?>
                                 <tr>
                                     <td>
                                         <strong><?= e(turkish_month_name((int) $row['period_month']) . ' ' . $row['period_year']) ?></strong>
@@ -331,6 +423,18 @@ require_once __DIR__ . '/includes/header.php';
                                         <span class="metric-pill <?= $daily <= 110 ? 'pill-good' : 'pill-neutral' ?>">
                                             <?= number_format($daily, 1, ',', '.') ?> L / gün
                                         </span>
+                                    </td>
+                                    <td>
+                                        <?php if ($rowDrops > 0): ?>
+                                            <span class="drop-motivation-badge" style="padding: 3px 9px; font-size: 0.78rem;">
+                                                💧 +<?= $rowDrops ?> Damla
+                                            </span>
+                                            <?php if ($rowAiVer): ?>
+                                                <div class="table-sub" style="color: var(--brand-primary-dark); font-weight: 700;">✨ AI Onaylı</div>
+                                            <?php endif; ?>
+                                        <?php else: ?>
+                                            <span class="muted-text">0 Damla</span>
+                                        <?php endif; ?>
                                     </td>
                                     <td>
                                         <?= $row['bill_amount'] !== null ? number_format((float) $row['bill_amount'], 2, ',', '.') . ' TL' : '—' ?>
@@ -351,5 +455,87 @@ require_once __DIR__ . '/includes/header.php';
         </section>
     </main>
 </div>
+
+<?php if (!empty($pondCelebration)): ?>
+    <?php
+    $celStageMap = [
+        'dry'  => brand_asset_path('pond_dry'),
+        'half' => brand_asset_path('pond_half'),
+        'full' => brand_asset_path('pond_full'),
+    ];
+    $celInitStage  = $pondCelebration['stage_before'] ?? $pondCelebration['stage_after'] ?? 'dry';
+    $celFinalStage = $pondCelebration['stage_after'] ?? 'dry';
+    ?>
+    <!-- EKRANI KARARTIP GERÇEK DAİRE GÖLETİNE DAMLA YAĞDIRAN KUTLAMA MODALI -->
+    <div class="pond-celebration-overlay" id="pondCelebrationOverlay" role="dialog" aria-modal="true" aria-labelledby="pondCelTitle">
+        <div class="pond-celebration-card">
+            <div class="pond-cel-kicker">✨ YAPAY ZEKA DOĞRULAMASI &amp; <?= e(mb_strtoupper($pondCelebration['unit_label'] ?? 'DAİRE', 'UTF-8')) ?> GÖLETİ</div>
+            <h2 class="pond-cel-title" id="pondCelTitle">
+                +<?= (int) $pondCelebration['earned_drops'] ?> Damla Kazandınız! 💧
+            </h2>
+            <p class="pond-cel-sub">
+                <strong><?= e($pondCelebration['period_label'] ?? '') ?></strong> faturanızı yapay zeka okumasını değiştirmeden onayladınız. Damlalarınız şimdi daire göletinize yağıyor!
+            </p>
+
+            <?php if (!empty($pondCelebration['drop_reasons'])): ?>
+                <div class="pond-cel-reasons">
+                    <?php foreach ($pondCelebration['drop_reasons'] as $reasonText): ?>
+                        <span class="pond-cel-reason-pill"><?= e($reasonText) ?></span>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+
+            <!-- Gerçek Gölet Sahnesi + Yağmur Katmanı -->
+            <div class="pond-cel-arena" id="pondCelArena">
+                <div class="pond-cel-drop-layer" id="pondCelDropLayer" aria-hidden="true"></div>
+                <div class="pond-cel-visual-wrap">
+                    <img id="pondCelStageImg"
+                         src="<?= e($celStageMap[$celInitStage] ?? $celStageMap['dry']) ?>"
+                         alt="Daire Göleti Gerçek Durumu"
+                         class="pond-cel-stage-img">
+                    <div class="pond-ripple-ring" id="pondCelRippleRing"></div>
+                </div>
+            </div>
+
+            <!-- Canlı Damla Sayacı & Gölet Doluluk Çubuğu -->
+            <div class="pond-cel-meter-box">
+                <div class="pond-cel-meter-top">
+                    <span>
+                        <?= e($pondCelebration['unit_label'] ?? 'Daire') ?> Göleti:
+                        <strong id="pondCelDropsCounter"><?= (int) $pondCelebration['drops_before'] ?></strong>
+                        / <?= (int) $pondCelebration['target_drops'] ?> Damla 💧
+                    </span>
+                    <strong id="pondCelFillPctText">%<?= number_format((float) $pondCelebration['fill_before'], 0, ',', '.') ?> Doluluk</strong>
+                </div>
+                <div class="pond-meter-track" style="height: 14px;">
+                    <div class="pond-meter-fill" id="pondCelMeterFill" style="width: <?= min(100, max(3, (float) $pondCelebration['fill_before'])) ?>%;"></div>
+                </div>
+                <div class="pond-cel-stage-status">
+                    <strong><?= e($pondCelebration['stage_title'] ?? '') ?>:</strong>
+                    <span><?= e($pondCelebration['next_stage_hint'] ?? '') ?></span>
+                </div>
+            </div>
+
+            <div class="pond-cel-actions">
+                <a href="index.php#daireGoleti" class="btn btn-primary">Ana Sayfada Göletimi Gör</a>
+                <button type="button" class="btn btn-outline" id="btnClosePondCelebration">Fatura Sayfasında Kal</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    window.DEBI_POND_CELEBRATION = <?= json_encode([
+        'earnedDrops'  => (int) $pondCelebration['earned_drops'],
+        'dropsBefore'  => (int) $pondCelebration['drops_before'],
+        'dropsAfter'   => (int) $pondCelebration['drops_after'],
+        'targetDrops'  => (int) $pondCelebration['target_drops'],
+        'fillBefore'   => (float) $pondCelebration['fill_before'],
+        'fillAfter'    => (float) $pondCelebration['fill_after'],
+        'stageBefore'  => $celInitStage,
+        'stageAfter'   => $celFinalStage,
+        'images'       => $celStageMap,
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    </script>
+<?php endif; ?>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

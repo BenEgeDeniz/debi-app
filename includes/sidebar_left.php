@@ -42,6 +42,10 @@ $unitFormatted    = !empty($currentUser)
                         👤 <?= e($unitFormatted) ?> Sakini
                     </span>
                 <?php endif; ?>
+
+                <a href="index.php#daireGoleti" class="role-badge role-badge-drops" title="Daire Göletinizdeki Toplam Damla">
+                    💧 <?= number_format((int) ($headerPondDrops ?? 0), 0, ',', '.') ?> Damla
+                </a>
             </div>
         </div>
     <?php endif; ?>
@@ -72,7 +76,7 @@ $unitFormatted    = !empty($currentUser)
 
         <a href="analytics.php" class="side-nav-link <?= $activeNav === 'analytics' ? 'active' : '' ?>">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-            <span>Su Analizi &amp; Puan Göleti</span>
+            <span>Su Analizi</span>
         </a>
 
         <?php if (!$isDetachedHome): ?>

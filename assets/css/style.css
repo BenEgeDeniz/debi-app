@@ -2954,24 +2954,15 @@ a.timeline-meta-item:hover {
 
 .sidebar-pond-card {
     display: block;
-    text-decoration: none !important;
     color: var(--text-main);
-    transition: border-color 0.18s ease, transform 0.18s ease;
-    cursor: pointer;
-}
-
-.sidebar-pond-card:hover {
-    border-color: var(--brand-primary);
-    transform: translateY(-1px);
-    text-decoration: none !important;
 }
 
 .sidebar-pond-visual {
-    margin-top: 6px;
-    padding: 10px;
+    margin-top: 8px;
+    padding: 12px 10px;
     border-radius: var(--radius-sm);
-    background: linear-gradient(180deg, #f0f9ff 0%, #f8fafc 100%);
-    border: 1px solid var(--border-color);
+    background: linear-gradient(180deg, #e0f2fe 0%, #f0f9ff 65%, #f8fafc 100%);
+    border: 1px solid #bae6fd;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2979,9 +2970,322 @@ a.timeline-meta-item:hover {
 
 .sidebar-pond-img {
     width: 100%;
-    max-width: 220px;
+    max-width: 230px;
     height: auto;
     object-fit: contain;
+}
+
+/* ==========================================================
+   MOTİVASYON DAMLA ROZETLERİ & DAİRE GÖLETİ KUTLAMA MODALI
+   ========================================================== */
+.topbar-drop-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 13px;
+    border-radius: var(--radius-pill);
+    background: linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%);
+    border: 1.5px solid #38bdf8;
+    color: #0369a1;
+    font-size: 0.85rem;
+    font-weight: 900;
+    text-decoration: none !important;
+    box-shadow: 0 2px 6px rgba(14, 165, 233, 0.14);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.topbar-drop-pill:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(14, 165, 233, 0.22);
+    text-decoration: none !important;
+}
+
+.topbar-drop-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.drop-motivation-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: var(--radius-pill);
+    background: linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%);
+    border: 1.5px solid #38bdf8;
+    color: #0369a1;
+    font-size: 0.83rem;
+    font-weight: 800;
+    text-decoration: none !important;
+}
+
+.drop-motivation-badge strong {
+    font-weight: 900;
+    color: #0c4a6e;
+}
+
+.role-badge-drops {
+    background: linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%);
+    border-color: #38bdf8;
+    color: #0369a1;
+    text-decoration: none !important;
+    font-weight: 900;
+}
+
+.sidebar-drop-hero {
+    margin-top: 4px;
+    margin-bottom: 8px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, #f0f9ff 0%, #ecfdf5 100%);
+    border: 1px solid #bae6fd;
+}
+
+.sidebar-drop-hero-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sidebar-drop-big {
+    font-size: 1.3rem;
+    font-weight: 900;
+    color: #0369a1;
+    line-height: 1.2;
+}
+
+.sidebar-drop-big small {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.sidebar-drop-sub {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--brand-green-dark);
+}
+
+.ai-verify-reward-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, #ecfdf5 0%, #e0f2fe 100%);
+    border: 1.5px solid #34d399;
+    margin-bottom: 16px;
+    transition: all 0.2s ease;
+}
+
+.ai-verify-reward-banner.is-modified {
+    background: var(--brand-amber-bg);
+    border-color: #fcd34d;
+}
+
+.ai-verify-icon {
+    font-size: 1.35rem;
+    line-height: 1.1;
+    flex-shrink: 0;
+}
+
+.ai-verify-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.85rem;
+}
+
+.ai-verify-text strong {
+    font-weight: 900;
+    color: #065f46;
+}
+
+.ai-verify-reward-banner.is-modified .ai-verify-text strong {
+    color: var(--brand-amber-dark);
+}
+
+.ai-verify-text span {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+/* Tam Ekran Karartmalı Daire Göleti Kutlama Modalı */
+.pond-celebration-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(6, 17, 33, 0.88);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: pondOverlayFadeIn 0.28s ease-out forwards;
+}
+
+.pond-celebration-overlay.is-closing {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+@keyframes pondOverlayFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.pond-celebration-card {
+    width: 100%;
+    max-width: 580px;
+    background: #ffffff;
+    border: 2px solid #38bdf8;
+    border-radius: var(--radius-lg);
+    padding: 24px 24px 22px 24px;
+    text-align: center;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45), 0 0 40px rgba(14, 165, 233, 0.28);
+    animation: pondCardPopIn 0.34s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pondCardPopIn {
+    from {
+        transform: translateY(20px) scale(0.94);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+.pond-cel-kicker {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: var(--radius-pill);
+    background-color: #e0f2fe;
+    color: #0369a1;
+    font-size: 0.75rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+}
+
+.pond-cel-title {
+    font-size: 1.75rem;
+    font-weight: 900;
+    color: #0f172a;
+    margin: 0 0 6px 0;
+}
+
+.pond-cel-sub {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 0 auto 12px auto;
+    max-width: 480px;
+}
+
+.pond-cel-reasons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.pond-cel-reason-pill {
+    padding: 4px 11px;
+    border-radius: var(--radius-pill);
+    background-color: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #065f46;
+    font-size: 0.79rem;
+    font-weight: 800;
+}
+
+.pond-cel-arena {
+    position: relative;
+    padding: 46px 16px 18px 16px;
+    background: linear-gradient(180deg, #dbeafe 0%, #f0f9ff 65%, #f8fafc 100%);
+    border: 1.5px solid #bae6fd;
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+}
+
+.pond-cel-drop-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 200px;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.cel-water-drop {
+    font-size: 1.85rem;
+}
+
+.pond-cel-visual-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 340px;
+    width: 100%;
+    z-index: 2;
+}
+
+.pond-cel-stage-img {
+    width: 100%;
+    max-width: 320px;
+    height: auto;
+    object-fit: contain;
+    transition: transform 0.28s ease, opacity 0.22s ease;
+}
+
+.pond-cel-meter-box {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background-color: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    text-align: left;
+}
+
+.pond-cel-meter-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.88rem;
+    font-weight: 800;
+    margin-bottom: 6px;
+}
+
+.pond-cel-stage-status {
+    margin-top: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.pond-cel-stage-status strong {
+    color: var(--text-main);
+}
+
+.pond-cel-actions {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 @media (max-width: 768px) {
@@ -2992,6 +3296,14 @@ a.timeline-meta-item:hover {
     .pond-stage-steps,
     .pond-sliders-grid {
         grid-template-columns: 1fr;
+    }
+
+    .pond-celebration-card {
+        padding: 18px 14px;
+    }
+
+    .pond-cel-title {
+        font-size: 1.4rem;
     }
 }
 
