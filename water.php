@@ -27,6 +27,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             set_flash('error', $res['error']);
             redirect('water.php');
         }
+        $allowedPeriod = get_next_water_period($currentUser);
+        $scannedPeriod = ((int) ($res['extracted']['period_year'] ?? 0) * 12)
+            + (int) ($res['extracted']['period_month'] ?? 0);
+        $allowedPeriodNumber = ($allowedPeriod['year'] * 12) + $allowedPeriod['month'];
+        if ($scannedPeriod > 0 && $scannedPeriod !== $allowedPeriodNumber) {
+            set_flash('error', 'Bu fatura dönemi yükleme sırasına uygun değil. Yalnızca '
+                . turkish_month_name($allowedPeriod['month']) . ' ' . $allowedPeriod['year']
+                . ' faturası yüklenebilir.');
+            redirect('water.php');
+        }
         $scanResult = $res;
         $_SESSION['pending_ai_scan'] = [
             'ai_used'        => !empty($res['ai_used']),
@@ -125,6 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $history   = get_household_water_history((int) $currentUser['household_id']);
+$nextWaterPeriod = get_next_water_period($currentUser);
 
 $pageTitle = 'Su Faturası Takibi — Debi';
 $activeNav = 'water';
@@ -211,6 +222,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <label for="period_month">Ay</label>
                                 <select id="period_month" name="period_month">
                                     <?php for ($m = 1; $m <= 12; $m++): ?>
+                                        <?php if ($m !== $nextWaterPeriod['month']): continue; endif; ?>
                                         <option value="<?= $m ?>" <?= $m === (int) $ext['period_month'] ? 'selected' : '' ?>>
                                             <?= e(turkish_month_name($m)) ?>
                                         </option>
@@ -221,10 +233,7 @@ require_once __DIR__ . '/includes/header.php';
                             <div class="form-group">
                                 <label for="period_year">Yıl</label>
                                 <select id="period_year" name="period_year">
-                                    <?php $curY = (int) date('Y'); ?>
-                                    <?php for ($y = $curY + 1; $y >= 2023; $y--): ?>
-                                        <option value="<?= $y ?>" <?= $y === (int) $ext['period_year'] ? 'selected' : '' ?>><?= $y ?></option>
-                                    <?php endfor; ?>
+                                    <option value="<?= $nextWaterPeriod['year'] ?>" selected><?= $nextWaterPeriod['year'] ?></option>
                                 </select>
                             </div>
                         </div>
@@ -302,7 +311,7 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="bill-dropzone-content" id="billDropzoneText">
                             <div class="bill-dropzone-icon">📷</div>
                             <strong>Fatura Fotoğrafı Seç</strong>
-                            <span>Yapay zeka otomatik okur · değerleri kontrol ederek puan kazan</span>
+                            <span><?= e(turkish_month_name($nextWaterPeriod['month']) . ' ' . $nextWaterPeriod['year']) ?> faturası · aylar sırayla yüklenir</span>
                         </div>
                         <div class="bill-selected-preview" id="billSelectedPreview" hidden>
                             <img id="billPreviewImg" src="" alt="Önizleme">
