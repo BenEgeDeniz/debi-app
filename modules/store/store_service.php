@@ -1,6 +1,6 @@
 <?php
 /**
- * DEBI - Puan Kullanım, Yeşil Markalar Mağazası & Anlaşmalı Kampanya Destek Modülü
+ * DEBI - Mağaza (Yeşil Markalarla Harcama Yapma & Anlaşmalı Kampanyaya Destek Olma) Modülü
  */
 
 if (!function_exists('get_household_pond_state')) {
@@ -8,7 +8,7 @@ if (!function_exists('get_household_pond_state')) {
 }
 
 /**
- * Mağaza ve Kampanya tablolarının kurulu olduğundan emin olur.
+ * Mağaza ve Kampanya tablolarının güncel şema ve içerikle kurulu olduğundan emin olur.
  */
 function ensure_store_schema(): void
 {
@@ -20,10 +20,6 @@ function ensure_store_schema(): void
 
     try {
         $pdo = db();
-        $chk = $pdo->query("SHOW TABLES LIKE 'store_items'");
-        if ($chk && $chk->rowCount() > 0) {
-            return;
-        }
 
         $sqlPath = __DIR__ . '/../../sql-dum/101_store_and_campaigns.sql';
         if (is_file($sqlPath)) {
@@ -35,10 +31,39 @@ function ensure_store_schema(): void
                     try {
                         $pdo->exec($clean);
                     } catch (Throwable $inner) {
-                        // Tekil ifade hatasını yut
+                        // Tekil ifade hatasını geç
                     }
                 }
             }
+        }
+
+        // Eski şemadan kalma sütun/kayıt varsa temizle ve yeni yapıya uyarla
+        try {
+            $pdo->exec("ALTER TABLE store_items MODIFY COLUMN category ENUM('cafe','restaurant','detergent','eco_product') NOT NULL DEFAULT 'cafe'");
+        } catch (Throwable $e) {
+        }
+        try {
+            $pdo->exec("ALTER TABLE store_items ADD COLUMN image_path VARCHAR(255) DEFAULT NULL AFTER description");
+        } catch (Throwable $e) {
+        }
+        try {
+            $pdo->exec("ALTER TABLE support_campaigns ADD COLUMN min_points INT UNSIGNED NOT NULL DEFAULT 50");
+        } catch (Throwable $e) {
+        }
+        try {
+            $pdo->exec("ALTER TABLE support_campaigns ADD COLUMN target_dp INT UNSIGNED NOT NULL DEFAULT 5000");
+        } catch (Throwable $e) {
+        }
+        try {
+            $pdo->exec("ALTER TABLE support_campaigns ADD COLUMN current_dp INT UNSIGNED NOT NULL DEFAULT 1250");
+        } catch (Throwable $e) {
+        }
+
+        // Eski katalog kayıtlarını kaldır (biodamla, eski yeşil damla kafe, 3. kampanya vb.)
+        try {
+            $pdo->exec("DELETE FROM store_items WHERE slug IN ('biodamla-eko-deterjan', 'cam-fincan-ekokafe', 'yesil-damla-roastery', 'aquapure-konsantre-deterjan', 'ekoakis-perlator-magaza')");
+            $pdo->exec("DELETE FROM support_campaigns WHERE slug NOT IN ('okul-cesmeleri-tasarruf-donusumu', 'kuruyan-gollere-can-suyu')");
+        } catch (Throwable $e) {
         }
     } catch (Throwable $e) {
         // Sessizce geç
@@ -46,7 +71,7 @@ function ensure_store_schema(): void
 }
 
 /**
- * Kullanıcının / Hanesinin güncel kullanılabilir puan bakiyesini döndürür.
+ * Kullanıcının / Hanesinin güncel kullanılabilir puan (DP) bakiyesini döndürür.
  */
 function get_store_wallet_balance(array $user): int
 {
@@ -91,69 +116,53 @@ function get_active_store_items(): array
     return [
         [
             'id'           => 1,
-            'slug'         => 'cam-fincan-ekokafe',
+            'slug'         => 'damla-kafe',
             'category'     => 'cafe',
-            'brand_name'   => 'Damla & Fincan Yeşil Kafe',
-            'title'        => 'Cam Bardak ve Porselen Fincan Kullanan Anlaşmalı Kafe İndirimi',
-            'description'  => 'Tek kullanımlık kağıt ve plastik bardak harcamasını ortadan kaldıran; yalnızca cam bardak ve porselen fincan ile servis yaparak gizli su tüketimini azaltan anlaşmalı kafede tüm içeceklerde %50 indirim.',
-            'eco_badge'    => '☕ Cam Bardak & Fincan · Sıfır Kağıt/Plastik',
-            'discount_pct' => 50,
+            'brand_name'   => 'Damla Kafe',
+            'title'        => '',
+            'description'  => 'Porselen fincan ile servis yaparak gizli su tüketimini azaltmaktadır.',
+            'image_path'   => null,
+            'discount_pct' => 30,
             'cost_points'  => 50,
-            'icon_emoji'   => '☕',
         ],
         [
             'id'           => 2,
-            'slug'         => 'yesil-damla-roastery',
-            'category'     => 'cafe',
-            'brand_name'   => 'Yeşil Damla Roastery & Kafe',
-            'title'        => 'Kağıt ve Plastik Harcamasını Azaltan Kafe %50 İndirim Kuponu',
-            'description'  => 'Kendi termosunu getirenlere veya kafe içi cam bardak/fincan tercih edenlere özel; kağıt-plastik atığını ve üretim suyu ayak izini azaltan anlaşmalı kahve mağazasında %50 indirim.',
-            'eco_badge'    => '🥛 Cam Bardak Kullanımı · Su Tasarrufu Dostu',
+            'slug'         => 'yesil-sofra-restoran',
+            'category'     => 'restaurant',
+            'brand_name'   => 'Yeşil Sofra Restoran',
+            'title'        => '',
+            'description'  => 'Menüdeki yemek tercihlerini düşük su ayak izli ve mevsimsel içeriklere göre ayarlayarak mutfakta su tüketimini azaltmaktadır.',
+            'image_path'   => null,
             'discount_pct' => 50,
             'cost_points'  => 50,
-            'icon_emoji'   => '🍵',
         ],
         [
             'id'           => 3,
-            'slug'         => 'biodamla-eko-deterjan',
+            'slug'         => 'aquapure-deterjan',
             'category'     => 'detergent',
-            'brand_name'   => 'BioDamla Ekolojik Deterjan',
-            'title'        => 'Su Ayak İzini Azaltmayı Amaçlamış Bitkisel Deterjan Ürününde %50 İndirim',
-            'description'  => 'Düşük köpüren formülüyle durulama suyundan %45 tasarruf sağlayan ve gri su kirliliğini önleyerek su ayak izini azaltmayı amaçlamış anlaşmalı deterjan markasının ürününde %50 indirim.',
-            'eco_badge'    => '🫧 Düşük Su Ayak İzi · Ekolojik Deterjan',
-            'discount_pct' => 50,
+            'brand_name'   => 'AquaPure Su Dostu Deterjan',
+            'title'        => '',
+            'description'  => 'Su tasarrufuna katkı sağlayan ve su ayak izini azaltmayı amaçlamış konsantre çamaşır ve bulaşık deterjanı.',
+            'image_path'   => null,
+            'discount_pct' => 10,
             'cost_points'  => 50,
-            'icon_emoji'   => '🧴',
         ],
         [
             'id'           => 4,
-            'slug'         => 'aquapure-konsantre-deterjan',
-            'category'     => 'detergent',
-            'brand_name'   => 'AquaPure Su Dostu Deterjan',
-            'title'        => 'Su Tasarrufuna Katkı Sağlayan Konsantre Çamaşır & Bulaşık Deterjanı',
-            'description'  => 'Susuz konsantre tablet teknolojisiyle hem üretimde hem de evdeki yıkamalarda su tasarrufuna doğrudan katkı sağlayan anlaşmalı deterjan ürününde %50 indirim.',
-            'eco_badge'    => '💧 Su Tasarruflu Durulama · Doğada Çözünür',
-            'discount_pct' => 50,
-            'cost_points'  => 50,
-            'icon_emoji'   => '🧼',
-        ],
-        [
-            'id'           => 5,
-            'slug'         => 'ekoakis-perlator-magaza',
+            'slug'         => 'ekoakis-perlator',
             'category'     => 'eco_product',
-            'brand_name'   => 'EkoAkış Su Tasarruf Ekipmanları',
-            'title'        => 'Su Tasarrufuna Katkı Sağlayan Havalandırmalı Musluk Perlatörü',
-            'description'  => 'Standart musluklara saniyeler içinde takılan ve su akış hızını düşürmeden %50 su tasarrufu sağlayan anlaşmalı yeşil mağaza ürününde %50 indirim.',
-            'eco_badge'    => '🚰 %50 Musluk Su Tasarrufu · Yeşil Marka',
-            'discount_pct' => 50,
+            'brand_name'   => 'EkoAkış',
+            'title'        => '',
+            'description'  => 'Havalandırmalı Musluk Perlatörü',
+            'image_path'   => null,
+            'discount_pct' => 15,
             'cost_points'  => 50,
-            'icon_emoji'   => '🚰',
         ],
     ];
 }
 
 /**
- * Anlaşmalı Kampanyaya Destek Olma — Kampanya Listesini Döndürür
+ * Anlaşmalı Kampanyaya Destek Olma — 2 Kampanyayı Listeler
  */
 function get_active_support_campaigns(): array
 {
@@ -166,6 +175,7 @@ function get_active_support_campaigns(): array
             FROM support_campaigns
             WHERE is_active = 1
             ORDER BY sort_order ASC, id ASC
+            LIMIT 2
         ");
         $rows = $stmt ? $stmt->fetchAll() : [];
     } catch (Throwable $e) {
@@ -175,53 +185,36 @@ function get_active_support_campaigns(): array
     if (empty($rows)) {
         $rows = [
             [
-                'id'                     => 1,
-                'slug'                   => 'kuruyan-gollere-can-suyu',
-                'partner_name'           => 'Debi & Doğa Su Vakfı Anlaşmalı Kampanyası',
-                'title'                  => 'Anlaşmalı Kuruyan Göllere ve Havzalara Can Suyu Kampanyası',
-                'description'            => '50 puan harcayarak 50 L/m³\'lük bir su tasarrufu karşılığını kuruma tehdidi altındaki yerel göl ve sulak alanların restorasyon kampanyasına gönderin.',
-                'impact_unit_label'      => '50 L/m³',
-                'cost_points'            => 50,
-                'water_contrib_amount'   => 50,
-                'target_contrib_amount'  => 5000,
-                'current_contrib_amount' => 1450,
-                'supporter_count'        => 29,
-                'icon_emoji'             => '🌊',
+                'id'              => 1,
+                'slug'            => 'okul-cesmeleri-tasarruf-donusumu',
+                'partner_name'    => 'Yeşil Okullar & Belediye Su İşbirliği',
+                'title'           => 'Mahalle Okullarında Tasarruflu Musluk & Gri Su Dönüşüm Kampanyası',
+                'description'     => 'Okullardaki muslukların tasarruflu başlıklarla dönüştürülmesi ve gri su geri kazanım altyapısının kurulması için puanlarınızla destek olabilirsiniz.',
+                'min_points'      => 50,
+                'target_dp'       => 3500,
+                'current_dp'      => 950,
+                'supporter_count' => 19,
             ],
             [
-                'id'                     => 2,
-                'slug'                   => 'okul-cesmeleri-tasarruf-donusumu',
-                'partner_name'           => 'Yeşil Okullar & Belediye Su İşbirliği',
-                'title'                  => 'Mahalle Okullarında Tasarruflu Musluk & Gri Su Dönüşüm Kampanyası',
-                'description'            => '50 puan harcayarak 50 L/m³\'lük tasarruf desteğini devlet okullarındaki muslukların fotoselli ve perlatörlü başlıklarla değiştirilmesi kampanyasına gönderin.',
-                'impact_unit_label'      => '50 L/m³',
-                'cost_points'            => 50,
-                'water_contrib_amount'   => 50,
-                'target_contrib_amount'  => 3500,
-                'current_contrib_amount' => 950,
-                'supporter_count'        => 19,
-                'icon_emoji'             => '🏫',
-            ],
-            [
-                'id'                     => 3,
-                'slug'                   => 'yerel-tarim-damla-sulama',
-                'partner_name'           => 'Anadolu Su Hasadı & Damla Sulama Girişimi',
-                'title'                  => 'Yerel Çiftçilere Damla Sulama ve Yağmur Suyu Hasadı Destek Kampanyası',
-                'description'            => '50 puan harcayarak 50 L/m³\'lük su tasarrufu katkısını tarımda vahşi sulama yerine damla sulama borularına geçiş yapan anlaşmalı kampanyaya aktarın.',
-                'impact_unit_label'      => '50 L/m³',
-                'cost_points'            => 50,
-                'water_contrib_amount'   => 50,
-                'target_contrib_amount'  => 4000,
-                'current_contrib_amount' => 1100,
-                'supporter_count'        => 22,
-                'icon_emoji'             => '🌱',
+                'id'              => 2,
+                'slug'            => 'kuruyan-gollere-can-suyu',
+                'partner_name'    => 'Debi & Doğa Su Vakfı İşbirliği',
+                'title'           => 'Anlaşmalı Kuruyan Göllere ve Havzalara Can Suyu Kampanyası',
+                'description'     => 'Kuruma tehdidi altındaki yerel göl ve su havzalarının korunması ve ekosistem restorasyonu için puanlarınızla destek gönderebilirsiniz.',
+                'min_points'      => 50,
+                'target_dp'       => 5000,
+                'current_dp'      => 1450,
+                'supporter_count' => 29,
             ],
         ];
     }
 
     foreach ($rows as &$row) {
-        $target  = max(1, (int) ($row['target_contrib_amount'] ?? 5000));
-        $current = max(0, (int) ($row['current_contrib_amount'] ?? 0));
+        $target  = max(1, (int) ($row['target_dp'] ?? $row['target_contrib_amount'] ?? 5000));
+        $current = max(0, (int) ($row['current_dp'] ?? $row['current_contrib_amount'] ?? 0));
+        $row['target_dp']    = $target;
+        $row['current_dp']   = $current;
+        $row['min_points']   = max(50, (int) ($row['min_points'] ?? $row['cost_points'] ?? 50));
         $row['progress_pct'] = min(100, round(($current / $target) * 100, 1));
     }
     unset($row);
@@ -230,7 +223,7 @@ function get_active_support_campaigns(): array
 }
 
 /**
- * Yeşil Mağaza Ürününde %50 İndirim İçin 50 Puan Harcama İşlemi
+ * Yeşil Mağaza Ürününde İndirim İçin 50 DP Harcama İşlemi
  */
 function redeem_store_item(array $user, int $itemId): array
 {
@@ -247,17 +240,17 @@ function redeem_store_item(array $user, int $itemId): array
     $itemStmt->execute([':id' => $itemId]);
     $item = $itemStmt->fetch();
     if (!$item) {
-        return ['ok' => false, 'error' => 'Seçilen anlaşmalı mağaza ürünü bulunamadı.'];
+        return ['ok' => false, 'error' => 'Seçilen anlaşmalı mağaza bulunamadı.'];
     }
 
     $costPoints  = max(1, (int) ($item['cost_points'] ?? 50));
-    $discountPct = max(1, (int) ($item['discount_pct'] ?? 50));
+    $discountPct = max(1, (int) ($item['discount_pct'] ?? 30));
     $balance     = get_store_wallet_balance($user);
 
     if ($balance < $costPoints) {
         return [
             'ok'    => false,
-            'error' => "Yetersiz puan bakiyesi! Bu indirim için {$costPoints} Puan gerekiyor (Mevcut bakiyeniz: {$balance} Puan).",
+            'error' => "Yetersiz puan bakiyesi! Bu indirim için {$costPoints} DP gerekiyor (Mevcut bakiyeniz: {$balance} DP).",
         ];
     }
 
@@ -312,7 +305,7 @@ function redeem_store_item(array $user, int $itemId): array
         return [
             'ok'          => true,
             'coupon_code' => $couponCode,
-            'message'     => "Tebrikler! {$costPoints} puan harcayarak \"{$item['brand_name']}\" mağazasında %{$discountPct} indirim kazandınız. Kupon Kodunuz: {$couponCode}",
+            'message'     => "Tebrikler! {$costPoints} DP harcayarak \"{$item['brand_name']}\" mağazasında %{$discountPct} indirim kazandınız. Kupon Kodunuz: {$couponCode}",
         ];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -323,9 +316,9 @@ function redeem_store_item(array $user, int $itemId): array
 }
 
 /**
- * Anlaşmalı Kampanyaya 50 Puan Harcayarak 50 L/m³ Tasarruf Gönderimi
+ * Anlaşmalı Kampanyaya DP Gönderimi (Min 50 DP, Maksimum Sınır Yok)
  */
-function support_campaign_with_points(array $user, int $campaignId): array
+function support_campaign_with_points(array $user, int $campaignId, int $requestedPoints = 50): array
 {
     ensure_store_schema();
 
@@ -343,15 +336,19 @@ function support_campaign_with_points(array $user, int $campaignId): array
         return ['ok' => false, 'error' => 'Seçilen anlaşmalı kampanya bulunamadı.'];
     }
 
-    $costPoints    = max(1, (int) ($campaign['cost_points'] ?? 50));
-    $contribAmount = max(1, (int) ($campaign['water_contrib_amount'] ?? 50));
-    $impactLabel   = (string) ($campaign['impact_unit_label'] ?? '50 L/m³');
-    $balance       = get_store_wallet_balance($user);
-
-    if ($balance < $costPoints) {
+    $minPoints = max(50, (int) ($campaign['min_points'] ?? $campaign['cost_points'] ?? 50));
+    if ($requestedPoints < $minPoints) {
         return [
             'ok'    => false,
-            'error' => "Yetersiz puan bakiyesi! Kampanyaya {$impactLabel} tasarruf göndermek için {$costPoints} Puan gerekiyor (Mevcut bakiyeniz: {$balance} Puan).",
+            'error' => "Kampanyaya gönderilecek destek miktarı en az {$minPoints} DP olmalıdır.",
+        ];
+    }
+
+    $balance = get_store_wallet_balance($user);
+    if ($balance < $requestedPoints) {
+        return [
+            'ok'    => false,
+            'error' => "Yetersiz puan bakiyesi! {$requestedPoints} DP göndermek için yeterli puanınız yok (Mevcut bakiyeniz: {$balance} DP).",
         ];
     }
 
@@ -364,7 +361,7 @@ function support_campaign_with_points(array $user, int $campaignId): array
             WHERE id = :hid AND total_points >= :pts
         ");
         $deductStmt->execute([
-            ':pts' => $costPoints,
+            ':pts' => $requestedPoints,
             ':hid' => $householdId,
         ]);
 
@@ -375,30 +372,28 @@ function support_campaign_with_points(array $user, int $campaignId): array
 
         $updCamp = $pdo->prepare("
             UPDATE support_campaigns
-            SET current_contrib_amount = current_contrib_amount + :contrib,
-                supporter_count        = supporter_count + 1
+            SET current_dp      = current_dp + :pts,
+                supporter_count = supporter_count + 1
             WHERE id = :cid
         ");
         $updCamp->execute([
-            ':contrib' => $contribAmount,
-            ':cid'     => (int) $campaign['id'],
+            ':pts' => $requestedPoints,
+            ':cid' => (int) $campaign['id'],
         ]);
 
         $insSup = $pdo->prepare("
-            INSERT INTO campaign_supports (user_id, household_id, campaign_id, spent_points, contrib_amount, impact_label)
-            VALUES (:uid, :hid, :cid, :pts, :contrib, :label)
+            INSERT INTO campaign_supports (user_id, household_id, campaign_id, spent_points)
+            VALUES (:uid, :hid, :cid, :pts)
         ");
         $insSup->execute([
-            ':uid'     => $userId,
-            ':hid'     => $householdId,
-            ':cid'     => (int) $campaign['id'],
-            ':pts'     => $costPoints,
-            ':contrib' => $contribAmount,
-            ':label'   => $impactLabel,
+            ':uid' => $userId,
+            ':hid' => $householdId,
+            ':cid' => (int) $campaign['id'],
+            ':pts' => $requestedPoints,
         ]);
         $supportId = (int) $pdo->lastInsertId();
 
-        $desc = "💧 {$campaign['title']} kampanyasına {$impactLabel} tasarruf gönderildi";
+        $desc = "💧 {$campaign['title']} kampanyasına {$requestedPoints} DP destek gönderildi";
         $insLog = $pdo->prepare("
             INSERT INTO point_logs (user_id, household_id, action_code, points, description, ref_key)
             VALUES (:uid, :hid, 'campaign_support', :pts, :desc, :rkey)
@@ -406,7 +401,7 @@ function support_campaign_with_points(array $user, int $campaignId): array
         $insLog->execute([
             ':uid'  => $userId,
             ':hid'  => $householdId,
-            ':pts'  => -$costPoints,
+            ':pts'  => -$requestedPoints,
             ':desc' => $desc,
             ':rkey' => 'campaign_support_' . $supportId,
         ]);
@@ -415,7 +410,7 @@ function support_campaign_with_points(array $user, int $campaignId): array
 
         return [
             'ok'      => true,
-            'message' => "Teşekkürler! {$costPoints} puan harcayarak \"{$campaign['title']}\" kampanyasına {$impactLabel} su tasarrufu gönderimi sağladınız.",
+            'message' => "Teşekkürler! \"{$campaign['title']}\" kampanyasına {$requestedPoints} DP destek gönderimi sağladınız.",
         ];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -437,7 +432,7 @@ function get_household_store_redemptions(int $householdId, int $limit = 8): arra
 
     try {
         $stmt = db()->prepare("
-            SELECT sr.*, si.brand_name, si.title, si.category, si.icon_emoji, u.full_name
+            SELECT sr.*, si.brand_name, si.title, si.category, u.full_name
             FROM store_redemptions sr
             INNER JOIN store_items si ON si.id = sr.store_item_id
             INNER JOIN users u ON u.id = sr.user_id
@@ -466,7 +461,7 @@ function get_household_campaign_supports(int $householdId, int $limit = 8): arra
 
     try {
         $stmt = db()->prepare("
-            SELECT cs.*, sc.title AS campaign_title, sc.partner_name, sc.icon_emoji, u.full_name
+            SELECT cs.*, sc.title AS campaign_title, sc.partner_name, u.full_name
             FROM campaign_supports cs
             INNER JOIN support_campaigns sc ON sc.id = cs.campaign_id
             INNER JOIN users u ON u.id = cs.user_id
@@ -482,4 +477,3 @@ function get_household_campaign_supports(int $householdId, int $limit = 8): arra
         return [];
     }
 }
-

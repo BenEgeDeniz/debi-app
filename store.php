@@ -1,8 +1,8 @@
 <?php
 /**
- * DEBI - Puan Kullanım & Mağaza Sayfası
- * 1) Yeşil Markalarla Harcama Yapma (Alt alta anlaşmalı kafe ve su ayak izini azaltan deterjan mağazalarında %50 indirim için 50 puan harca)
- * 2) Kampanyaya Destek Olma (Anlaşmalı kampanyaya 50 puan harcayarak 50 L/m³ tasarruf gönderimi)
+ * DEBI - Mağaza Sayfası
+ * 1) Yeşil Markalarla Harcama Yapma (Alt alta anlaşmalı kafe, restoran, deterjan ve su ekipmanı mağazaları)
+ * 2) Kampanyaya Destek Olma (Anlaşmalı su koruma kampanyalarına min 50 DP destek gönderimi)
  */
 require_once __DIR__ . '/includes/init.php';
 require_once __DIR__ . '/modules/store/store_service.php';
@@ -27,16 +27,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $error = $res['error'] ?? 'İşlem gerçekleştirilemedi.';
         } elseif ($action === 'support_campaign') {
-            $activeTab  = 'campaigns';
-            $campaignId = (int) ($_POST['campaign_id'] ?? 0);
-            $res        = support_campaign_with_points($currentUser, $campaignId);
+            $activeTab       = 'campaigns';
+            $campaignId      = (int) ($_POST['campaign_id'] ?? 0);
+            $requestedPoints = (int) ($_POST['support_points'] ?? 50);
+            $res             = support_campaign_with_points($currentUser, $campaignId, $requestedPoints);
             if ($res['ok']) {
                 set_flash('success', $res['message']);
                 redirect('store.php?tab=campaigns');
             }
             $error = $res['error'] ?? 'Kampanya desteği gönderilemedi.';
         } else {
-            $error = 'Geçersiz puan kullanım işlemi.';
+            $error = 'Geçersiz mağaza işlemi.';
         }
     }
 }
@@ -47,13 +48,7 @@ $supportCampaigns = get_active_support_campaigns();
 $myRedemptions    = get_household_store_redemptions((int) ($currentUser['household_id'] ?? 0));
 $mySupports       = get_household_campaign_supports((int) ($currentUser['household_id'] ?? 0));
 
-$categoryLabels = [
-    'cafe'        => 'Anlaşmalı Yeşil Kafe · Cam Bardak & Fincan',
-    'detergent'   => 'Su Ayak İzini Azaltan Deterjan Markası',
-    'eco_product' => 'Su Tasarrufuna Katkı Sağlayan Yeşil Mağaza',
-];
-
-$pageTitle = 'Puan Kullanımı & Mağaza — Debi';
+$pageTitle = 'Mağaza — Debi';
 $activeNav = 'store';
 require_once __DIR__ . '/includes/header.php';
 ?>
@@ -62,24 +57,17 @@ require_once __DIR__ . '/includes/header.php';
     <?php require_once __DIR__ . '/includes/sidebar_left.php'; ?>
 
     <main class="main-column">
-        <!-- Üst Başlık ve Cüzdan Puan Bakiyesi -->
+        <!-- Üst Başlık ve Yan Yana 2 Seçenek -->
         <section class="panel-card store-hero-card">
             <div class="panel-card-header">
                 <div>
-                    <div class="section-kicker">DEBİ PUAN KULLANIM &amp; MAĞAZA MERKEZİ</div>
-                    <h1 class="section-title">Yeşil Markalarla Harcama Yap &amp; Kampanyaya Destek Ol</h1>
-                </div>
-                <div class="store-wallet-badge" title="Kullanılabilir Toplam Puan Bakiyeniz">
-                    <span class="store-wallet-icon">💧</span>
-                    <div class="store-wallet-meta">
-                        <small>Kullanılabilir Puanınız</small>
-                        <strong><?= number_format($walletBalance, 0, ',', '.') ?> Puan</strong>
-                    </div>
+                    <div class="section-kicker">MAĞAZA</div>
+                    <h1 class="section-title">Yeşil Markalarla Harcama Yap ya da Kampanyaya Destek Ol</h1>
                 </div>
             </div>
 
             <p class="panel-desc" style="margin-bottom: 14px;">
-                Su faturalarınızdaki tasarruflardan ve etkinlik katılımlarınızdan biriktirdiğiniz puanları aşağıda <strong>yan yana yer alan iki seçenekten</strong> birini seçerek değerlendirebilirsiniz: anlaşmalı yeşil markalarda <strong>%50 indirim</strong> kazanın veya anlaşmalı su kampanyalarına <strong>50 L/m³ tasarruf</strong> gönderin.
+                Su faturalarınızdaki tasarruflardan ve etkinlik katılımlarınızdan biriktirdiğiniz puanları aşağıda <strong>yan yana yer alan iki seçenekten</strong> birini seçerek değerlendirebilirsiniz.
             </p>
 
             <?php if ($error): ?>
@@ -89,7 +77,7 @@ require_once __DIR__ . '/includes/header.php';
             <?php endif; ?>
 
             <!-- YAN YANA 2 FARKLI SEÇENEK BUTONU -->
-            <div class="store-choice-grid" role="tablist" aria-label="Puan Kullanım Seçenekleri">
+            <div class="store-choice-grid" role="tablist" aria-label="Mağaza Seçenekleri">
                 <button type="button"
                         class="store-choice-btn js-store-tab-btn <?= $activeTab === 'brands' ? 'active' : '' ?>"
                         data-store-tab="brands"
@@ -98,7 +86,7 @@ require_once __DIR__ . '/includes/header.php';
                     <span class="store-choice-emoji">🌿</span>
                     <div class="store-choice-text">
                         <strong>Yeşil Markalarla Harcama Yapma</strong>
-                        <span>Cam bardak/fincan kullanan anlaşmalı kafeler ve su ayak izini azaltan deterjan markalarında <strong>%50 indirim için 50 puan harca</strong></span>
+                        <span>Anlaşmalı yeşil kafe, restoran, deterjan ve su tasarruf ekipmanı mağazalarında puanlarını kullan</span>
                     </div>
                 </button>
 
@@ -110,7 +98,7 @@ require_once __DIR__ . '/includes/header.php';
                     <span class="store-choice-emoji">💧</span>
                     <div class="store-choice-text">
                         <strong>Kampanyaya Destek Olma</strong>
-                        <span>Anlaşmalı su koruma kampanyalarına <strong>50 puan harcayarak 50 L/m³'lük tasarruf</strong> gönderimi sağla</span>
+                        <span>Anlaşmalı su koruma kampanyalarına puanlarınla (min. 50 DP) doğrudan destek gönder</span>
                     </div>
                 </button>
             </div>
@@ -123,39 +111,34 @@ require_once __DIR__ . '/includes/header.php';
             <section class="panel-card">
                 <div class="panel-card-header">
                     <div>
-                        <div class="section-kicker">ANLAŞMALI YEŞİL MARKALAR &amp; KAFELER</div>
-                        <h2 class="section-title">Mağaza Ekranı (%50 İndirim İçin 50 Puan Harca)</h2>
+                        <h2 class="section-title">Mağaza</h2>
                     </div>
                     <span class="metric-pill pill-good"><?= count($storeItems) ?> Anlaşmalı Mağaza</span>
                 </div>
 
-                <p class="panel-desc">
-                    Cam bardak ve porselen fincan kullanarak kağıt-plastik harcamasını azaltan anlaşmalı kafeler ile su tasarrufuna katkı sağlayan, su ayak izini azaltmayı amaçlamış deterjan markalarının ürünlerinde <strong>50 puan harcayarak anında %50 indirim kuponu</strong> alabilirsiniz.
-                </p>
-
-                <!-- Alt Alta Mağaza Sayfaları / Kartları Listesi -->
+                <!-- Alt Alta Mağaza Kartları Listesi -->
                 <div class="store-vertical-list">
                     <?php foreach ($storeItems as $item): ?>
                         <?php
                         $itemId      = (int) $item['id'];
                         $costPts     = (int) ($item['cost_points'] ?? 50);
-                        $discountPct = (int) ($item['discount_pct'] ?? 50);
-                        $catKey      = (string) ($item['category'] ?? 'cafe');
-                        $catLabel    = $categoryLabels[$catKey] ?? 'Anlaşmalı Yeşil Mağaza';
+                        $discountPct = (int) ($item['discount_pct'] ?? 30);
+                        $imgPath     = trim((string) ($item['image_path'] ?? ''));
                         $canAfford   = $walletBalance >= $costPts;
                         ?>
                         <article class="store-vertical-card">
                             <div class="store-card-left">
-                                <div class="store-card-icon" aria-hidden="true">
-                                    <?= e($item['icon_emoji'] ?? '🌿') ?>
+                                <!-- Fotoğraf Eklemek İçin Dikdörtgen ve Çizgilere Kadar Sınırı Olan Alan -->
+                                <div class="store-photo-frame">
+                                    <?php if ($imgPath !== ''): ?>
+                                        <img src="<?= e($imgPath) ?>" alt="<?= e($item['brand_name']) ?>" class="store-photo-img">
+                                    <?php else: ?>
+                                        <span class="store-photo-placeholder-text">Fotoğraf Alanı</span>
+                                    <?php endif; ?>
                                 </div>
+
                                 <div class="store-card-body">
-                                    <div class="store-card-tags">
-                                        <span class="store-cat-tag"><?= e($catLabel) ?></span>
-                                        <span class="store-eco-tag"><?= e($item['eco_badge'] ?? '') ?></span>
-                                    </div>
                                     <h3 class="store-brand-heading"><?= e($item['brand_name']) ?></h3>
-                                    <div class="store-offer-subtitle"><?= e($item['title']) ?></div>
                                     <p class="store-offer-desc"><?= e($item['description']) ?></p>
                                 </div>
                             </div>
@@ -163,7 +146,7 @@ require_once __DIR__ . '/includes/header.php';
                             <div class="store-card-action">
                                 <div class="store-discount-badge">
                                     <strong>%<?= $discountPct ?> İNDİRİM</strong>
-                                    <span>Bedel: <?= $costPts ?> Puan</span>
+                                    <span><?= $costPts ?> DP</span>
                                 </div>
 
                                 <form method="post" action="store.php?tab=brands" class="store-action-form">
@@ -172,15 +155,10 @@ require_once __DIR__ . '/includes/header.php';
                                     <input type="hidden" name="item_id" value="<?= $itemId ?>">
                                     <button type="submit"
                                             class="btn <?= $canAfford ? 'btn-primary' : 'btn-outline' ?> btn-block"
-                                            <?= $canAfford ? '' : 'title="Bu indirim için 50 puana ihtiyacınız var"' ?>>
+                                            <?= $canAfford ? '' : 'title="Bu indirim için 50 DP puana ihtiyacınız var"' ?>>
                                         %<?= $discountPct ?> İndirim İçin <?= $costPts ?> Puan Harca
                                     </button>
                                 </form>
-                                <?php if (!$canAfford): ?>
-                                    <small class="store-balance-hint">
-                                        <?= max(0, $costPts - $walletBalance) ?> puan daha gerekli
-                                    </small>
-                                <?php endif; ?>
                             </div>
                         </article>
                     <?php endforeach; ?>
@@ -190,21 +168,21 @@ require_once __DIR__ . '/includes/header.php';
             <!-- Kullanıcının Aldığı İndirim Kuponları -->
             <section class="panel-card">
                 <div class="panel-card-header">
-                    <h2 class="section-title">Aldığım Anlaşmalı Mağaza İndirim Kuponları</h2>
+                    <h2 class="section-title">Aldığım Mağaza İndirim Kuponları</h2>
                     <span class="metric-pill pill-neutral"><?= count($myRedemptions) ?> Kupon</span>
                 </div>
 
                 <?php if (empty($myRedemptions)): ?>
                     <div class="empty-inline">
-                        Henüz anlaşmalı yeşil mağazalardan indirim kuponu almadınız. Yukarıdaki mağaza listesinden 50 puan harcayarak %50 indirim kuponu oluşturabilirsiniz.
+                        Henüz anlaşmalı yeşil mağazalardan indirim kuponu almadınız.
                     </div>
                 <?php else: ?>
                     <div class="store-redemption-list">
                         <?php foreach ($myRedemptions as $red): ?>
                             <div class="store-redemption-row">
                                 <div class="store-redemption-info">
-                                    <strong><?= e($red['icon_emoji'] ?? '🌿') ?> <?= e($red['brand_name']) ?> — %<?= (int) $red['discount_pct'] ?> İndirim</strong>
-                                    <span><?= e($red['title']) ?> · <?= e(format_date_tr($red['created_at'])) ?> (-<?= (int) $red['spent_points'] ?> Puan)</span>
+                                    <strong><?= e($red['brand_name']) ?> — %<?= (int) $red['discount_pct'] ?> İndirim</strong>
+                                    <span><?= e(format_date_tr($red['created_at'])) ?> (-<?= (int) $red['spent_points'] ?> DP)</span>
                                 </div>
                                 <div class="code-share-box">
                                     <code><?= e($red['coupon_code']) ?></code>
@@ -220,53 +198,55 @@ require_once __DIR__ . '/includes/header.php';
         </div>
 
         <!-- =========================================================
-             2. SEÇENEK: ANLAŞMALI KAMPANYAYA DESTEK OLMA (50 PUAN -> 50 L/m³ TASARRUF GÖNDERİMİ)
+             2. SEÇENEK: ANLAŞMALI KAMPANYAYA DESTEK OLMA (MİN 50 DP, MAKS SINIRSIZ)
              ========================================================= -->
         <div id="storeTabCampaigns" class="store-tab-pane" <?= $activeTab === 'campaigns' ? '' : 'hidden' ?>>
             <section class="panel-card">
                 <div class="panel-card-header">
                     <div>
-                        <div class="section-kicker">ANLAŞMALI SU KORUMA KAMPANYALARI</div>
-                        <h2 class="section-title">Anlaşmalı Kampanyaya Destek (50 Puan = 50 L/m³ Tasarruf Gönderimi)</h2>
+                        <h2 class="section-title">Anlaşmalı Kampanyaya Destek</h2>
                     </div>
                     <span class="metric-pill pill-good"><?= count($supportCampaigns) ?> Aktif Kampanya</span>
                 </div>
 
-                <p class="panel-desc">
-                    Anlaşmalı su tasarrufu ve havza koruma kampanyalarına <strong>50 puan harcayarak 50 L/m³'lük bir tasarrufu</strong> doğrudan kampanya havuzuna gönderebilirsiniz.
-                </p>
-
                 <div class="store-vertical-list">
                     <?php foreach ($supportCampaigns as $camp): ?>
                         <?php
-                        $campId       = (int) $camp['id'];
-                        $costPts      = (int) ($camp['cost_points'] ?? 50);
-                        $impactLabel  = (string) ($camp['impact_unit_label'] ?? '50 L/m³');
-                        $currentVal   = (int) ($camp['current_contrib_amount'] ?? 0);
-                        $targetVal    = (int) ($camp['target_contrib_amount'] ?? 5000);
-                        $supporters   = (int) ($camp['supporter_count'] ?? 0);
-                        $progressPct  = (float) ($camp['progress_pct'] ?? 0);
-                        $canAfford    = $walletBalance >= $costPts;
+                        $campId      = (int) $camp['id'];
+                        $minPts      = max(50, (int) ($camp['min_points'] ?? 50));
+                        $currentDp   = (int) ($camp['current_dp'] ?? 0);
+                        $targetDp    = (int) ($camp['target_dp'] ?? 5000);
+                        $supporters  = (int) ($camp['supporter_count'] ?? 0);
+                        $progressPct = (float) ($camp['progress_pct'] ?? 0);
+                        $canAfford   = $walletBalance >= $minPts;
                         ?>
                         <article class="store-vertical-card campaign-support-card">
                             <div class="store-card-left">
-                                <div class="store-card-icon campaign-icon" aria-hidden="true">
-                                    <?= e($camp['icon_emoji'] ?? '💧') ?>
-                                </div>
                                 <div class="store-card-body">
-                                    <div class="store-card-tags">
-                                        <span class="store-cat-tag"><?= e($camp['partner_name']) ?></span>
-                                        <span class="store-eco-tag">💧 <?= $supporters ?> Destekçi Katkı Sağladı</span>
-                                    </div>
                                     <h3 class="store-brand-heading"><?= e($camp['title']) ?></h3>
                                     <p class="store-offer-desc"><?= e($camp['description']) ?></p>
 
-                                    <div class="campaign-progress-box">
-                                        <div class="comp-row">
-                                            <span>Kampanyaya Gönderilen Toplam Tasarruf: <strong><?= number_format($currentVal, 0, ',', '.') ?> L/m³</strong></span>
-                                            <span>Hedef: <strong><?= number_format($targetVal, 0, ',', '.') ?> L/m³ (%<?= number_format($progressPct, 1, ',', '.') ?>)</strong></span>
+                                    <!-- İşbirliği Sağlayan Kurum, Destekçiler, Şu Ana Kadar Toplanan Toplam Katkı ve Hedef Aynı Kutuda -->
+                                    <div class="campaign-unified-box">
+                                        <div class="campaign-unified-grid">
+                                            <div class="campaign-stat-item">
+                                                <span class="campaign-stat-label">İşbirliği Sağlayan Kurum</span>
+                                                <strong class="campaign-stat-val"><?= e($camp['partner_name']) ?></strong>
+                                            </div>
+                                            <div class="campaign-stat-item">
+                                                <span class="campaign-stat-label">Destekçiler</span>
+                                                <strong class="campaign-stat-val"><?= number_format($supporters, 0, ',', '.') ?> Kişi</strong>
+                                            </div>
+                                            <div class="campaign-stat-item">
+                                                <span class="campaign-stat-label">Şu Ana Kadar Toplanan Toplam Katkı</span>
+                                                <strong class="campaign-stat-val"><?= number_format($currentDp, 0, ',', '.') ?> DP</strong>
+                                            </div>
+                                            <div class="campaign-stat-item">
+                                                <span class="campaign-stat-label">Hedef</span>
+                                                <strong class="campaign-stat-val"><?= number_format($targetDp, 0, ',', '.') ?> DP (%<?= number_format($progressPct, 1, ',', '.') ?>)</strong>
+                                            </div>
                                         </div>
-                                        <div class="progress-track">
+                                        <div class="progress-track" style="margin-top: 10px;">
                                             <div class="progress-fill fill-green" style="width: <?= min(100, max(3, $progressPct)) ?>%;"></div>
                                         </div>
                                     </div>
@@ -275,25 +255,29 @@ require_once __DIR__ . '/includes/header.php';
 
                             <div class="store-card-action">
                                 <div class="store-discount-badge campaign-badge">
-                                    <strong>+<?= e($impactLabel) ?></strong>
-                                    <span>Tasarruf Gönderimi · <?= $costPts ?> Puan</span>
+                                    <strong><?= $minPts ?> DP</strong>
+                                    <span>Min. <?= $minPts ?> DP Gönderim</span>
                                 </div>
 
-                                <form method="post" action="store.php?tab=campaigns" class="store-action-form">
+                                <form method="post" action="store.php?tab=campaigns" class="store-action-form campaign-send-form">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="action" value="support_campaign">
                                     <input type="hidden" name="campaign_id" value="<?= $campId ?>">
+                                    <label class="campaign-dp-input-wrap">
+                                        <span>Gönderilecek Puan (Min. <?= $minPts ?> DP)</span>
+                                        <input type="number"
+                                               name="support_points"
+                                               min="<?= $minPts ?>"
+                                               step="10"
+                                               value="<?= $minPts ?>"
+                                               required>
+                                    </label>
                                     <button type="submit"
                                             class="btn <?= $canAfford ? 'btn-primary' : 'btn-outline' ?> btn-block"
-                                            <?= $canAfford ? '' : 'title="Kampanyaya destek göndermek için 50 puana ihtiyacınız var"' ?>>
-                                        <?= $costPts ?> Puan Harca · <?= e($impactLabel) ?> Gönder
+                                            <?= $canAfford ? '' : 'title="Kampanyaya destek göndermek için en az 50 DP puana ihtiyacınız var"' ?>>
+                                        50 DP Gönder
                                     </button>
                                 </form>
-                                <?php if (!$canAfford): ?>
-                                    <small class="store-balance-hint">
-                                        <?= max(0, $costPts - $walletBalance) ?> puan daha gerekli
-                                    </small>
-                                <?php endif; ?>
                             </div>
                         </article>
                     <?php endforeach; ?>
@@ -309,18 +293,18 @@ require_once __DIR__ . '/includes/header.php';
 
                 <?php if (empty($mySupports)): ?>
                     <div class="empty-inline">
-                        Henüz anlaşmalı bir kampanyaya puan desteği göndermediniz. 50 puan harcayarak 50 L/m³'lük ilk tasarruf gönderiminizi yapabilirsiniz.
+                        Henüz anlaşmalı bir kampanyaya destek göndermediniz.
                     </div>
                 <?php else: ?>
                     <div class="store-redemption-list">
                         <?php foreach ($mySupports as $sup): ?>
                             <div class="store-redemption-row">
                                 <div class="store-redemption-info">
-                                    <strong><?= e($sup['icon_emoji'] ?? '💧') ?> <?= e($sup['campaign_title']) ?></strong>
+                                    <strong><?= e($sup['campaign_title']) ?></strong>
                                     <span><?= e($sup['partner_name']) ?> · <?= e(format_date_tr($sup['created_at'])) ?></span>
                                 </div>
                                 <span class="metric-pill pill-good">
-                                    +<?= e($sup['impact_label'] ?? '50 L/m³') ?> Tasarruf Gönderildi (-<?= (int) $sup['spent_points'] ?> Puan)
+                                    <?= (int) $sup['spent_points'] ?> DP Gönderildi
                                 </span>
                             </div>
                         <?php endforeach; ?>
@@ -332,4 +316,3 @@ require_once __DIR__ . '/includes/header.php';
 </div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
-

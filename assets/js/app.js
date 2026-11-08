@@ -834,6 +834,22 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
+    document.addEventListener('input', function (ev) {
+        if (ev.target && ev.target.name === 'support_points') {
+            const form = ev.target.closest('.campaign-send-form');
+            const card = ev.target.closest('.campaign-support-card');
+            const val = Math.max(50, parseInt(ev.target.value || '50', 10) || 50);
+            if (form) {
+                const btn = form.querySelector('button[type="submit"]');
+                if (btn) btn.textContent = val + ' DP Gönder';
+            }
+            if (card) {
+                const badgeStrong = card.querySelector('.campaign-badge strong');
+                if (badgeStrong) badgeStrong.textContent = val + ' DP';
+            }
+        }
+    });
+
     // 14. Oturum açılmış kullanıcı formlarında progressive AJAX gönderimi
     // Sunucu normal HTML redirect döndürmeye devam eder; yalnızca ana içerik yenilenir.
     document.addEventListener('submit', function (event) {
