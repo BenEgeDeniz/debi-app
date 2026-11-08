@@ -75,7 +75,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div class="event-info-box">
                     <strong>Puanlama ve doğrulama</strong>
-                    <p>AI, etkinliğin fiziksel katkısına göre puanı ve gerekçesini belirler. Etkinlik sahibi bitirdiğinde yoklama kapanır. Puan için yoklamada katılmış olmak ve etkinlik fotoğrafının AI tarafından onaylanması gerekir.</p>
+                    <p>AI, etkinliğin fiziksel birimini ve kriterlerdeki su kazanımı verisini kullanarak tahmini sanal su etkisini (litre) açıklar. Bu etki, etkinliğin temel DP puanını doğrudan belirler; doğrulanan her katılımcı etkinlik kartında gösterilen DP’yi kazanır. Etkinlik sahibi bitirdiğinde yoklama kapanır; puan için yoklamada katılmış olmak ve etkinlik fotoğrafının AI tarafından onaylanması gerekir.</p>
                 </div>
                 <button class="btn btn-primary" type="submit">Etkinliği AI ile değerlendir ve oluştur</button>
             </form>

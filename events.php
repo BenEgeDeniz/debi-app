@@ -73,6 +73,7 @@ function render_event_card(array $event, array $currentUser, array $managedAtten
         <details class="event-reason">
             <summary>AI puan gerekçesi</summary>
             <p><?= e($event['points_reason']) ?></p>
+            <small class="event-reason-help">Sanal su etkisi tahmindir; puan, fiziksel katkı ve doğrulanan katılım şartlarına göre verilir.</small>
         </details>
         <?php if (!empty($event['criteria_sources'])): ?>
             <details class="event-reason">

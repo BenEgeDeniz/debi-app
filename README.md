@@ -56,6 +56,9 @@ ortaktır.
   bildirim noktası gösterilir.
 - Başlangıçtan sonraki bir saat içinde yoklama alınmazsa etkinlik cron worker
   tarafından iptal edilir.
+- Etkinlik oluşturulurken AI, kriterlerdeki fiziksel katkı ve su kazanımı
+  metriklerinden tahmini sanal su etkisi çıkarır; etkinlik kartında bu tahminin
+  temel DP puanına etkisi ve doğrulanan katılımcının kazanacağı puan gösterilir.
 
 ### 5. Debi mağazası ve kampanyalar
 

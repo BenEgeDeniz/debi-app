@@ -68,7 +68,7 @@ function score_event_with_ai(string $title, string $description, string $date, s
 {
     $criteria = get_event_criteria_context($title, $description);
     $fallbackPoints = (int) min(100, max(5, round(14 + (mb_strlen($description, 'UTF-8') >= 120 ? 8 : 0))));
-    $fallbackReason = 'Etkinlik süresi, fiziksel katılım gerektirmesi ve açıklamadaki topluluk katkısı dikkate alınarak geçici puan belirlendi.';
+    $fallbackReason = 'Sanal su etkisi AI ile hesaplanamadığı için geçici puan verildi; etkinlik türü, fiziksel katkı ve doğrulanmış katılım dikkate alınır.';
     $apiKey = defined('GEMINI_API_KEY') ? trim((string) GEMINI_API_KEY) : '';
     if ($apiKey === '') {
         return ['ok' => true, 'points' => $fallbackPoints, 'reason' => $fallbackReason, 'criteria_sources' => $criteria['sources'], 'ai_used' => false];
@@ -84,8 +84,9 @@ Başlangıç: {$startTime}
 Etkinlik, oluşturucu tarafından fiziksel çalışma tamamlandığında bitirilecek.
 Aşağıdaki bilimsel aktivite, metrik ve katsayı özetlerini puanlama için temel al:
 {$criteria['prompt']}
-Kriterleri birebir uygulamak zorunda değilsin; etkinliğin kapsamına göre makul çıkarımlar yapabilirsin. 5 ile 100 arasında adil bir tam sayı puan belirle ve gerekçende hangi fiziksel katkıyı esas aldığını kısaca belirt.
-Yanıtı yalnızca JSON ver: {"points": number, "reason": "Türkçe, tek kısa cümlelik gerekçe", "criteria_sources": "Kısa ve kullanıcı dostu kurum/yayın özeti"}.
+Kriterleri birebir uygulamak zorunda değilsin; etkinliğin kapsamına göre makul çıkarımlar yapabilirsin. 5 ile 100 arasında adil bir tam sayı puan belirle.
+Gerekçende mutlaka tahmini sanal su etkisini litre cinsinden (gerekirse aralıkla) ve bu etkinin temel DP puanını nasıl artırıp azalttığını açıkça anlat. Ayrıca doğrulanan her katılımcının kaç DP kazanacağını belirt.
+Yanıtı yalnızca JSON ver: {"points": number, "reason": "Türkçe, sanal su tahmini ve puana doğrudan etkisini açıklayan kısa metin", "criteria_sources": "Kısa ve kullanıcı dostu kurum/yayın özeti"}.
 PROMPT;
 
     $payload = [

@@ -1371,6 +1371,13 @@ form[aria-busy="true"] {
     text-decoration: underline;
 }
 
+.event-reason-help {
+    display: block;
+    margin-top: 8px;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+
 .event-start-modal {
     position: fixed;
     z-index: 100;
