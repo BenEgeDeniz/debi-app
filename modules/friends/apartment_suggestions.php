@@ -16,6 +16,7 @@ function get_apartment_friend_suggestions(array $currentUser, int $limit = 50): 
             SELECT
                 u.id,
                 u.full_name,
+                u.nickname,
                 u.avatar_color,
                 u.avatar_photo,
                 u.bio,

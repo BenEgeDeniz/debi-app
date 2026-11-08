@@ -191,6 +191,7 @@ function get_user_friends(int $userId, int $limit = 12, int $offset = 0): array
             SELECT
                 u.id,
                 u.full_name,
+                u.nickname,
                 u.avatar_color,
                 u.avatar_photo,
                 u.bio,
@@ -240,6 +241,7 @@ function get_incoming_friend_requests(int $userId): array
                 f.created_at AS requested_at,
                 u.id AS user_id,
                 u.full_name,
+                u.nickname,
                 u.avatar_color,
                 u.avatar_photo,
                 u.bio,
@@ -300,6 +302,7 @@ function search_users_for_friendship(int $currentUserId, string $searchQuery = '
         ':q2' => $like,
         ':q3' => $like,
         ':q4' => $like,
+        ':q5' => $like,
     ];
 
     try {
@@ -307,6 +310,7 @@ function search_users_for_friendship(int $currentUserId, string $searchQuery = '
             SELECT
                 u.id,
                 u.full_name,
+                u.nickname,
                 u.avatar_color,
                 u.avatar_photo,
                 u.bio,
@@ -321,7 +325,7 @@ function search_users_for_friendship(int $currentUserId, string $searchQuery = '
             INNER JOIN neighborhoods n ON n.id = u.neighborhood_id
             LEFT JOIN apartments a ON a.id = u.apartment_id
             WHERE u.id != :me
-              AND (u.full_name LIKE :q1 OR a.name LIKE :q2 OR n.district LIKE :q3 OR n.city LIKE :q4)
+              AND (u.full_name LIKE :q1 OR u.nickname LIKE :q2 OR a.name LIKE :q3 OR n.district LIKE :q4 OR n.city LIKE :q5)
             ORDER BY u.full_name ASC
             LIMIT " . (int) max(1, min(15, $limit));
 

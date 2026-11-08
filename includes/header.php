@@ -62,6 +62,7 @@ if (!empty($currentUser)) {
                         <?= render_avatar($currentUser, 'avatar-sm') ?>
                         <div class="user-chip-meta">
                             <span class="user-chip-name"><?= e($currentUser['full_name']) ?></span>
+                            <span class="user-chip-sub">@<?= e($currentUser['nickname'] ?? '') ?></span>
                         </div>
                     </a>
                     <a href="logout.php" class="btn btn-outline btn-sm">Çıkış</a>

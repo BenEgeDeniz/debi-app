@@ -124,6 +124,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <span class="role-badge role-badge-resident">👤 <?= e($profileUnitName) ?></span>
                             <?php endif; ?>
                         </div>
+                        <div class="page-subtitle">@<?= e($profileUser['nickname'] ?? '') ?></div>
 
                         <p class="page-subtitle">
                             <?= e($profileUser['neighborhood_district'] . ' / ' . $profileUser['neighborhood_city']) ?>
