@@ -186,6 +186,27 @@ function turkish_month_name(int $month): string
 }
 
 /**
+ * Türkçe Tarih Formatı (Örn: 08 Kasım 2026 · 04:20)
+ */
+function format_date_tr(?string $datetime, bool $includeTime = true): string
+{
+    if (!$datetime) {
+        return '';
+    }
+    $timestamp = strtotime($datetime);
+    if (!$timestamp) {
+        return $datetime;
+    }
+    $day   = date('d', $timestamp);
+    $month = turkish_month_name((int) date('n', $timestamp));
+    $year  = date('Y', $timestamp);
+    if (!$includeTime) {
+        return "{$day} {$month} {$year}";
+    }
+    return "{$day} {$month} {$year} · " . date('H:i', $timestamp);
+}
+
+/**
  * Gönderi Kategori Bilgileri
  */
 function post_category_meta(string $category): array

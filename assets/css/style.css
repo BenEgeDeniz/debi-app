@@ -4355,3 +4355,924 @@ a.timeline-meta-item:hover {
         font-size: 1.4rem;
     }
 }
+
+/* ==========================================================
+   PUAN KULLANIM & MAĞAZA SAYFASI (store.php / magaza.php)
+   ========================================================== */
+.store-wallet-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%);
+    border: 1.5px solid #38bdf8;
+    flex-shrink: 0;
+}
+
+.store-wallet-icon {
+    font-size: 1.45rem;
+    line-height: 1;
+}
+
+.store-wallet-meta {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+}
+
+.store-wallet-meta small {
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.store-wallet-meta strong {
+    font-size: 1.08rem;
+    font-weight: 900;
+    color: #0369a1;
+}
+
+/* Yan Yana 2 Farklı Seçenek Butonu */
+.store-choice-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 2px;
+}
+
+.store-choice-btn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    text-align: left;
+    font-family: inherit;
+    background-color: var(--bg-subtle);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: border-color 0.18s ease, background-color 0.18s ease, transform 0.15s ease;
+}
+
+.store-choice-btn:hover {
+    background-color: #ffffff;
+    border-color: var(--brand-primary);
+    transform: translateY(-1px);
+}
+
+.store-choice-btn.active {
+    background: linear-gradient(135deg, #f0f9ff 0%, #ecfdf5 100%);
+    border-color: var(--brand-primary-dark);
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.12);
+}
+
+.store-choice-icon-img {
+    width: 54px;
+    height: 54px;
+    border-radius: 12px;
+    object-fit: cover;
+    background-color: #ffffff;
+    border: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.store-choice-btn.active .store-choice-icon-img {
+    border-color: #7dd3fc;
+}
+
+.store-choice-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.store-choice-text strong {
+    font-size: 1.04rem;
+    font-weight: 900;
+    color: var(--text-main);
+}
+
+.store-choice-btn.active .store-choice-text strong {
+    color: var(--brand-primary-dark);
+}
+
+/* Alt Alta Mağaza ve Kampanya Kartları */
+.store-vertical-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 14px;
+}
+
+.store-vertical-card {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 0;
+    padding: 0;
+    background-color: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.store-vertical-card:hover {
+    border-color: #7dd3fc;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+}
+
+.store-card-left {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    flex: 1;
+    min-width: 0;
+}
+
+/* Dikdörtgen ve çizgilere kadar sınırı olan fotoğraf alanı */
+.store-photo-frame {
+    width: 190px;
+    min-height: 136px;
+    flex-shrink: 0;
+    background-color: var(--bg-subtle);
+    border-right: 1px solid var(--border-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.store-photo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.store-photo-placeholder-text {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+    text-align: center;
+    padding: 8px;
+}
+
+.store-card-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 12px;
+    padding: 18px 20px;
+    flex: 1;
+    min-width: 0;
+}
+
+.store-brand-heading {
+    font-size: 1.12rem;
+    font-weight: 900;
+    color: var(--text-main);
+    margin: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.store-offer-desc {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+/* Kampanya Birleşik Bilgi Kutusu (Kurum, Destekçiler, Toplanan Katkı, Hedef Aynı Yerde) */
+.campaign-unified-box {
+    margin-top: 4px;
+    padding: 12px 14px;
+    background-color: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+}
+
+.campaign-unified-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 16px;
+}
+
+.campaign-stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.campaign-stat-label {
+    font-size: 0.73rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    overflow-wrap: anywhere;
+}
+
+.campaign-stat-val {
+    font-size: 0.88rem;
+    font-weight: 900;
+    color: var(--text-main);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.campaign-dp-input-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.campaign-dp-input-wrap span {
+    font-size: 0.74rem;
+    font-weight: 800;
+    color: var(--text-secondary);
+}
+
+.campaign-dp-input-wrap input[type="number"] {
+    width: 100%;
+    height: 36px;
+    padding: 0 10px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 800;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background-color: var(--bg-surface);
+    color: var(--text-main);
+}
+
+.store-card-action {
+    width: 210px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+    gap: 8px;
+    padding: 16px;
+    border-left: 1px dashed var(--border-strong);
+    background-color: #fafcff;
+}
+
+.store-action-form {
+    width: 100%;
+    margin: 0;
+}
+
+.store-discount-btn,
+.store-discount-badge {
+    width: 100%;
+    text-align: center;
+    padding: 14px 12px;
+    border-radius: var(--radius-sm);
+    background-color: var(--brand-green-bg);
+    border: 1.5px solid #4ade80;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.store-discount-btn:hover {
+    background-color: #dcfce7;
+    border-color: var(--brand-green-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(22, 163, 74, 0.15);
+}
+
+.store-discount-btn:active {
+    transform: translateY(0);
+}
+
+.store-discount-btn.campaign-badge,
+.store-discount-badge.campaign-badge {
+    background-color: var(--brand-primary-bg);
+    border-color: #38bdf8;
+}
+
+.store-discount-btn.campaign-badge:hover {
+    background-color: #e0f2fe;
+    border-color: var(--brand-primary-dark);
+    box-shadow: 0 4px 10px rgba(2, 132, 199, 0.16);
+}
+
+.store-discount-btn strong,
+.store-discount-badge strong {
+    font-size: 1.12rem;
+    font-weight: 900;
+    color: var(--brand-green-dark);
+    line-height: 1.2;
+}
+
+.store-discount-btn.campaign-badge strong,
+.store-discount-badge.campaign-badge strong {
+    color: var(--brand-primary-dark);
+}
+
+.store-discount-btn span,
+.store-discount-badge span {
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: var(--text-secondary);
+}
+
+.store-history-bar {
+    border-top: 3px solid var(--brand-primary);
+}
+
+/* Kampanya Üst Görsel Banner Kartı (Mağaza görselinden ~0.75 kat daha uzun) */
+.campaign-feature-card {
+    display: flex;
+    flex-direction: column;
+    background-color: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.campaign-feature-card:hover {
+    border-color: #7dd3fc;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+}
+
+.campaign-top-banner {
+    width: 100%;
+    height: 245px;
+    background-color: var(--bg-subtle);
+    border-bottom: 1px solid var(--border-strong);
+    overflow: hidden;
+}
+
+.campaign-top-banner-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+}
+
+.campaign-card-content {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+}
+
+/* Kampanya Saha Uygulama Kapsamı Detay Kutusu */
+.campaign-scope-details {
+    margin-top: 6px;
+    background-color: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: var(--radius-sm);
+    padding: 9px 13px;
+}
+
+.campaign-scope-details summary {
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: var(--brand-green-dark);
+    list-style: none;
+}
+
+.campaign-scope-details summary::-webkit-details-marker {
+    display: none;
+}
+
+.campaign-scope-list {
+    margin: 8px 0 2px 18px;
+    padding: 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-main);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* Aktif Kuponlar ve Akordiyon Geçmiş Sistemi */
+.store-active-coupons-card {
+    border-top: 3px solid var(--brand-green);
+}
+
+.active-coupon-row {
+    background-color: #f0fdf4;
+    border-color: #bbf7d0;
+}
+
+.store-accordion {
+    padding: 0;
+    overflow: hidden;
+}
+
+.store-accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    transition: background-color 0.15s ease;
+}
+
+.store-accordion-header::-webkit-details-marker {
+    display: none;
+}
+
+.store-accordion-header:hover {
+    background-color: var(--bg-subtle);
+}
+
+.store-accordion-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.store-accordion-chevron {
+    font-size: 1.15rem;
+    font-weight: 900;
+    color: var(--text-secondary);
+    transition: transform 0.2s ease;
+}
+
+.store-accordion[open] .store-accordion-chevron {
+    transform: rotate(180deg);
+}
+
+.store-accordion-body {
+    padding: 0 20px 18px 20px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 14px;
+}
+
+/* Mağaza & Kampanya Uyarı ve Onay Pop-up Modalı */
+.store-popup-overlay[hidden] {
+    display: none !important;
+}
+
+.store-popup-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(15, 23, 42, 0.62);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: pondOverlayFadeIn 0.2s ease-out forwards;
+}
+
+.store-popup-card {
+    width: 100%;
+    max-width: 430px;
+    background-color: #ffffff;
+    border: 2px solid #fca5a5;
+    border-radius: var(--radius-lg);
+    padding: 24px 22px 20px 22px;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.32);
+    animation: pondCardPopIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.store-popup-card.store-confirm-card {
+    border-color: #38bdf8;
+}
+
+.store-popup-icon {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 10px auto;
+    border-radius: 50%;
+    background-color: var(--brand-danger-bg);
+    border: 1px solid #fca5a5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.55rem;
+}
+
+.store-popup-icon.store-confirm-icon {
+    background-color: var(--brand-primary-bg);
+    border-color: #7dd3fc;
+}
+
+.store-popup-title {
+    font-size: 1.18rem;
+    font-weight: 900;
+    color: var(--brand-danger-dark);
+    margin: 0 0 8px 0;
+}
+
+.store-popup-title.store-confirm-title {
+    color: var(--text-main);
+}
+
+.store-popup-message {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1.48;
+    margin: 0 0 18px 0;
+}
+
+.store-confirm-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+/* Mağaza Satın Alımınız Onaylandı & Kupon Kodu Pop-up Stilleri */
+.store-popup-card.store-coupon-success-card {
+    max-width: 470px;
+    border-color: #4ade80;
+}
+
+.store-popup-icon.store-success-icon {
+    background-color: var(--brand-green-bg);
+    border-color: #86efac;
+    color: var(--brand-green-dark);
+    font-weight: 900;
+}
+
+.store-popup-title.store-success-title {
+    color: var(--brand-green-dark);
+}
+
+.store-coupon-popup-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    margin: 0 0 16px 0;
+    background-color: #f0fdf4;
+    border: 2px dashed #22c55e;
+    border-radius: var(--radius-md);
+    text-align: left;
+}
+
+.store-coupon-popup-code-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.store-coupon-popup-label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+
+.store-coupon-popup-code-wrap code {
+    font-size: 1.16rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    color: #0f172a;
+    background: transparent;
+    padding: 0;
+}
+
+.store-coupon-popup-copy-btn {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+/* Kampanya Destek Göstergeli Teşekkür Belgesi Modal & Belge Stilleri */
+.store-popup-card.certificate-modal-shell {
+    position: relative;
+    max-width: 780px;
+    padding: 20px;
+    border: 2px solid #d4af37;
+    background-color: #f8fafc;
+}
+
+.certificate-close-x {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    z-index: 20;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background: #ffffff;
+    color: var(--text-main);
+    font-weight: 900;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.thankyou-certificate {
+    position: relative;
+    background-color: #ffffff;
+    border-radius: 10px;
+    padding: 46px 56px 40px 56px;
+    text-align: left;
+    overflow: hidden;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.09);
+}
+
+/* Çift Altın Çerçeve (Görseldeki Tasarım) */
+.cert-frame-outer {
+    position: absolute;
+    inset: 18px 26px;
+    border: 2px solid #c8a25a;
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.cert-frame-inner {
+    position: absolute;
+    inset: 26px 18px;
+    border: 2px solid #d4b26f;
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.cert-leaves {
+    position: absolute;
+    pointer-events: none;
+    z-index: 3;
+}
+
+.cert-leaves-top-right {
+    top: 0;
+    right: 0;
+    width: 230px;
+    height: 245px;
+}
+
+.cert-leaves-bottom-left {
+    bottom: 0;
+    left: 0;
+    width: 165px;
+    height: 185px;
+}
+
+.cert-body-content {
+    position: relative;
+    z-index: 5;
+    max-width: 560px;
+}
+
+.cert-script-title {
+    font-family: 'Georgia', 'Palatino Linotype', 'Times New Roman', serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 2.65rem;
+    line-height: 1.12;
+    color: #cca35e;
+    margin: 0 0 18px 0;
+    letter-spacing: 0.01em;
+    text-shadow: 0 1px 0 rgba(204, 163, 94, 0.18);
+}
+
+.cert-recipient-line {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding-bottom: 6px;
+    margin-bottom: 18px;
+    border-bottom: 1.6px solid #c8a25a;
+    max-width: 470px;
+}
+
+.cert-sn-prefix {
+    font-family: 'Oswald', 'Trebuchet MS', sans-serif;
+    font-size: 1.7rem;
+    font-weight: 500;
+    color: #4b5563;
+}
+
+.cert-recipient-name {
+    font-size: 1.42rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.cert-appreciation-text {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-style: italic;
+    font-size: 1.04rem;
+    line-height: 1.58;
+    color: #475569;
+    margin: 0 0 18px 0;
+}
+
+.cert-appreciation-text strong {
+    color: #1e293b;
+    font-weight: 700;
+}
+
+/* Göstergeli Katkı & Kampanya İlerleme Kutusu */
+.cert-indicator-box {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #16a34a;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 0 0 24px 0;
+}
+
+.cert-indicator-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 7px;
+    font-size: 0.82rem;
+    color: #334155;
+}
+
+.cert-indicator-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background-color: #dcfce7;
+    color: #166534;
+    font-weight: 800;
+}
+
+.cert-indicator-target {
+    font-weight: 700;
+    color: #475569;
+}
+
+.cert-indicator-track {
+    width: 100%;
+    height: 8px;
+    background-color: #e2e8f0;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.cert-indicator-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #16a34a 0%, #22c55e 100%);
+    border-radius: 999px;
+}
+
+.cert-signatures-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 56px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.cert-sig-block {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 165px;
+}
+
+.cert-sig-title {
+    font-size: 0.96rem;
+    font-weight: 600;
+    color: #4b5563;
+    padding-bottom: 4px;
+    border-bottom: 1.5px solid #c8a25a;
+}
+
+.cert-sig-value {
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.certificate-actions-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.certificate-share-feedback {
+    margin: 10px 0 0 0;
+    font-size: 0.84rem;
+    font-weight: 800;
+    color: var(--brand-green-dark);
+}
+
+.store-balance-hint {
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--brand-amber-dark);
+}
+
+.store-redemption-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.store-redemption-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 12px 14px;
+    background-color: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+}
+
+.store-redemption-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.store-redemption-info strong {
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--text-main);
+}
+
+.store-redemption-info span {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+@media (max-width: 768px) {
+    .store-choice-grid,
+    .campaign-unified-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .store-vertical-card,
+    .store-card-left,
+    .campaign-card-content {
+        flex-direction: column;
+    }
+
+    .campaign-top-banner {
+        height: 195px;
+    }
+
+    .store-photo-frame {
+        width: 100%;
+        min-height: 150px;
+        border-right: none;
+        border-bottom: 1px solid var(--border-strong);
+    }
+
+    .store-card-action {
+        width: 100%;
+        border-left: none;
+        border-top: 1px dashed var(--border-strong);
+    }
+
+    .thankyou-certificate {
+        padding: 34px 26px 30px 26px;
+    }
+
+    .cert-script-title {
+        font-size: 2rem;
+    }
+
+    .cert-signatures-row {
+        gap: 24px;
+    }
+}

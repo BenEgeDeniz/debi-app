@@ -1087,7 +1087,653 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 13. Oturum açılmış kullanıcı formlarında progressive AJAX gönderimi
+    // 13. Mağazalar ve Kampanyalar: Navbar DP Kıyaslaması, Yetersiz Puan Pop-up'ı, Satın Alım Onay Pop-up'ı ve Kupon Kopyalama
+    let pendingStoreForm = null;
+
+    function getCurrentNavbarDp() {
+        const navCountEl = document.getElementById('navbarDpCount') || document.querySelector('.topbar-drop-count');
+        if (navCountEl) {
+            const attrDp = navCountEl.getAttribute('data-dp');
+            if (attrDp !== null && attrDp !== '') {
+                return Math.max(0, parseInt(attrDp, 10) || 0);
+            }
+            const rawDigits = (navCountEl.textContent || '').replace(/[^\d]/g, '');
+            if (rawDigits !== '') {
+                return Math.max(0, parseInt(rawDigits, 10) || 0);
+            }
+        }
+        const mainCol = document.querySelector('.main-column[data-current-dp]');
+        if (mainCol) {
+            return Math.max(0, parseInt(mainCol.getAttribute('data-current-dp') || '0', 10) || 0);
+        }
+        return 0;
+    }
+
+    function openStoreErrorPopup(title, message) {
+        const modal = document.getElementById('storeErrorPopupModal');
+        const titleEl = document.getElementById('storePopupTitle');
+        const msgEl = document.getElementById('storeErrorPopupMessage');
+        if (titleEl) titleEl.textContent = title || 'Yetersiz Puan';
+        if (msgEl) msgEl.textContent = message || 'Yetersiz puan!';
+        if (modal) {
+            modal.hidden = false;
+        }
+    }
+
+    function openStoreConfirmPopup(title, message, form) {
+        pendingStoreForm = form;
+        const modal = document.getElementById('storeConfirmPopupModal');
+        const titleEl = document.getElementById('storeConfirmPopupTitle');
+        const msgEl = document.getElementById('storeConfirmPopupMessage');
+        if (titleEl) titleEl.textContent = title || 'Satın alımını onaylıyor musun?';
+        if (msgEl) msgEl.textContent = message || '';
+        if (modal) {
+            modal.hidden = false;
+        }
+    }
+
+    document.addEventListener('submit', function (ev) {
+        const form = ev.target;
+        if (!(form instanceof HTMLFormElement)) return;
+        if (!form.classList.contains('js-store-spend-form')) return;
+
+        // Kullanıcı onay pop-up'ında "Onayla"ya bastıysa gerçek gönderime izin ver
+        if (form.getAttribute('data-confirmed') === '1') {
+            form.removeAttribute('data-confirmed');
+            return;
+        }
+
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+
+        const spendType = form.getAttribute('data-spend-type') || 'brand';
+        const navbarDp = getCurrentNavbarDp();
+        let requiredDp = 0;
+
+        if (spendType === 'brand') {
+            requiredDp = Math.max(1, parseInt(form.getAttribute('data-required-dp') || '30', 10) || 30);
+            const brandName = form.getAttribute('data-brand-name') || 'Mağaza';
+            const discountPct = form.getAttribute('data-discount-pct') || String(requiredDp);
+
+            if (navbarDp < requiredDp) {
+                openStoreErrorPopup(
+                    'Yetersiz Puan',
+                    'Yetersiz puan! "' + brandName + '" mağazasında %' + discountPct + ' indirim için ' + requiredDp + ' DP gerekiyor (Mevcut puanınız: ' + navbarDp + ' DP).'
+                );
+                return;
+            }
+
+            openStoreConfirmPopup(
+                'Satın alımını onaylıyor musun?',
+                '"' + brandName + '" mağazasında %' + discountPct + ' indirim kuponu almak için ' + requiredDp + ' DP harcanacaktır. Satın alımını onaylıyor musun?',
+                form
+            );
+        } else if (spendType === 'campaign') {
+            const minDp = Math.max(50, parseInt(form.getAttribute('data-min-dp') || '50', 10) || 50);
+            const campaignTitle = form.getAttribute('data-campaign-title') || 'Kampanya';
+            const ptsInput = form.querySelector('input[name="support_points"]');
+            requiredDp = parseInt(ptsInput ? ptsInput.value : String(minDp), 10) || 0;
+
+            if (requiredDp < minDp) {
+                openStoreErrorPopup(
+                    'Geçersiz Puan Miktarı',
+                    'Kampanyaya gönderilecek destek miktarı en az ' + minDp + ' DP olmalıdır.'
+                );
+                return;
+            }
+
+            if (navbarDp < requiredDp) {
+                openStoreErrorPopup(
+                    'Yetersiz Puan',
+                    'Yetersiz puan! ' + requiredDp + ' DP göndermek için yeterli puanınız yok (Mevcut puanınız: ' + navbarDp + ' DP).'
+                );
+                return;
+            }
+
+            openStoreConfirmPopup(
+                'Satın alımını onaylıyor musun?',
+                '"' + campaignTitle + '" kampanyasına ' + requiredDp + ' DP göndermek üzeresiniz. Satın alımını onaylıyor musun?',
+                form
+            );
+        }
+    }, true);
+
+    document.addEventListener('click', function (ev) {
+        const tabBtn = ev.target.closest('.js-store-tab-btn');
+        if (tabBtn) {
+            const targetTab = tabBtn.getAttribute('data-store-tab') || 'brands';
+            document.querySelectorAll('.js-store-tab-btn').forEach(function (btn) {
+                const isAct = (btn.getAttribute('data-store-tab') === targetTab);
+                btn.classList.toggle('active', isAct);
+                btn.setAttribute('aria-selected', isAct ? 'true' : 'false');
+            });
+
+            const paneBrands = document.getElementById('storeTabBrands');
+            const paneCampaigns = document.getElementById('storeTabCampaigns');
+            if (paneBrands && paneCampaigns) {
+                paneBrands.hidden = (targetTab !== 'brands');
+                paneCampaigns.hidden = (targetTab !== 'campaigns');
+            }
+
+            const nextUrl = new URL(window.location.href);
+            nextUrl.searchParams.set('tab', targetTab);
+            window.history.replaceState({}, '', nextUrl.href);
+            return;
+        }
+
+        const approveBtn = ev.target.closest('.js-approve-store-confirm');
+        if (approveBtn) {
+            const confirmModal = document.getElementById('storeConfirmPopupModal');
+            if (confirmModal) confirmModal.hidden = true;
+            if (pendingStoreForm) {
+                const formToSubmit = pendingStoreForm;
+                pendingStoreForm = null;
+                formToSubmit.setAttribute('data-confirmed', '1');
+                if (typeof formToSubmit.requestSubmit === 'function') {
+                    formToSubmit.requestSubmit();
+                } else {
+                    formToSubmit.submit();
+                }
+            }
+            return;
+        }
+
+        const cancelConfirmBtn = ev.target.closest('.js-cancel-store-confirm');
+        if (cancelConfirmBtn) {
+            pendingStoreForm = null;
+            const confirmModal = document.getElementById('storeConfirmPopupModal');
+            if (confirmModal) confirmModal.hidden = true;
+            return;
+        }
+
+        const closePopupBtn = ev.target.closest('.js-close-store-popup');
+        if (closePopupBtn || ev.target.classList.contains('store-popup-overlay')) {
+            pendingStoreForm = null;
+            ['storeErrorPopupModal', 'storeConfirmPopupModal', 'storeCouponSuccessModal', 'campaignCertificateModal'].forEach(function (id) {
+                const m = document.getElementById(id);
+                if (m) m.hidden = true;
+            });
+            return;
+        }
+
+        const openCertBtn = ev.target.closest('.js-open-certificate-btn');
+        if (openCertBtn) {
+            const certModal = document.getElementById('campaignCertificateModal');
+            const certCard = document.getElementById('thankyouCertificateCard');
+            if (certCard && certModal) {
+                const recipient = openCertBtn.getAttribute('data-recipient') || 'Değerli Katılımcı';
+                const campaign = openCertBtn.getAttribute('data-campaign') || 'Su Tasarrufu Kampanyası';
+                const partner = openCertBtn.getAttribute('data-partner') || 'Debi Su İşbirliği';
+                const points = parseInt(openCertBtn.getAttribute('data-points') || '50', 10) || 50;
+                const currentDp = parseInt(openCertBtn.getAttribute('data-current-dp') || '1000', 10) || 1000;
+                const targetDp = Math.max(1, parseInt(openCertBtn.getAttribute('data-target-dp') || '5000', 10) || 5000);
+                const progress = parseFloat(openCertBtn.getAttribute('data-progress') || String(Math.min(100, (currentDp / targetDp) * 100))) || 0;
+                const dateStr = openCertBtn.getAttribute('data-date') || '';
+                const president = openCertBtn.getAttribute('data-president') || 'Debi Su Koruma Kurulu';
+
+                certCard.setAttribute('data-recipient', recipient);
+                certCard.setAttribute('data-campaign', campaign);
+                certCard.setAttribute('data-partner', partner);
+                certCard.setAttribute('data-points', String(points));
+                certCard.setAttribute('data-current-dp', String(currentDp));
+                certCard.setAttribute('data-target-dp', String(targetDp));
+                certCard.setAttribute('data-progress', String(progress));
+                certCard.setAttribute('data-date', dateStr);
+                certCard.setAttribute('data-president', president);
+
+                const elRec = document.getElementById('certRecipientName');
+                const elDate = document.getElementById('certDateSpan');
+                const elCamp = document.getElementById('certCampaignSpan');
+                const elPts = document.getElementById('certPointsSpan');
+                const elBadgePts = document.getElementById('certBadgePoints');
+                const elCurDp = document.getElementById('certCurrentDpText');
+                const elTarDp = document.getElementById('certTargetDpText');
+                const elProgPct = document.getElementById('certProgressPctText');
+                const elProgFill = document.getElementById('certProgressFill');
+                const elPartner = document.getElementById('certPartnerName');
+                const elPres = document.getElementById('certPresidentName');
+                const elFeedback = document.getElementById('certificateShareFeedback');
+
+                if (elRec) elRec.textContent = recipient;
+                if (elDate) elDate.textContent = dateStr;
+                if (elCamp) elCamp.textContent = campaign;
+                if (elPts) elPts.textContent = String(points);
+                if (elBadgePts) elBadgePts.textContent = String(points);
+                if (elCurDp) elCurDp.textContent = currentDp.toLocaleString('tr-TR');
+                if (elTarDp) elTarDp.textContent = targetDp.toLocaleString('tr-TR');
+                if (elProgPct) elProgPct.textContent = '%' + progress.toFixed(1).replace('.', ',');
+                if (elProgFill) elProgFill.style.width = Math.min(100, Math.max(5, progress)) + '%';
+                if (elPartner) elPartner.textContent = partner;
+                if (elPres) elPres.textContent = president;
+                if (elFeedback) elFeedback.hidden = true;
+
+                certModal.hidden = false;
+            }
+            return;
+        }
+
+        const downloadCertBtn = ev.target.closest('.js-download-certificate');
+        if (downloadCertBtn) {
+            const canvas = renderThankyouCertificateCanvas();
+            if (!canvas) return;
+            const pdfBlob = canvasToPdfBlob(canvas);
+            if (!pdfBlob) return;
+            const pdfUrl = URL.createObjectURL(pdfBlob);
+            const link = document.createElement('a');
+            link.download = 'debi-tesekkur-belgesi.pdf';
+            link.href = pdfUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(function () {
+                URL.revokeObjectURL(pdfUrl);
+            }, 3000);
+            const fb = document.getElementById('certificateShareFeedback');
+            if (fb) {
+                fb.textContent = '✓ Teşekkür belgeniz PDF formatında indirildi.';
+                fb.hidden = false;
+            }
+            return;
+        }
+
+        const shareCertBtn = ev.target.closest('.js-share-certificate');
+        if (shareCertBtn) {
+            const certCard = document.getElementById('thankyouCertificateCard');
+            const recipient = certCard ? (certCard.getAttribute('data-recipient') || '') : '';
+            const campaign = certCard ? (certCard.getAttribute('data-campaign') || '') : '';
+            const points = certCard ? (certCard.getAttribute('data-points') || '50') : '50';
+            const shareText = '💧 Debi Su Tasarrufu Platformu üzerinden "' + campaign + '" kampanyasına ' + points + ' DP katkıda bulunarak Teşekkür Belgesi aldım! (' + recipient + ')';
+            const fb = document.getElementById('certificateShareFeedback');
+            const canvas = renderThankyouCertificateCanvas();
+            const pdfBlob = canvas ? canvasToPdfBlob(canvas) : null;
+
+            if (pdfBlob && navigator.share) {
+                const file = new File([pdfBlob], 'debi-tesekkur-belgesi.pdf', { type: 'application/pdf' });
+                const shareData = (navigator.canShare && navigator.canShare({ files: [file] }))
+                    ? { title: 'Debi Teşekkür Belgesi', text: shareText, files: [file] }
+                    : { title: 'Debi Teşekkür Belgesi', text: shareText, url: window.location.href };
+                navigator.share(shareData).then(function () {
+                    if (fb) {
+                        fb.textContent = '✓ Teşekkür belgeniz başarıyla paylaşıldı.';
+                        fb.hidden = false;
+                    }
+                }).catch(function () {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(shareText);
+                        if (fb) {
+                            fb.textContent = '✓ Paylaşım metni panoya kopyalandı!';
+                            fb.hidden = false;
+                        }
+                    }
+                });
+            } else if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(shareText).then(function () {
+                    if (fb) {
+                        fb.textContent = '✓ Belge paylaşım metni panoya kopyalandı!';
+                        fb.hidden = false;
+                    }
+                });
+            }
+            return;
+        }
+
+        const copyBtn = ev.target.closest('.btn-copy[data-copy]');
+        if (copyBtn) {
+            const text = copyBtn.getAttribute('data-copy');
+            if (!text) return;
+            const originalLabel = copyBtn.getAttribute('data-orig-label') || copyBtn.textContent || 'Kopyala';
+            copyBtn.setAttribute('data-orig-label', originalLabel);
+
+            const onCopied = function () {
+                copyBtn.textContent = 'Kopyalandı';
+                setTimeout(function () {
+                    copyBtn.textContent = originalLabel;
+                }, 1400);
+                handleStoreCouponCopyTrack(text);
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(onCopied).catch(onCopied);
+            } else {
+                onCopied();
+            }
+        }
+    });
+
+    function handleStoreCouponCopyTrack(couponCode) {
+        if (!couponCode) return;
+        const activeList = document.getElementById('activeCouponsList');
+        if (!activeList) return; // Mağaza sayfasında değilsek çık
+
+        const activeRow = activeList.querySelector('.active-coupon-row[data-coupon-code="' + CSS.escape(couponCode) + '"]');
+        let nextCount = 1;
+        if (activeRow) {
+            const currentCount = parseInt(activeRow.getAttribute('data-copy-count') || '0', 10) || 0;
+            nextCount = currentCount + 1;
+            activeRow.setAttribute('data-copy-count', String(nextCount));
+            if (nextCount >= 3) {
+                moveActiveCouponRowToHistory(activeRow);
+            }
+        }
+
+        // Sunucuda kopyalama sayacını güncelle (3. kopyalamada veritabanında da kullanım geçmişine taşır)
+        const mainCol = document.querySelector('.main-column[data-csrf]');
+        const csrfToken = mainCol ? (mainCol.getAttribute('data-csrf') || '') : '';
+        const fd = new FormData();
+        fd.append('csrf_token', csrfToken);
+        fd.append('action', 'copy_store_coupon');
+        fd.append('coupon_code', couponCode);
+
+        fetch('store.php', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd,
+            credentials: 'same-origin'
+        })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (data && data.moved_to_history && activeRow && activeRow.parentNode) {
+                    moveActiveCouponRowToHistory(activeRow);
+                }
+            })
+            .catch(function () {});
+    }
+
+    function moveActiveCouponRowToHistory(activeRow) {
+        if (!activeRow || !activeRow.parentNode) return;
+
+        const couponCode = activeRow.getAttribute('data-coupon-code') || '';
+        const brandName = activeRow.getAttribute('data-brand-name') || 'Mağaza';
+        const discountPct = activeRow.getAttribute('data-discount-pct') || '30';
+        const spentPoints = activeRow.getAttribute('data-spent-points') || discountPct;
+        const createdLabel = activeRow.getAttribute('data-created-label') || '';
+        const userName = activeRow.getAttribute('data-user-name') || '';
+
+        // 1) Aktif Kuponlar listesinden kaldır (aynı anda 2 yerde olmasın)
+        activeRow.remove();
+
+        const activeList = document.getElementById('activeCouponsList');
+        const activeEmpty = document.getElementById('activeCouponsEmpty');
+        const activePill = document.getElementById('activeCouponsCountPill');
+        const remainingActive = activeList ? activeList.querySelectorAll('.active-coupon-row').length : 0;
+
+        if (activePill) {
+            activePill.textContent = remainingActive + ' Aktif Kupon';
+        }
+        if (remainingActive === 0) {
+            if (activeList) activeList.hidden = true;
+            if (activeEmpty) activeEmpty.hidden = false;
+        }
+
+        // 2) Mağaza Kullanım Geçmişi listesine ekle
+        const historyList = document.getElementById('usedCouponsHistoryList');
+        const historyEmpty = document.getElementById('usedCouponsEmpty');
+        const historyPill = document.getElementById('usedCouponsCountPill');
+        const historyAccordion = document.getElementById('usedCouponsAccordion');
+
+        if (historyList) {
+            if (!historyList.querySelector('[data-history-coupon="' + CSS.escape(couponCode) + '"]')) {
+                const row = document.createElement('div');
+                row.className = 'store-redemption-row';
+                row.setAttribute('data-history-coupon', couponCode);
+
+                const subText = (userName ? (userName + ' · ') : '') + createdLabel;
+                row.innerHTML =
+                    '<div class="store-redemption-info">' +
+                        '<strong></strong>' +
+                        '<span></span>' +
+                    '</div>' +
+                    '<div class="code-share-box">' +
+                        '<span class="metric-pill pill-good">-' + spentPoints + ' DP</span>' +
+                        '<code></code>' +
+                        '<span class="metric-pill pill-neutral">Kullanıldı</span>' +
+                    '</div>';
+
+                const strongEl = row.querySelector('.store-redemption-info strong');
+                const spanEl = row.querySelector('.store-redemption-info span');
+                const codeEl = row.querySelector('code');
+                if (strongEl) strongEl.textContent = brandName + ' — %' + discountPct + ' İndirim';
+                if (spanEl) spanEl.textContent = subText;
+                if (codeEl) codeEl.textContent = couponCode;
+
+                historyList.insertBefore(row, historyList.firstChild);
+            }
+
+            historyList.hidden = false;
+            if (historyEmpty) historyEmpty.hidden = true;
+
+            const totalUsed = historyList.querySelectorAll('.store-redemption-row').length;
+            if (historyPill) {
+                historyPill.textContent = totalUsed + ' İşlem';
+            }
+            if (historyAccordion) {
+                historyAccordion.open = true;
+            }
+        }
+    }
+
+    function canvasToPdfBlob(canvas) {
+        if (!canvas) return null;
+        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+        const base64 = jpegDataUrl.split(',')[1];
+        if (!base64) return null;
+
+        const rawImg = atob(base64);
+        const imgBytes = new Uint8Array(rawImg.length);
+        for (let i = 0; i < rawImg.length; i++) {
+            imgBytes[i] = rawImg.charCodeAt(i);
+        }
+
+        // Yatay A4 boyutu (842 x 595 pt)
+        const pageW = 842;
+        const pageH = 595;
+        const imgW = canvas.width;
+        const imgH = canvas.height;
+        const contentStream = 'q\n' + pageW + ' 0 0 ' + pageH + ' 0 0 cm\n/Im0 Do\nQ\n';
+
+        const encoder = new TextEncoder();
+        const chunks = [];
+        const offsets = [0];
+        let byteLen = 0;
+
+        function pushText(str) {
+            const b = encoder.encode(str);
+            chunks.push(b);
+            byteLen += b.length;
+        }
+
+        function pushBytes(b) {
+            chunks.push(b);
+            byteLen += b.length;
+        }
+
+        pushText('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+
+        // 1 0 obj (Catalog)
+        offsets[1] = byteLen;
+        pushText('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+
+        // 2 0 obj (Pages)
+        offsets[2] = byteLen;
+        pushText('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n');
+
+        // 3 0 obj (Page)
+        offsets[3] = byteLen;
+        pushText(
+            '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + pageW + ' ' + pageH + '] ' +
+            '/Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>\nendobj\n'
+        );
+
+        // 4 0 obj (JPEG Image XObject)
+        offsets[4] = byteLen;
+        pushText(
+            '4 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + imgW + ' /Height ' + imgH + ' ' +
+            '/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + imgBytes.length + ' >>\nstream\n'
+        );
+        pushBytes(imgBytes);
+        pushText('\nendstream\nendobj\n');
+
+        // 5 0 obj (Page Content Stream)
+        offsets[5] = byteLen;
+        pushText('5 0 obj\n<< /Length ' + contentStream.length + ' >>\nstream\n' + contentStream + 'endstream\nendobj\n');
+
+        // xref
+        const xrefOffset = byteLen;
+        pushText('xref\n0 6\n0000000000 65535 f \n');
+        for (let idx = 1; idx <= 5; idx++) {
+            const offStr = String(offsets[idx]).padStart(10, '0');
+            pushText(offStr + ' 00000 n \n');
+        }
+
+        pushText(
+            'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + xrefOffset + '\n%%EOF'
+        );
+
+        return new Blob(chunks, { type: 'application/pdf' });
+    }
+
+    function renderThankyouCertificateCanvas() {
+        const certCard = document.getElementById('thankyouCertificateCard');
+        if (!certCard) return null;
+
+        const recipient = certCard.getAttribute('data-recipient') || 'Değerli Katılımcı';
+        const campaign = certCard.getAttribute('data-campaign') || 'Su Tasarrufu Kampanyası';
+        const partner = certCard.getAttribute('data-partner') || 'Debi Su İşbirliği';
+        const points = parseInt(certCard.getAttribute('data-points') || '50', 10) || 50;
+        const dateStr = certCard.getAttribute('data-date') || '';
+        const president = certCard.getAttribute('data-president') || 'Debi Su Koruma Kurulu';
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 1200;
+        canvas.height = 820;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return null;
+
+        // Beyaz Belge Zemini
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Sağ Üst ve Sol Alt Suluboya Yeşil Yapraklar
+        ctx.save();
+        ctx.fillStyle = 'rgba(126, 179, 122, 0.78)';
+        ctx.beginPath();
+        ctx.moveTo(1200, 0);
+        ctx.quadraticCurveTo(960, 35, 860, 210);
+        ctx.quadraticCurveTo(1040, 185, 1200, 45);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(104, 159, 101, 0.82)';
+        ctx.beginPath();
+        ctx.moveTo(1200, 40);
+        ctx.quadraticCurveTo(1040, 175, 1065, 450);
+        ctx.quadraticCurveTo(1165, 330, 1200, 40);
+        ctx.closePath();
+        ctx.fill();
+
+        // Sol Alt Yapraklar
+        ctx.fillStyle = 'rgba(126, 179, 122, 0.78)';
+        ctx.beginPath();
+        ctx.moveTo(0, 620);
+        ctx.quadraticCurveTo(110, 595, 220, 655);
+        ctx.quadraticCurveTo(115, 705, 0, 690);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(104, 159, 101, 0.84)';
+        ctx.beginPath();
+        ctx.moveTo(0, 690);
+        ctx.quadraticCurveTo(95, 715, 165, 820);
+        ctx.lineTo(0, 820);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        // Çift Altın Çerçeve
+        ctx.strokeStyle = '#c8a25a';
+        ctx.lineWidth = 3.5;
+        ctx.strokeRect(48, 36, 1104, 748);
+        ctx.strokeStyle = '#d4b26f';
+        ctx.lineWidth = 3.5;
+        ctx.strokeRect(36, 50, 1128, 720);
+
+        // Altın Kaligrafik Başlık: Teşekkür Belgesi
+        ctx.fillStyle = '#cca35e';
+        ctx.font = 'italic bold 74px Georgia, serif';
+        ctx.fillText('Teşekkür Belgesi', 120, 210);
+
+        // Sn. Alıcı Satırı ve Altın Çizgi
+        ctx.fillStyle = '#4b5563';
+        ctx.font = '500 46px "Trebuchet MS", sans-serif';
+        ctx.fillText('Sn.', 120, 320);
+        ctx.fillStyle = '#1e293b';
+        ctx.font = 'bold 42px "Segoe UI", Arial, sans-serif';
+        ctx.fillText(recipient, 205, 320);
+
+        ctx.strokeStyle = '#c8a25a';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(120, 340);
+        ctx.lineTo(840, 340);
+        ctx.stroke();
+
+        // Teşekkür Metni (Word-wrap)
+        ctx.fillStyle = '#475569';
+        ctx.font = 'italic 30px Georgia, serif';
+        const fullText = dateStr + ' tarihinde "' + campaign + '" kampanyamıza sunduğunuz ' + points + ' DP su tasarrufu katkılarından dolayı teşekkürlerimizi sunarız.';
+        const words = fullText.split(' ');
+        let line = '';
+        let y = 425;
+        const maxWidth = 850;
+        for (let i = 0; i < words.length; i++) {
+            const testLine = line + words[i] + ' ';
+            if (ctx.measureText(testLine).width > maxWidth && i > 0) {
+                ctx.fillText(line.trim(), 120, y);
+                line = words[i] + ' ';
+                y += 46;
+            } else {
+                line = testLine;
+            }
+        }
+        if (line.trim() !== '') {
+            ctx.fillText(line.trim(), 120, y);
+        }
+
+        // Alt İmza Alanları (Düzenleyen kurum & Kurum Başkanı)
+        const sigY = 635;
+        ctx.fillStyle = '#4b5563';
+        ctx.font = '28px "Trebuchet MS", Arial, sans-serif';
+        ctx.fillText('Düzenleyen kurum', 120, sigY);
+        ctx.fillText('Kurum Başkanı', 560, sigY);
+
+        ctx.strokeStyle = '#c8a25a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(120, sigY + 14);
+        ctx.lineTo(390, sigY + 14);
+        ctx.moveTo(560, sigY + 14);
+        ctx.lineTo(800, sigY + 14);
+        ctx.stroke();
+
+        ctx.fillStyle = '#1e293b';
+        ctx.font = 'bold 22px "Segoe UI", Arial, sans-serif';
+        ctx.fillText(partner, 120, sigY + 48);
+        ctx.fillText(president, 560, sigY + 48);
+
+        return canvas;
+    }
+
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape') {
+            pendingStoreForm = null;
+            ['storeErrorPopupModal', 'storeConfirmPopupModal', 'storeCouponSuccessModal', 'campaignCertificateModal'].forEach(function (id) {
+                const m = document.getElementById(id);
+                if (m) m.hidden = true;
+            });
+        }
+    });
+
+    // 14. Oturum açılmış kullanıcı formlarında progressive AJAX gönderimi
     // Sunucu normal HTML redirect döndürmeye devam eder; yalnızca ana içerik yenilenir.
     document.addEventListener('submit', function (event) {
         const form = event.target;
@@ -1161,6 +1807,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 const updatedTopbarPoints = documentFromResponse.querySelector('.topbar-drop-count');
                 if (currentTopbarPoints && updatedTopbarPoints) {
                     currentTopbarPoints.textContent = updatedTopbarPoints.textContent;
+                    const newDp = updatedTopbarPoints.getAttribute('data-dp');
+                    if (newDp !== null) {
+                        currentTopbarPoints.setAttribute('data-dp', newDp);
+                    }
                 }
                 const responseFlash = documentFromResponse.querySelector('.flash-wrapper');
                 if (responseFlash) {

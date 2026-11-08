@@ -65,6 +65,11 @@ if (!empty($currentUser)) {
             <span>Analiz</span>
         </a>
 
+        <a href="store.php" class="side-nav-link <?= $activeNav === 'store' ? 'active' : '' ?>">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+            <span>Mağaza</span>
+        </a>
+
         <?php if (!$isDetachedHome): ?>
             <a href="apartment.php" class="side-nav-link <?= $activeNav === 'apartment' ? 'active' : '' ?>">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>
@@ -95,6 +100,9 @@ if (!empty($currentUser)) {
     <?php endif; ?>
     <a href="analytics.php" class="mobile-nav-item <?= $activeNav === 'analytics' ? 'active' : '' ?>">
         <span>Analiz</span>
+    </a>
+    <a href="store.php" class="mobile-nav-item <?= $activeNav === 'store' ? 'active' : '' ?>">
+        <span>Mağaza</span>
     </a>
     <?php if (!$isDetachedHome): ?>
         <a href="apartment.php" class="mobile-nav-item <?= $activeNav === 'apartment' ? 'active' : '' ?>">
