@@ -126,6 +126,38 @@ function join_event(array $user, int $eventId): array
     return ['ok' => true, 'message' => 'Etkinliğe katılımınız kaydedildi.'];
 }
 
+function leave_event(array $user, int $eventId): array
+{
+    $stmt = db()->prepare("
+        SELECT e.*, ea.status AS attendee_status
+        FROM events e
+        INNER JOIN event_attendees ea ON ea.event_id = e.id AND ea.user_id = :uid
+        WHERE e.id = :eid AND (e.scope = 'public' OR e.neighborhood_id = :nid)
+        LIMIT 1
+    ");
+    $stmt->execute([
+        ':uid' => (int) $user['id'],
+        ':eid' => $eventId,
+        ':nid' => (int) $user['neighborhood_id'],
+    ]);
+    $event = $stmt->fetch();
+    if (!$event) {
+        return ['ok' => false, 'error' => 'Bu etkinlikte kayıtlı katılımınız bulunmuyor.'];
+    }
+
+    $state = get_event_time_state($event);
+    if ($state['started'] || $state['ended']) {
+        return ['ok' => false, 'error' => 'Etkinlik başladıktan sonra katılım geri çekilemez.'];
+    }
+    if ((int) $event['creator_id'] === (int) $user['id']) {
+        return ['ok' => false, 'error' => 'Etkinlik oluşturan kişi kendi katılımını geri çekemez.'];
+    }
+
+    db()->prepare('DELETE FROM event_attendees WHERE event_id = :eid AND user_id = :uid')
+        ->execute([':eid' => $eventId, ':uid' => (int) $user['id']]);
+    return ['ok' => true, 'message' => 'Etkinlik katılımınız geri çekildi.'];
+}
+
 function finish_event(array $user, int $eventId): array
 {
     $stmt = db()->prepare("SELECT * FROM events WHERE id = :eid AND creator_id = :uid LIMIT 1");

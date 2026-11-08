@@ -15,6 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $eventId = (int) ($_POST['event_id'] ?? 0);
         if ($action === 'join_event') {
             $result = join_event($currentUser, $eventId);
+        } elseif ($action === 'leave_event') {
+            $result = leave_event($currentUser, $eventId);
         } elseif ($action === 'mark_attendance') {
             $result = mark_event_attendance($currentUser, $eventId, (array) ($_POST['attendee_ids'] ?? []));
         } elseif ($action === 'finish_event') {
@@ -89,6 +91,12 @@ function render_event_card(array $event, array $currentUser, array $managedAtten
         <?php elseif ($isAttendee): ?>
             <div class="event-participation">
                 <strong><?= $event['cancelled'] ? 'Etkinlik başlamadan süresi dolduğu için iptal edildi.' : ($isCreator ? 'Etkinliği siz oluşturuyorsunuz; katılımınız otomatik kaydedildi.' : ($event['attendee_status'] === 'attended' ? 'Yoklamada katıldığınız işaretlendi.' : ($event['ended'] ? 'Yoklamada yok yazıldınız.' : 'Katılımınız kayıtlı, yoklama bekleniyor.'))) ?></strong>
+                <?php if (!$isCreator && !$event['started'] && !$event['ended'] && !$event['cancelled']): ?>
+                    <form method="post" class="event-action-row">
+                        <?= csrf_field() ?><input type="hidden" name="action" value="leave_event"><input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>">
+                        <button class="btn btn-outline btn-sm">Katılımı geri çek</button>
+                    </form>
+                <?php endif; ?>
                 <?php if ($needsPhoto): ?>
                     <div class="event-form-heading">
                         <span>Katılım fotoğrafı</span>
