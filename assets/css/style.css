@@ -196,6 +196,42 @@ code {
 .notification-toggle {
     cursor: pointer;
     font-family: inherit;
+    position: relative;
+    padding: 5px;
+    color: var(--text-muted);
+    background: transparent;
+    border: 0;
+    border-radius: var(--radius-sm);
+}
+
+.notification-toggle:hover,
+.notification-toggle[aria-expanded="true"] {
+    color: var(--brand-primary-dark);
+    background: var(--bg-subtle);
+}
+
+.notification-icon {
+    display: block;
+    width: 19px;
+    height: 19px;
+    opacity: .85;
+}
+
+.notification-toggle b {
+    position: absolute;
+    top: -4px;
+    right: -5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    color: #fff;
+    background: var(--brand-danger);
+    border-radius: var(--radius-pill);
+    font-size: .65rem;
+    line-height: 1;
 }
 
 .notification-dropdown {
