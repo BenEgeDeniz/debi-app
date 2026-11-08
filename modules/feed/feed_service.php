@@ -167,11 +167,7 @@ function get_user_timeline_posts(array $profileUser, array $viewerUser): array
     $profileId = (int) $profileUser['id'];
     $viewerId  = (int) $viewerUser['id'];
 
-    $params = [
-        ':current_uid' => $viewerId,
-        ':author_uid'  => $profileId,
-        ':mention_access_uid' => $viewerId,
-    ];
+    $params = [':author_uid' => $profileId];
 
     if ($profileId === $viewerId) {
         $whereSql = "p.user_id = :author_uid";
@@ -189,13 +185,6 @@ function get_user_timeline_posts(array $profileUser, array $viewerUser): array
         $visList  = implode(',', $allowedVis);
         $whereSql = "p.user_id = :author_uid AND p.visibility IN ({$visList})";
     }
-    $whereSql = "({$whereSql} OR EXISTS (
-        SELECT 1 FROM notifications mention_access
-        WHERE mention_access.post_id = p.id
-          AND mention_access.user_id = :mention_access_uid
-          AND mention_access.type = 'mention'
-    ))";
-
     return fetch_posts_with_comments($pdo, $whereSql, $params);
 }
 
