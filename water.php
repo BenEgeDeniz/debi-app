@@ -332,7 +332,11 @@ require_once __DIR__ . '/includes/header.php';
                         <input type="file" id="bill_image_input" name="bill_image" class="bill-file-input"
                                accept="image/jpeg,image/png,image/webp" capture="environment" required>
                         <div class="bill-dropzone-content" id="billDropzoneText">
-                            <div class="bill-dropzone-icon">📷</div>
+                            <svg class="bill-dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <rect x="3" y="5" width="18" height="14" rx="2"/>
+                                <path d="M8 5l1.5-2h5L16 5"/>
+                                <circle cx="12" cy="12" r="3.5"/>
+                            </svg>
                             <strong>Fatura Fotoğrafı Seç</strong>
                             <span><?= $demoMode ? 'Demo modu: herhangi bir fatura dönemi seçilebilir' : e(turkish_month_name($nextWaterPeriod['month']) . ' ' . $nextWaterPeriod['year']) . ' faturası · aylar sırayla yüklenir' ?></span>
                         </div>

@@ -2562,9 +2562,10 @@ a.timeline-meta-item:hover {
 }
 
 .bill-dropzone-icon {
-    font-size: 2rem;
-    line-height: 1;
+    width: 30px;
+    height: 30px;
     margin-bottom: 4px;
+    color: var(--brand-primary-dark);
 }
 
 .bill-dropzone-content strong {
