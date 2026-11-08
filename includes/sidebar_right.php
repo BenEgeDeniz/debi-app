@@ -9,9 +9,6 @@ $quickWater    = $currentUser ? get_quick_water_summary($currentUser) : null;
 $pondAnalytics = $currentUser ? get_household_water_analytics($currentUser) : null;
 $incomingReqs  = $currentUser ? get_incoming_friend_requests((int) $currentUser['id']) : [];
 
-$friendLeaders = $currentUser ? get_friends_drops_leaderboard($currentUser, 6) : [];
-$aptLeaders    = (!empty($currentUser['apartment_id'])) ? get_apartment_drops_leaderboard($currentUser, 6) : [];
-$genLeaders    = $currentUser ? get_general_apartments_drops_leaderboard(6) : [];
 ?>
 <aside class="sidebar-right">
     <?php if ($currentUser && $quickWater): ?>
@@ -120,107 +117,5 @@ $genLeaders    = $currentUser ? get_general_apartments_drops_leaderboard(6) : []
             <?php endif; ?>
         </div>
 
-        <!-- 2. Debi Puan Sıralaması: Arkadaş / Apartman / Genel -->
-        <div class="panel-card sidebar-leaderboard-card">
-            <div class="panel-card-header" style="margin-bottom: 8px;">
-                <span class="panel-title">🏆 Puan Sıralaması</span>
-            </div>
-
-            <!-- 3'lü Sekme Çubuğu -->
-            <div class="lb-switch-tabs" role="tablist">
-                <button type="button" class="lb-switch-tab js-lb-tab active" data-target="lbFriends">
-                    Arkadaş
-                </button>
-                <?php if (!empty($currentUser['apartment_id'])): ?>
-                    <button type="button" class="lb-switch-tab js-lb-tab" data-target="lbApartment">
-                        Apartman
-                    </button>
-                <?php endif; ?>
-                <button type="button" class="lb-switch-tab js-lb-tab" data-target="lbGeneral">
-                    Genel
-                </button>
-            </div>
-
-            <!-- 1. Arkadaş Daire Puanları -->
-            <div class="lb-panel js-lb-panel" id="lbFriends">
-                <?php if (!empty($friendLeaders)): ?>
-                    <ol class="leaderboard-list">
-                        <?php foreach ($friendLeaders as $idx => $row): ?>
-                            <?php $isMe = (int) $row['user_id'] === (int) $currentUser['id']; ?>
-                            <li class="leaderboard-item <?= $isMe ? 'leaderboard-me' : '' ?>">
-                                <span class="rank-num"><?= $idx + 1 ?></span>
-                                <div class="rank-info">
-                                    <div class="rank-name">
-                                        <a href="profile.php?id=<?= (int) $row['user_id'] ?>" class="author-link">
-                                            <?= e($row['full_name']) ?><?= $isMe ? ' <small style="opacity:0.75;">(Sen)</small>' : '' ?>
-                                        </a>
-                                    </div>
-                                    <div class="rank-sub">
-                                        <?= !empty($row['apartment_name']) ? e($row['apartment_name'] . ' · ' . $row['unit_label']) : e($row['unit_label']) ?>
-                                    </div>
-                                </div>
-                                <span class="rank-val" title="Daire Toplam Puanı">💧 <?= number_format((int) $row['total_drops'], 0, ',', '.') ?> Puan</span>
-                            </li>
-                        <?php endforeach; ?>
-                    </ol>
-                <?php else: ?>
-                    <p class="muted-note">Henüz ekli arkadaşınız yok.</p>
-                <?php endif; ?>
-            </div>
-
-            <!-- 2. Apartman Daire Puanları -->
-            <?php if (!empty($currentUser['apartment_id'])): ?>
-                <div class="lb-panel js-lb-panel" id="lbApartment" style="display: none;">
-                    <?php if (!empty($aptLeaders)): ?>
-                        <ol class="leaderboard-list">
-                            <?php foreach ($aptLeaders as $idx => $row): ?>
-                                <?php $isMyUnit = (int) $row['household_id'] === (int) $currentUser['household_id']; ?>
-                                <li class="leaderboard-item <?= $isMyUnit ? 'leaderboard-me' : '' ?>">
-                                    <span class="rank-num"><?= $idx + 1 ?></span>
-                                    <div class="rank-info">
-                                        <div class="rank-name">
-                                            <strong><?= e(format_unit_label($row['unit_label'], $row['housing_type'])) ?></strong>
-                                            <?= $isMyUnit ? ' <small style="opacity:0.75;">(Daireniz)</small>' : '' ?>
-                                        </div>
-                                        <div class="rank-sub">
-                                            <?= e($row['display_name']) ?>
-                                        </div>
-                                    </div>
-                                    <span class="rank-val" title="Daire Toplam Puanı">💧 <?= number_format((int) $row['total_drops'], 0, ',', '.') ?> Puan</span>
-                                </li>
-                            <?php endforeach; ?>
-                        </ol>
-                    <?php else: ?>
-                        <p class="muted-note">Apartmanda henüz puanlı daire yok.</p>
-                    <?php endif; ?>
-                </div>
-            <?php endif; ?>
-
-            <!-- 3. Genel Apartman Puan Toplamları Sıralaması -->
-            <div class="lb-panel js-lb-panel" id="lbGeneral" style="display: none;">
-                <?php if (!empty($genLeaders)): ?>
-                    <ol class="leaderboard-list">
-                        <?php foreach ($genLeaders as $idx => $row): ?>
-                            <?php $isMyApt = !empty($currentUser['apartment_id']) && (int) $row['apartment_id'] === (int) $currentUser['apartment_id']; ?>
-                            <li class="leaderboard-item <?= $isMyApt ? 'leaderboard-me' : '' ?>">
-                                <span class="rank-num"><?= $idx + 1 ?></span>
-                                <div class="rank-info">
-                                    <div class="rank-name">
-                                        <strong><?= e($row['apartment_name']) ?></strong>
-                                        <?= $isMyApt ? ' <small style="opacity:0.75;">(Apartmanınız)</small>' : '' ?>
-                                    </div>
-                                    <div class="rank-sub">
-                                        <?= e($row['district'] . ' / ' . $row['city']) ?> &middot; <?= (int) $row['daire_count'] ?> Daire
-                                    </div>
-                                </div>
-                                <span class="rank-val" title="Apartman Toplam Daire Puanları">💧 <?= number_format((int) $row['total_drops'], 0, ',', '.') ?> Puan</span>
-                            </li>
-                        <?php endforeach; ?>
-                    </ol>
-                <?php else: ?>
-                    <p class="muted-note">Henüz apartman kaydı yok.</p>
-                <?php endif; ?>
-            </div>
-        </div>
     <?php endif; ?>
 </aside>

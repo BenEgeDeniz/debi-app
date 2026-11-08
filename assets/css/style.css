@@ -3189,6 +3189,119 @@ a.timeline-meta-item:hover {
     flex-shrink: 0;
 }
 
+.leaderboard-page {
+    max-width: 1000px;
+}
+
+.leaderboard-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 28px 30px;
+    background: linear-gradient(135deg, #effcff 0%, var(--bg-surface) 68%);
+    border-color: #bae6fd;
+}
+
+.leaderboard-hero h2 {
+    margin: 4px 0 8px;
+    font-size: 1.45rem;
+}
+
+.leaderboard-hero p {
+    max-width: 650px;
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.55;
+}
+
+.leaderboard-hero-kicker {
+    color: var(--brand-primary-dark);
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.leaderboard-page-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.leaderboard-board {
+    height: 100%;
+}
+
+.leaderboard-board-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.leaderboard-board-header p {
+    margin: 4px 0 0;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+
+.leaderboard-board-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--bg-highlight);
+    font-size: 1.15rem;
+}
+
+.leaderboard-page-list {
+    gap: 8px;
+}
+
+.leaderboard-page-list .leaderboard-item {
+    min-height: 52px;
+    padding: 10px 12px;
+}
+
+.leaderboard-page-list .leaderboard-item:nth-child(1) .rank-num {
+    background: #fef3c7;
+    border-color: #fcd34d;
+    color: #92400e;
+}
+
+.leaderboard-page-list .leaderboard-item:nth-child(2) .rank-num {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #475569;
+}
+
+.leaderboard-page-list .leaderboard-item:nth-child(3) .rank-num {
+    background: #ffedd5;
+    border-color: #fdba74;
+    color: #9a3412;
+}
+
+.leaderboard-empty {
+    padding: 16px 0 4px;
+}
+
+@media (max-width: 700px) {
+    .leaderboard-hero {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 22px;
+    }
+
+    .leaderboard-page-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* ==========================================================
    SU TÜKETİM TREND GRAFİĞİ
    ========================================================== */
@@ -6370,4 +6483,3 @@ a.timeline-meta-item:hover {
         grid-template-columns: repeat(2, 1fr);
     }
 }
-

@@ -69,6 +69,10 @@ if (!empty($currentUser)) {
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
             <span>Mağaza</span>
         </a>
+        <a href="leaderboard.php" class="side-nav-link <?= $activeNav === 'leaderboard' ? 'active' : '' ?>">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 7H4a3 3 0 0 0 3 3"/><path d="M17 7h3a3 3 0 0 1-3 3"/></svg>
+            <span>Sıralama</span>
+        </a>
 
         <?php if (!$isDetachedHome): ?>
             <a href="apartment.php" class="side-nav-link <?= $activeNav === 'apartment' ? 'active' : '' ?>">
@@ -103,6 +107,9 @@ if (!empty($currentUser)) {
     </a>
     <a href="store.php" class="mobile-nav-item <?= $activeNav === 'store' ? 'active' : '' ?>">
         <span>Mağaza</span>
+    </a>
+    <a href="leaderboard.php" class="mobile-nav-item <?= $activeNav === 'leaderboard' ? 'active' : '' ?>">
+        <span>Sıralama</span>
     </a>
     <?php if (!$isDetachedHome): ?>
         <a href="apartment.php" class="mobile-nav-item <?= $activeNav === 'apartment' ? 'active' : '' ?>">
