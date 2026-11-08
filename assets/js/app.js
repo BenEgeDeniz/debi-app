@@ -7,34 +7,34 @@ document.addEventListener('DOMContentLoaded', function () {
             const modal = button.closest('.event-start-modal');
             if (modal) modal.remove();
         });
-        document.querySelectorAll('.event-photo-dropzone').forEach(function (dropzone) {
-            const input = dropzone.querySelector('input[type="file"]');
-            const name = dropzone.querySelector('.event-photo-file-name');
-            if (!input || !name) return;
-            const update = function () {
-                const file = input.files && input.files[0];
-                name.textContent = file ? file.name : 'Henüz fotoğraf seçilmedi';
-                dropzone.classList.toggle('has-file', !!file);
-            };
-            input.addEventListener('change', update);
-            ['dragenter', 'dragover'].forEach(function (eventName) {
-                dropzone.addEventListener(eventName, function (event) {
-                    event.preventDefault();
-                    dropzone.classList.add('is-dragging');
-                });
+    });
+    document.querySelectorAll('.event-photo-dropzone').forEach(function (dropzone) {
+        const input = dropzone.querySelector('input[type="file"]');
+        const name = dropzone.querySelector('.event-photo-file-name');
+        if (!input || !name) return;
+        const update = function () {
+            const file = input.files && input.files[0];
+            name.textContent = file ? file.name : 'Henüz fotoğraf seçilmedi';
+            dropzone.classList.toggle('has-file', !!file);
+        };
+        input.addEventListener('change', update);
+        ['dragenter', 'dragover'].forEach(function (eventName) {
+            dropzone.addEventListener(eventName, function (event) {
+                event.preventDefault();
+                dropzone.classList.add('is-dragging');
             });
-            ['dragleave', 'drop'].forEach(function (eventName) {
-                dropzone.addEventListener(eventName, function (event) {
-                    event.preventDefault();
-                    dropzone.classList.remove('is-dragging');
-                });
+        });
+        ['dragleave', 'drop'].forEach(function (eventName) {
+            dropzone.addEventListener(eventName, function (event) {
+                event.preventDefault();
+                dropzone.classList.remove('is-dragging');
             });
-            dropzone.addEventListener('drop', function (event) {
-                if (event.dataTransfer.files.length) {
-                    input.files = event.dataTransfer.files;
-                    update();
-                }
-            });
+        });
+        dropzone.addEventListener('drop', function (event) {
+            if (event.dataTransfer.files.length) {
+                input.files = event.dataTransfer.files;
+                update();
+            }
         });
     });
     document.querySelectorAll('.notification-toggle').forEach(function (toggle) {
