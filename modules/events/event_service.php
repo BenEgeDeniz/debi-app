@@ -39,12 +39,17 @@ function get_event_time_state(array $event): array
 {
     $startAt = strtotime($event['event_date'] . ' ' . $event['start_time']);
     $now = time();
-    $expired = empty($event['ended_at']) && $startAt !== false && $now >= $startAt;
+    $attendanceRecorded = !empty($event['attendance_recorded']);
+    $missedAttendanceWindow = !empty($event['cancelled_at'])
+        || (empty($event['ended_at'])
+        && !$attendanceRecorded
+        && $startAt !== false
+        && $now >= ($startAt + 3600));
 
     return [
         'started' => $startAt !== false && $now >= $startAt,
-        'ended' => !empty($event['ended_at']) || $expired,
-        'cancelled' => $expired,
+        'ended' => !empty($event['ended_at']) || $missedAttendanceWindow,
+        'cancelled' => $missedAttendanceWindow,
     ];
 }
 
@@ -54,6 +59,12 @@ function get_events_for_user(array $user): array
         $stmt = db()->prepare("
         SELECT e.*, u.full_name AS creator_name, u.nickname AS creator_nickname,
                ea.status AS attendee_status, ep.ai_status AS photo_status,
+               EXISTS (
+                   SELECT 1
+                   FROM event_attendees marked_attendance
+                   WHERE marked_attendance.event_id = e.id
+                     AND marked_attendance.marked_at IS NOT NULL
+               ) AS attendance_recorded,
                (SELECT COUNT(*) FROM event_attendees ea2 WHERE ea2.event_id = e.id) AS attendee_count
         FROM events e
         INNER JOIN users u ON u.id = e.creator_id
@@ -90,10 +101,39 @@ function count_started_attending_events(int $userId): int
         WHERE ea.user_id = :uid
           AND e.creator_id <> :creator_uid
           AND e.ended_at IS NULL
+          AND e.cancelled_at IS NULL
           AND TIMESTAMP(e.event_date, e.start_time) <= NOW()
+          AND (
+              TIMESTAMP(e.event_date, e.start_time) > DATE_SUB(NOW(), INTERVAL 1 HOUR)
+              OR EXISTS (
+                  SELECT 1
+                  FROM event_attendees marked_attendance
+                  WHERE marked_attendance.event_id = e.id
+                    AND marked_attendance.marked_at IS NOT NULL
+              )
+          )
     ");
     $stmt->execute([':uid' => $userId, ':creator_uid' => $userId]);
     return (int) $stmt->fetchColumn();
+}
+
+function cancel_events_without_attendance(): int
+{
+    $stmt = db()->prepare("
+        UPDATE events
+        SET cancelled_at = NOW()
+        WHERE ended_at IS NULL
+          AND cancelled_at IS NULL
+          AND TIMESTAMP(event_date, start_time) <= DATE_SUB(NOW(), INTERVAL 1 HOUR)
+          AND NOT EXISTS (
+              SELECT 1
+              FROM event_attendees ea
+              WHERE ea.event_id = events.id
+                AND ea.marked_at IS NOT NULL
+          )
+    ");
+    $stmt->execute();
+    return $stmt->rowCount();
 }
 
 function get_started_created_event(int $userId): ?array
@@ -104,6 +144,8 @@ function get_started_created_event(int $userId): ?array
         INNER JOIN users u ON u.id = e.creator_id
         WHERE e.creator_id = :uid
           AND e.ended_at IS NULL
+          AND e.cancelled_at IS NULL
+          AND TIMESTAMP(e.event_date, e.start_time) > DATE_SUB(NOW(), INTERVAL 1 HOUR)
           AND TIMESTAMP(e.event_date, e.start_time) <= NOW()
         ORDER BY TIMESTAMP(e.event_date, e.start_time) ASC
         LIMIT 1
