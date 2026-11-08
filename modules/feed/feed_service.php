@@ -405,15 +405,24 @@ function create_mention_notifications(array $actor, int $postId, ?int $commentId
         return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
     }
 
-    function render_mention_content(string $content): string
+    function render_mention_content(?string $content): string
     {
+        $content = (string) ($content ?? '');
         $parts = preg_split('/(@[a-z0-9_]{3,32}(?:;|\\b))/i', $content, -1, PREG_SPLIT_DELIM_CAPTURE);
+        if ($parts === false) {
+            return nl2br(e($content));
+        }
         $html = '';
         foreach ($parts as $part) {
             if (preg_match('/^@([a-z0-9_]{3,32})(?:;|\\b)$/i', $part, $match)) {
-                $stmt = db()->prepare('SELECT id, full_name, nickname FROM users WHERE nickname = :nickname LIMIT 1');
-                $stmt->execute([':nickname' => mb_strtolower($match[1], 'UTF-8')]);
-                $user = $stmt->fetch();
+                $user = false;
+                try {
+                    $stmt = db()->prepare('SELECT id, full_name, nickname FROM users WHERE nickname = :nickname LIMIT 1');
+                    $stmt->execute([':nickname' => mb_strtolower($match[1], 'UTF-8')]);
+                    $user = $stmt->fetch();
+                } catch (PDOException $exception) {
+                    error_log('Mention rendering failed: ' . $exception->getMessage());
+                }
                 if ($user) {
                     $html .= '<a class="mention-link" href="profile.php?id=' . (int) $user['id'] . '"><strong>'
                         . e($user['full_name']) . ' · @' . e($user['nickname']) . '</strong></a>';
