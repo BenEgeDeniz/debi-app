@@ -300,6 +300,7 @@ document.addEventListener('DOMContentLoaded', function () {
             toggle.type = 'button';
             toggle.className = 'comment-thread-toggle';
             toggle.dataset.replyLabel = `${descendants.length} yanıt`;
+            toggle.dataset.replyCount = String(descendants.length);
             toggle.innerHTML = '<span class="comment-thread-label"></span><span class="comment-thread-arrow" aria-hidden="true"></span>';
             toggle.querySelector('.comment-thread-label').textContent = toggle.dataset.replyLabel;
             toggle.setAttribute('aria-expanded', 'false');
@@ -474,6 +475,70 @@ document.addEventListener('DOMContentLoaded', function () {
                 })
                 .catch(function () {
                     form.submit();
+                });
+        });
+    });
+
+    document.querySelectorAll('.comment-form[action^="post.php"]').forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            const input = form.querySelector('[name="comment_content"]');
+            if (!input || !input.value.trim()) return;
+            const submit = form.querySelector('button[type="submit"]');
+            if (submit) submit.disabled = true;
+            fetch(form.getAttribute('action') || window.location.href, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: new FormData(form)
+            })
+                .then(function (response) {
+                    if (!response.ok) throw new Error('Comment submission failed');
+                    return response.json();
+                })
+                .then(function (data) {
+                    if (!data.ok) throw new Error(data.error || 'Comment submission failed');
+                    input.value = '';
+                    form.classList.remove('is-open');
+                    form.hidden = form.classList.contains('comment-reply-form');
+                    let list = form.closest('.comments-box')?.querySelector('.comment-list');
+                    if (!list) {
+                        list = document.createElement('ul');
+                        list.className = 'comment-list';
+                        list.dataset.postId = new URLSearchParams(window.location.search).get('id') || '';
+                        form.closest('.comments-box')?.insertBefore(list, form);
+                    }
+                    const parentId = String(data.parent_comment_id || '0');
+                    const parent = parentId !== '0'
+                        ? list.querySelector('[data-comment-id="' + parentId + '"]')
+                        : null;
+                    const item = document.createElement('li');
+                    item.className = 'comment-item' + (parent ? ' comment-thread-collapsed' : '');
+                    item.dataset.commentId = String(data.comment_id);
+                    item.dataset.parentCommentId = parentId;
+                    const content = document.createElement('div');
+                    content.className = 'comment-content';
+                    const text = document.createElement('p');
+                    text.textContent = data.content;
+                    content.appendChild(text);
+                    item.appendChild(content);
+                    list.appendChild(item);
+                    if (parent) {
+                        const root = parent.closest('.comment-item');
+                        const toggle = root?.querySelector('.comment-thread-toggle');
+                        if (toggle) {
+                            const label = toggle.querySelector('.comment-thread-label');
+                            const count = parseInt(toggle.dataset.replyCount || '0', 10) + 1;
+                            toggle.dataset.replyCount = String(count);
+                            if (label) label.textContent = count + ' yanıt';
+                        }
+                    }
+                })
+                .catch(function (error) {
+                    console.warn('Yorum gönderilemedi.', error);
+                    form.submit();
+                })
+                .finally(function () {
+                    if (submit) submit.disabled = false;
                 });
         });
     });

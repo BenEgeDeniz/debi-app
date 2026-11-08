@@ -437,7 +437,13 @@ function add_post_comment(array $user, int $postId, string $content, array $tagg
 
     }
 
-    return ['ok' => true, 'points_awarded' => $pts];
+    return [
+        'ok' => true,
+        'comment_id' => $commentId,
+        'parent_comment_id' => $parentCommentId,
+        'content' => $content,
+        'points_awarded' => $pts,
+    ];
 }
 
 function get_taggable_users(array $user, string $visibility): array

@@ -27,6 +27,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             (array) ($_POST['tagged_user_ids'] ?? []),
             (int) ($_POST['parent_comment_id'] ?? 0)
         );
+        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode($result, JSON_UNESCAPED_UNICODE);
+            exit;
+        }
         set_flash($result['ok'] ? 'success' : 'error', $result['ok'] ? 'Yorumunuz eklendi.' : $result['error']);
     }
     redirect('post.php?id=' . $postId);
@@ -90,7 +95,7 @@ require_once __DIR__ . '/includes/header.php';
                 <?php if (!empty($post['comments'])): ?>
                     <ul class="comment-list" data-post-id="<?= (int) $post['id'] ?>">
                         <?php foreach ($post['comments'] as $comment): ?>
-                            <li class="comment-item comment-depth-<?= (int) ($comment['depth'] ?? 0) ?>"
+                            <li class="comment-item comment-depth-<?= (int) ($comment['depth'] ?? 0) ?><?= ((int) ($comment['depth'] ?? 0) > 0) ? ' comment-thread-collapsed' : '' ?>"
                                 data-comment-id="<?= (int) $comment['id'] ?>"
                                 data-parent-comment-id="<?= (int) ($comment['parent_comment_id'] ?? 0) ?>">
                                 <a href="profile.php?id=<?= (int) $comment['user_id'] ?>"><?= render_avatar($comment, 'avatar-xs') ?></a>
