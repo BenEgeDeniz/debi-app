@@ -98,13 +98,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pondAfter = get_household_pond_state($householdId);
 
             $pointsAwarded = (int) ($res['points_awarded'] ?? 0);
-            if ($pointsAwarded > 0) {
-                set_flash('success', 'Fatura kaydedildi · +' . $pointsAwarded . ' Damla');
+            $dropsBefore = (int) ($pondBefore['total_drops'] ?? 0);
+            $dropsAfter  = (int) ($pondAfter['total_drops'] ?? $dropsBefore);
+            $earnedDrops = max($pointsAwarded, $dropsAfter - $dropsBefore);
+            if ($earnedDrops > 0) {
+                set_flash('success', 'Fatura kaydedildi · +' . $earnedDrops . ' Damla');
                 $_SESSION['pond_celebration'] = [
-                    'earned_drops'    => $pointsAwarded,
+                    'earned_drops'    => $earnedDrops,
                     'drop_reasons'    => !empty($res['drop_reasons']) ? $res['drop_reasons'] : ['💧 Fatura kaydı'],
-                    'drops_before'    => (int) ($pondBefore['total_drops'] ?? 0),
-                    'drops_after'     => (int) ($pondAfter['total_drops'] ?? 10),
+                    'drops_before'    => $dropsBefore,
+                    'drops_after'     => $dropsAfter,
                     'target_drops'    => (int) ($pondAfter['target_drops'] ?? 100),
                     'fill_before'     => (float) ($pondBefore['doluluk_yuzdesi'] ?? 0.0),
                     'fill_after'      => (float) ($pondAfter['doluluk_yuzdesi'] ?? 10.0),
