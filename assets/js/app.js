@@ -1200,6 +1200,23 @@ document.addEventListener('DOMContentLoaded', function () {
     }, true);
 
     document.addEventListener('click', function (ev) {
+        const campaignStepButton = ev.target.closest('.js-campaign-dp-step');
+        if (campaignStepButton) {
+            const form = campaignStepButton.closest('form');
+            const input = form ? form.querySelector('input[name="support_points"]') : null;
+            const value = form ? form.querySelector('[data-campaign-dp-value]') : null;
+            if (!input || !value) return;
+
+            const min = Math.max(50, parseInt(form.getAttribute('data-min-dp') || '50', 10) || 50);
+            const step = parseInt(campaignStepButton.getAttribute('data-step') || '10', 10) || 10;
+            const current = parseInt(input.value || String(min), 10) || min;
+            const next = Math.max(min, current + step);
+            input.value = String(next);
+            value.textContent = next + ' DP';
+            campaignStepButton.blur();
+            return;
+        }
+
         const tabBtn = ev.target.closest('.js-store-tab-btn');
         if (tabBtn) {
             const targetTab = tabBtn.getAttribute('data-store-tab') || 'brands';

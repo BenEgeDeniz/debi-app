@@ -530,15 +530,20 @@ require_once __DIR__ . '/includes/header.php';
                                         <input type="hidden" name="action" value="support_campaign">
                                         <input type="hidden" name="campaign_id" value="<?= $campId ?>">
                                         <input type="hidden" name="campaign_slug" value="<?= e($camp['slug'] ?? '') ?>">
-                                        <label class="campaign-dp-input-wrap">
+                                        <div class="campaign-dp-input-wrap">
                                             <span>Gönderilecek DP (Min. <?= $minPts ?> DP)</span>
-                                            <input type="number"
+                                            <div class="campaign-dp-stepper" role="group" aria-label="Gönderilecek DP miktarı">
+                                                <button type="button" class="campaign-dp-stepper-btn js-campaign-dp-step" data-step="-10" aria-label="10 DP azalt">−</button>
+                                                <strong class="campaign-dp-value" data-campaign-dp-value><?= $minPts ?> DP</strong>
+                                                <button type="button" class="campaign-dp-stepper-btn js-campaign-dp-step" data-step="10" aria-label="10 DP artır">+</button>
+                                            </div>
+                                            <input type="hidden"
                                                    name="support_points"
+                                                   value="<?= $minPts ?>"
                                                    min="<?= $minPts ?>"
                                                    step="10"
-                                                   value="<?= $minPts ?>"
                                                    required>
-                                        </label>
+                                        </div>
                                         <button type="submit"
                                                 class="store-discount-btn campaign-badge"
                                                 title="Kampanyaya DP desteği gönder">

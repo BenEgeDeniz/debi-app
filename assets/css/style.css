@@ -1308,6 +1308,44 @@ form[aria-busy="true"] {
     animation: nav-alert-pulse 2.2s ease-in-out infinite;
 }
 
+.campaign-dp-stepper {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 6px;
+}
+
+.campaign-dp-stepper-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    color: var(--brand-primary-dark);
+    background: var(--brand-primary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    font-size: 1.15rem;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color .12s ease, transform .12s ease;
+}
+
+.campaign-dp-stepper-btn:hover {
+    background: var(--brand-primary);
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.campaign-dp-value {
+    min-width: 62px;
+    text-align: center;
+    color: var(--text-main);
+    font-size: 1rem;
+}
+
 @keyframes nav-alert-pulse {
     0%, 100% {
         box-shadow: 0 3px 8px rgba(220, 38, 38, .22);
