@@ -189,6 +189,7 @@ function get_single_feed_post(int $postId, array $user): ?array
     $pdo = db();
     $params = [
         ':current_uid' => (int) $user['id'],
+        ':viewer_uid' => (int) $user['id'],
         ':post_id' => $postId,
     ];
     $allowed = ["'public'", "'neighborhood'"];
@@ -208,7 +209,7 @@ function get_single_feed_post(int $postId, array $user): ?array
         }
     }
 
-    $where = "p.id = :post_id AND (p.user_id = :current_uid OR p.visibility IN (" . implode(',', $allowed) . ")";
+    $where = "p.id = :post_id AND (p.user_id = :viewer_uid OR p.visibility IN (" . implode(',', $allowed) . ")";
     if (!empty($friendSql)) {
         $where .= " OR (p.user_id IN ({$friendSql}) AND p.visibility = 'friends')";
     }
