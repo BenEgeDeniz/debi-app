@@ -19,7 +19,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $isAjax = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
 
-        if ($action === 'redeem_store_item') {
+        if ($action === 'copy_store_coupon') {
+            $couponCode = trim((string) ($_POST['coupon_code'] ?? ''));
+            $copyRes    = record_store_coupon_copy($currentUser, $couponCode);
+            header('Content-Type: application/json; charset=UTF-8');
+            echo json_encode($copyRes);
+            exit;
+        } elseif ($action === 'redeem_store_item') {
             $activeTab = 'brands';
             $itemId    = (int) ($_POST['item_id'] ?? 0);
             $itemSlug  = trim((string) ($_POST['item_slug'] ?? ''));
@@ -78,7 +84,11 @@ $myRedemptions    = get_household_store_redemptions((int) ($currentUser['househo
 $mySupports       = get_household_campaign_supports((int) ($currentUser['household_id'] ?? 0));
 
 $activeCoupons = array_values(array_filter($myRedemptions, static function (array $r): bool {
-    return (int) ($r['is_used'] ?? 0) === 0;
+    return (int) ($r['is_used'] ?? 0) === 0 && (int) ($r['copy_count'] ?? 0) < 3;
+}));
+
+$usedCoupons = array_values(array_filter($myRedemptions, static function (array $r): bool {
+    return (int) ($r['is_used'] ?? 0) === 1 || (int) ($r['copy_count'] ?? 0) >= 3;
 }));
 
 $defaultStorePhotos = [
@@ -96,7 +106,7 @@ require_once __DIR__ . '/includes/header.php';
 <div class="app-shell app-shell-2col">
     <?php require_once __DIR__ . '/includes/sidebar_left.php'; ?>
 
-    <main class="main-column" data-current-dp="<?= (int) $walletBalance ?>">
+    <main class="main-column" data-current-dp="<?= (int) $walletBalance ?>" data-csrf="<?= e(csrf_token()) ?>">
         <!-- Yetersiz Puan Uyarı Pop-up Modalı -->
         <div class="store-popup-overlay"
              id="storeErrorPopupModal"
@@ -233,21 +243,6 @@ require_once __DIR__ . '/includes/header.php';
                             su tasarrufu katkılarından dolayı teşekkürlerimizi sunarız.
                         </p>
 
-                        <!-- Göstergeli Katkı & Kampanya İlerleme Kutusu -->
-                        <div class="cert-indicator-box">
-                            <div class="cert-indicator-top">
-                                <span class="cert-indicator-badge">
-                                    💧 Katkı Göstergesi: +<strong id="certBadgePoints"><?= $certPoints ?></strong> DP
-                                </span>
-                                <span class="cert-indicator-target">
-                                    Kampanya Hedefi: <strong id="certCurrentDpText"><?= number_format($certCurrentDp, 0, ',', '.') ?></strong> / <span id="certTargetDpText"><?= number_format($certTargetDp, 0, ',', '.') ?></span> DP (<strong id="certProgressPctText">%<?= number_format($certProgress, 1, ',', '.') ?></strong>)
-                                </span>
-                            </div>
-                            <div class="cert-indicator-track">
-                                <div class="cert-indicator-fill" id="certProgressFill" style="width: <?= min(100, max(5, $certProgress)) ?>%;"></div>
-                            </div>
-                        </div>
-
                         <div class="cert-signatures-row">
                             <div class="cert-sig-block">
                                 <span class="cert-sig-title">Düzenleyen kurum</span>
@@ -261,10 +256,10 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
 
-                <!-- Belgeyi Paylaş / İndir Seçenekleri -->
+                <!-- Belgeyi Paylaş / PDF İndir Seçenekleri -->
                 <div class="certificate-actions-bar">
                     <button type="button" class="btn btn-primary js-download-certificate">
-                        📥 Belgeyi İndir
+                        📥 Belgeyi İndir (PDF)
                     </button>
                     <button type="button" class="btn btn-outline js-share-certificate">
                         📤 Belgeyi Paylaş
@@ -381,67 +376,68 @@ require_once __DIR__ . '/includes/header.php';
                     <div>
                         <h2 class="section-title">Aktif Kuponlar</h2>
                     </div>
-                    <span class="metric-pill pill-good"><?= count($activeCoupons) ?> Aktif Kupon</span>
+                    <span class="metric-pill pill-good" id="activeCouponsCountPill"><?= count($activeCoupons) ?> Aktif Kupon</span>
                 </div>
 
-                <?php if (empty($activeCoupons)): ?>
-                    <div class="empty-inline">
-                        Şu anda aktif indirim kuponunuz bulunmuyor. Yukarıdaki yeşil markalardan birinin indirim butonuna basıp satın alımı onayladığınızda rastgele kupon kodunuz burada oluşturulur.
-                    </div>
-                <?php else: ?>
-                    <div class="store-redemption-list">
-                        <?php foreach ($activeCoupons as $ac): ?>
-                            <div class="store-redemption-row active-coupon-row">
-                                <div class="store-redemption-info">
-                                    <strong><?= e($ac['brand_name']) ?> — %<?= (int) $ac['discount_pct'] ?> İndirim Kuponu</strong>
-                                    <span><?= e(format_date_tr($ac['created_at'])) ?> · Harcanan: <?= (int) $ac['spent_points'] ?> DP</span>
-                                </div>
-                                <div class="code-share-box">
-                                    <code><?= e($ac['coupon_code']) ?></code>
-                                    <button type="button" class="btn btn-primary btn-sm btn-copy" data-copy="<?= e($ac['coupon_code']) ?>">
-                                        Kopyala
-                                    </button>
-                                </div>
+                <div class="empty-inline" id="activeCouponsEmpty" <?= empty($activeCoupons) ? '' : 'hidden' ?>>
+                    Şu anda aktif indirim kuponunuz bulunmuyor. Yukarıdaki yeşil markalardan birinin indirim butonuna basıp satın alımı onayladığınızda rastgele kupon kodunuz burada oluşturulur.
+                </div>
+
+                <div class="store-redemption-list" id="activeCouponsList" <?= empty($activeCoupons) ? 'hidden' : '' ?>>
+                    <?php foreach ($activeCoupons as $ac): ?>
+                        <div class="store-redemption-row active-coupon-row"
+                             data-coupon-code="<?= e($ac['coupon_code']) ?>"
+                             data-copy-count="<?= (int) ($ac['copy_count'] ?? 0) ?>"
+                             data-brand-name="<?= e($ac['brand_name']) ?>"
+                             data-discount-pct="<?= (int) $ac['discount_pct'] ?>"
+                             data-spent-points="<?= (int) $ac['spent_points'] ?>"
+                             data-created-label="<?= e(format_date_tr($ac['created_at'])) ?>"
+                             data-user-name="<?= e($ac['full_name'] ?? '') ?>">
+                            <div class="store-redemption-info">
+                                <strong><?= e($ac['brand_name']) ?> — %<?= (int) $ac['discount_pct'] ?> İndirim Kuponu</strong>
+                                <span><?= e(format_date_tr($ac['created_at'])) ?> · Harcanan: <?= (int) $ac['spent_points'] ?> DP</span>
                             </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
+                            <div class="code-share-box">
+                                <code><?= e($ac['coupon_code']) ?></code>
+                                <button type="button" class="btn btn-primary btn-sm btn-copy" data-copy="<?= e($ac['coupon_code']) ?>">
+                                    Kopyala
+                                </button>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
             </section>
 
-            <!-- Mağaza Kullanım Geçmişi (Akordiyon Sistem) -->
-            <details class="panel-card store-accordion">
+            <!-- Mağaza Kullanım Geçmişi (Akordiyon Sistem — Yalnızca 3 Kere Kopyalanarak Kullanılmış Kuponlar) -->
+            <details class="panel-card store-accordion" id="usedCouponsAccordion">
                 <summary class="store-accordion-header">
                     <div class="store-accordion-title-wrap">
                         <span class="section-title">Mağaza Kullanım Geçmişi</span>
-                        <span class="metric-pill pill-neutral"><?= count($myRedemptions) ?> İşlem</span>
+                        <span class="metric-pill pill-neutral" id="usedCouponsCountPill"><?= count($usedCoupons) ?> İşlem</span>
                     </div>
                     <span class="store-accordion-chevron" aria-hidden="true">▾</span>
                 </summary>
 
                 <div class="store-accordion-body">
-                    <?php if (empty($myRedemptions)): ?>
-                        <div class="empty-inline">
-                            Henüz mağazada puan kullanımı yapılmadı.
-                        </div>
-                    <?php else: ?>
-                        <div class="store-redemption-list">
-                            <?php foreach ($myRedemptions as $red): ?>
-                                <div class="store-redemption-row">
-                                    <div class="store-redemption-info">
-                                        <strong><?= e($red['brand_name']) ?> — %<?= (int) $red['discount_pct'] ?> İndirim</strong>
-                                        <span><?= e($red['full_name'] ?? '') ?> · <?= e(format_date_tr($red['created_at'])) ?></span>
-                                    </div>
-                                    <div class="code-share-box">
-                                        <span class="metric-pill pill-good">-<?= (int) $red['spent_points'] ?> DP</span>
-                                        <code><?= e($red['coupon_code']) ?></code>
-                                        <button type="button" class="btn btn-outline btn-sm btn-copy" data-copy="<?= e($red['coupon_code']) ?>">
-                                            Kopyala
-                                        </button>
-                                    </div>
+                    <div class="empty-inline" id="usedCouponsEmpty" <?= empty($usedCoupons) ? '' : 'hidden' ?>>
+                        Henüz kullanım geçmişine geçen kupon bulunmuyor (Aktif bir kupon 3 kere kopyalandığında otomatik olarak kullanım geçmişine taşınır).
+                    </div>
+
+                    <div class="store-redemption-list" id="usedCouponsHistoryList" <?= empty($usedCoupons) ? 'hidden' : '' ?>>
+                        <?php foreach ($usedCoupons as $red): ?>
+                            <div class="store-redemption-row" data-history-coupon="<?= e($red['coupon_code']) ?>">
+                                <div class="store-redemption-info">
+                                    <strong><?= e($red['brand_name']) ?> — %<?= (int) $red['discount_pct'] ?> İndirim</strong>
+                                    <span><?= e($red['full_name'] ?? '') ?> · <?= e(format_date_tr($red['created_at'])) ?></span>
                                 </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
+                                <div class="code-share-box">
+                                    <span class="metric-pill pill-good">-<?= (int) $red['spent_points'] ?> DP</span>
+                                    <code><?= e($red['coupon_code']) ?></code>
+                                    <span class="metric-pill pill-neutral">Kullanıldı</span>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
             </details>
         </div>

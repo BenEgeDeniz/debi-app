@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS `store_redemptions` (
   `spent_points` int(10) UNSIGNED NOT NULL DEFAULT 30,
   `discount_pct` tinyint(3) UNSIGNED NOT NULL DEFAULT 30,
   `coupon_code` varchar(40) NOT NULL,
+  `copy_count` tinyint(3) UNSIGNED NOT NULL DEFAULT 0,
   `is_used` tinyint(1) NOT NULL DEFAULT 0,
   `used_at` datetime DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),

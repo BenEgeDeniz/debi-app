@@ -44,7 +44,8 @@ function ensure_store_schema(): void
             "ALTER TABLE store_items MODIFY COLUMN title VARCHAR(180) NOT NULL DEFAULT ''",
             "ALTER TABLE store_items DROP COLUMN badge_label",
             "ALTER TABLE store_items ADD COLUMN image_path VARCHAR(255) DEFAULT NULL AFTER description",
-            "ALTER TABLE store_redemptions ADD COLUMN is_used TINYINT(1) NOT NULL DEFAULT 0 AFTER coupon_code",
+            "ALTER TABLE store_redemptions ADD COLUMN copy_count TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER coupon_code",
+            "ALTER TABLE store_redemptions ADD COLUMN is_used TINYINT(1) NOT NULL DEFAULT 0 AFTER copy_count",
             "ALTER TABLE store_redemptions ADD COLUMN used_at DATETIME DEFAULT NULL AFTER is_used",
             "ALTER TABLE support_campaigns DROP COLUMN contrib_unit",
             "ALTER TABLE support_campaigns DROP COLUMN contrib_amount",
@@ -419,6 +420,61 @@ function redeem_store_item(array $user, int $itemId, string $itemSlug = ''): arr
             $pdo->rollBack();
         }
         return ['ok' => false, 'error' => 'Mağaza puan harcama işlemi sırasında bir hata oluştu.'];
+    }
+}
+
+/**
+ * Kupon Kopyalandığında Sayacı Artırır; 3 Kere Kopyalandığında Aktif Kupondan Kullanım Geçmişine Taşır
+ */
+function record_store_coupon_copy(array $user, string $couponCode): array
+{
+    ensure_store_schema();
+    $householdId = (int) ($user['household_id'] ?? 0);
+    $couponCode  = trim($couponCode);
+    if ($householdId <= 0 || $couponCode === '') {
+        return ['ok' => false, 'copy_count' => 0, 'moved_to_history' => false];
+    }
+
+    try {
+        $pdo = db();
+        $stmt = $pdo->prepare("
+            SELECT id, copy_count, is_used
+            FROM store_redemptions
+            WHERE household_id = :hid AND coupon_code = :code
+            ORDER BY id DESC
+            LIMIT 1
+        ");
+        $stmt->execute([':hid' => $householdId, ':code' => $couponCode]);
+        $row = $stmt->fetch();
+        if (!$row) {
+            return ['ok' => false, 'copy_count' => 0, 'moved_to_history' => false];
+        }
+
+        $newCount = (int) ($row['copy_count'] ?? 0) + 1;
+        $isUsed   = ($newCount >= 3 || (int) ($row['is_used'] ?? 0) === 1) ? 1 : 0;
+
+        $upd = $pdo->prepare("
+            UPDATE store_redemptions
+            SET copy_count = :cnt,
+                is_used    = :used,
+                used_at    = CASE WHEN :used_check = 1 AND used_at IS NULL THEN NOW() ELSE used_at END
+            WHERE id = :id
+        ");
+        $upd->execute([
+            ':cnt'        => $newCount,
+            ':used'       => $isUsed,
+            ':used_check' => $isUsed,
+            ':id'         => (int) $row['id'],
+        ]);
+
+        return [
+            'ok'               => true,
+            'redemption_id'    => (int) $row['id'],
+            'copy_count'       => $newCount,
+            'moved_to_history' => ($isUsed === 1),
+        ];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'copy_count' => 0, 'moved_to_history' => false];
     }
 }
 

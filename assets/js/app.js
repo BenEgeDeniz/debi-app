@@ -1023,15 +1023,21 @@ document.addEventListener('DOMContentLoaded', function () {
         if (downloadCertBtn) {
             const canvas = renderThankyouCertificateCanvas();
             if (!canvas) return;
+            const pdfBlob = canvasToPdfBlob(canvas);
+            if (!pdfBlob) return;
+            const pdfUrl = URL.createObjectURL(pdfBlob);
             const link = document.createElement('a');
-            link.download = 'debi-tesekkur-belgesi.png';
-            link.href = canvas.toDataURL('image/png');
+            link.download = 'debi-tesekkur-belgesi.pdf';
+            link.href = pdfUrl;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            setTimeout(function () {
+                URL.revokeObjectURL(pdfUrl);
+            }, 3000);
             const fb = document.getElementById('certificateShareFeedback');
             if (fb) {
-                fb.textContent = '✓ Teşekkür belgeniz PNG olarak indirildi.';
+                fb.textContent = '✓ Teşekkür belgeniz PDF formatında indirildi.';
                 fb.hidden = false;
             }
             return;
@@ -1046,28 +1052,27 @@ document.addEventListener('DOMContentLoaded', function () {
             const shareText = '💧 Debi Su Tasarrufu Platformu üzerinden "' + campaign + '" kampanyasına ' + points + ' DP katkıda bulunarak Teşekkür Belgesi aldım! (' + recipient + ')';
             const fb = document.getElementById('certificateShareFeedback');
             const canvas = renderThankyouCertificateCanvas();
+            const pdfBlob = canvas ? canvasToPdfBlob(canvas) : null;
 
-            if (canvas && navigator.share) {
-                canvas.toBlob(function (blob) {
-                    const file = blob ? new File([blob], 'debi-tesekkur-belgesi.png', { type: 'image/png' }) : null;
-                    const shareData = (file && navigator.canShare && navigator.canShare({ files: [file] }))
-                        ? { title: 'Debi Teşekkür Belgesi', text: shareText, files: [file] }
-                        : { title: 'Debi Teşekkür Belgesi', text: shareText, url: window.location.href };
-                    navigator.share(shareData).then(function () {
+            if (pdfBlob && navigator.share) {
+                const file = new File([pdfBlob], 'debi-tesekkur-belgesi.pdf', { type: 'application/pdf' });
+                const shareData = (navigator.canShare && navigator.canShare({ files: [file] }))
+                    ? { title: 'Debi Teşekkür Belgesi', text: shareText, files: [file] }
+                    : { title: 'Debi Teşekkür Belgesi', text: shareText, url: window.location.href };
+                navigator.share(shareData).then(function () {
+                    if (fb) {
+                        fb.textContent = '✓ Teşekkür belgeniz başarıyla paylaşıldı.';
+                        fb.hidden = false;
+                    }
+                }).catch(function () {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(shareText);
                         if (fb) {
-                            fb.textContent = '✓ Teşekkür belgeniz başarıyla paylaşıldı.';
+                            fb.textContent = '✓ Paylaşım metni panoya kopyalandı!';
                             fb.hidden = false;
                         }
-                    }).catch(function () {
-                        if (navigator.clipboard && navigator.clipboard.writeText) {
-                            navigator.clipboard.writeText(shareText);
-                            if (fb) {
-                                fb.textContent = '✓ Paylaşım metni panoya kopyalandı!';
-                                fb.hidden = false;
-                            }
-                        }
-                    });
-                }, 'image/png');
+                    }
+                });
             } else if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(shareText).then(function () {
                     if (fb) {
@@ -1083,17 +1088,216 @@ document.addEventListener('DOMContentLoaded', function () {
         if (copyBtn) {
             const text = copyBtn.getAttribute('data-copy');
             if (!text) return;
-            const originalLabel = copyBtn.textContent;
+            const originalLabel = copyBtn.getAttribute('data-orig-label') || copyBtn.textContent || 'Kopyala';
+            copyBtn.setAttribute('data-orig-label', originalLabel);
+
+            const onCopied = function () {
+                copyBtn.textContent = 'Kopyalandı';
+                setTimeout(function () {
+                    copyBtn.textContent = originalLabel;
+                }, 1400);
+                handleStoreCouponCopyTrack(text);
+            };
+
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text).then(function () {
-                    copyBtn.textContent = 'Kopyalandı';
-                    setTimeout(function () {
-                        copyBtn.textContent = originalLabel;
-                    }, 1600);
-                });
+                navigator.clipboard.writeText(text).then(onCopied).catch(onCopied);
+            } else {
+                onCopied();
             }
         }
     });
+
+    function handleStoreCouponCopyTrack(couponCode) {
+        if (!couponCode) return;
+        const activeList = document.getElementById('activeCouponsList');
+        if (!activeList) return; // Mağaza sayfasında değilsek çık
+
+        const activeRow = activeList.querySelector('.active-coupon-row[data-coupon-code="' + CSS.escape(couponCode) + '"]');
+        let nextCount = 1;
+        if (activeRow) {
+            const currentCount = parseInt(activeRow.getAttribute('data-copy-count') || '0', 10) || 0;
+            nextCount = currentCount + 1;
+            activeRow.setAttribute('data-copy-count', String(nextCount));
+            if (nextCount >= 3) {
+                moveActiveCouponRowToHistory(activeRow);
+            }
+        }
+
+        // Sunucuda kopyalama sayacını güncelle (3. kopyalamada veritabanında da kullanım geçmişine taşır)
+        const mainCol = document.querySelector('.main-column[data-csrf]');
+        const csrfToken = mainCol ? (mainCol.getAttribute('data-csrf') || '') : '';
+        const fd = new FormData();
+        fd.append('csrf_token', csrfToken);
+        fd.append('action', 'copy_store_coupon');
+        fd.append('coupon_code', couponCode);
+
+        fetch('store.php', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd,
+            credentials: 'same-origin'
+        })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (data && data.moved_to_history && activeRow && activeRow.parentNode) {
+                    moveActiveCouponRowToHistory(activeRow);
+                }
+            })
+            .catch(function () {});
+    }
+
+    function moveActiveCouponRowToHistory(activeRow) {
+        if (!activeRow || !activeRow.parentNode) return;
+
+        const couponCode = activeRow.getAttribute('data-coupon-code') || '';
+        const brandName = activeRow.getAttribute('data-brand-name') || 'Mağaza';
+        const discountPct = activeRow.getAttribute('data-discount-pct') || '30';
+        const spentPoints = activeRow.getAttribute('data-spent-points') || discountPct;
+        const createdLabel = activeRow.getAttribute('data-created-label') || '';
+        const userName = activeRow.getAttribute('data-user-name') || '';
+
+        // 1) Aktif Kuponlar listesinden kaldır (aynı anda 2 yerde olmasın)
+        activeRow.remove();
+
+        const activeList = document.getElementById('activeCouponsList');
+        const activeEmpty = document.getElementById('activeCouponsEmpty');
+        const activePill = document.getElementById('activeCouponsCountPill');
+        const remainingActive = activeList ? activeList.querySelectorAll('.active-coupon-row').length : 0;
+
+        if (activePill) {
+            activePill.textContent = remainingActive + ' Aktif Kupon';
+        }
+        if (remainingActive === 0) {
+            if (activeList) activeList.hidden = true;
+            if (activeEmpty) activeEmpty.hidden = false;
+        }
+
+        // 2) Mağaza Kullanım Geçmişi listesine ekle
+        const historyList = document.getElementById('usedCouponsHistoryList');
+        const historyEmpty = document.getElementById('usedCouponsEmpty');
+        const historyPill = document.getElementById('usedCouponsCountPill');
+        const historyAccordion = document.getElementById('usedCouponsAccordion');
+
+        if (historyList) {
+            if (!historyList.querySelector('[data-history-coupon="' + CSS.escape(couponCode) + '"]')) {
+                const row = document.createElement('div');
+                row.className = 'store-redemption-row';
+                row.setAttribute('data-history-coupon', couponCode);
+
+                const subText = (userName ? (userName + ' · ') : '') + createdLabel;
+                row.innerHTML =
+                    '<div class="store-redemption-info">' +
+                        '<strong></strong>' +
+                        '<span></span>' +
+                    '</div>' +
+                    '<div class="code-share-box">' +
+                        '<span class="metric-pill pill-good">-' + spentPoints + ' DP</span>' +
+                        '<code></code>' +
+                        '<span class="metric-pill pill-neutral">Kullanıldı</span>' +
+                    '</div>';
+
+                const strongEl = row.querySelector('.store-redemption-info strong');
+                const spanEl = row.querySelector('.store-redemption-info span');
+                const codeEl = row.querySelector('code');
+                if (strongEl) strongEl.textContent = brandName + ' — %' + discountPct + ' İndirim';
+                if (spanEl) spanEl.textContent = subText;
+                if (codeEl) codeEl.textContent = couponCode;
+
+                historyList.insertBefore(row, historyList.firstChild);
+            }
+
+            historyList.hidden = false;
+            if (historyEmpty) historyEmpty.hidden = true;
+
+            const totalUsed = historyList.querySelectorAll('.store-redemption-row').length;
+            if (historyPill) {
+                historyPill.textContent = totalUsed + ' İşlem';
+            }
+            if (historyAccordion) {
+                historyAccordion.open = true;
+            }
+        }
+    }
+
+    function canvasToPdfBlob(canvas) {
+        if (!canvas) return null;
+        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+        const base64 = jpegDataUrl.split(',')[1];
+        if (!base64) return null;
+
+        const rawImg = atob(base64);
+        const imgBytes = new Uint8Array(rawImg.length);
+        for (let i = 0; i < rawImg.length; i++) {
+            imgBytes[i] = rawImg.charCodeAt(i);
+        }
+
+        // Yatay A4 boyutu (842 x 595 pt)
+        const pageW = 842;
+        const pageH = 595;
+        const imgW = canvas.width;
+        const imgH = canvas.height;
+        const contentStream = 'q\n' + pageW + ' 0 0 ' + pageH + ' 0 0 cm\n/Im0 Do\nQ\n';
+
+        const encoder = new TextEncoder();
+        const chunks = [];
+        const offsets = [0];
+        let byteLen = 0;
+
+        function pushText(str) {
+            const b = encoder.encode(str);
+            chunks.push(b);
+            byteLen += b.length;
+        }
+
+        function pushBytes(b) {
+            chunks.push(b);
+            byteLen += b.length;
+        }
+
+        pushText('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+
+        // 1 0 obj (Catalog)
+        offsets[1] = byteLen;
+        pushText('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+
+        // 2 0 obj (Pages)
+        offsets[2] = byteLen;
+        pushText('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n');
+
+        // 3 0 obj (Page)
+        offsets[3] = byteLen;
+        pushText(
+            '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + pageW + ' ' + pageH + '] ' +
+            '/Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>\nendobj\n'
+        );
+
+        // 4 0 obj (JPEG Image XObject)
+        offsets[4] = byteLen;
+        pushText(
+            '4 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + imgW + ' /Height ' + imgH + ' ' +
+            '/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + imgBytes.length + ' >>\nstream\n'
+        );
+        pushBytes(imgBytes);
+        pushText('\nendstream\nendobj\n');
+
+        // 5 0 obj (Page Content Stream)
+        offsets[5] = byteLen;
+        pushText('5 0 obj\n<< /Length ' + contentStream.length + ' >>\nstream\n' + contentStream + 'endstream\nendobj\n');
+
+        // xref
+        const xrefOffset = byteLen;
+        pushText('xref\n0 6\n0000000000 65535 f \n');
+        for (let idx = 1; idx <= 5; idx++) {
+            const offStr = String(offsets[idx]).padStart(10, '0');
+            pushText(offStr + ' 00000 n \n');
+        }
+
+        pushText(
+            'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + xrefOffset + '\n%%EOF'
+        );
+
+        return new Blob(chunks, { type: 'application/pdf' });
+    }
 
     function renderThankyouCertificateCanvas() {
         const certCard = document.getElementById('thankyouCertificateCard');
@@ -1103,9 +1307,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const campaign = certCard.getAttribute('data-campaign') || 'Su Tasarrufu Kampanyası';
         const partner = certCard.getAttribute('data-partner') || 'Debi Su İşbirliği';
         const points = parseInt(certCard.getAttribute('data-points') || '50', 10) || 50;
-        const currentDp = parseInt(certCard.getAttribute('data-current-dp') || '1000', 10) || 1000;
-        const targetDp = Math.max(1, parseInt(certCard.getAttribute('data-target-dp') || '5000', 10) || 5000);
-        const progress = parseFloat(certCard.getAttribute('data-progress') || '25') || 25;
         const dateStr = certCard.getAttribute('data-date') || '';
         const president = certCard.getAttribute('data-president') || 'Debi Su Koruma Kurulu';
 
@@ -1165,38 +1366,38 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Altın Kaligrafik Başlık: Teşekkür Belgesi
         ctx.fillStyle = '#cca35e';
-        ctx.font = 'italic bold 72px Georgia, serif';
-        ctx.fillText('Teşekkür Belgesi', 120, 185);
+        ctx.font = 'italic bold 74px Georgia, serif';
+        ctx.fillText('Teşekkür Belgesi', 120, 210);
 
         // Sn. Alıcı Satırı ve Altın Çizgi
         ctx.fillStyle = '#4b5563';
-        ctx.font = '500 44px "Trebuchet MS", sans-serif';
-        ctx.fillText('Sn.', 120, 280);
+        ctx.font = '500 46px "Trebuchet MS", sans-serif';
+        ctx.fillText('Sn.', 120, 320);
         ctx.fillStyle = '#1e293b';
-        ctx.font = 'bold 40px "Segoe UI", Arial, sans-serif';
-        ctx.fillText(recipient, 200, 280);
+        ctx.font = 'bold 42px "Segoe UI", Arial, sans-serif';
+        ctx.fillText(recipient, 205, 320);
 
         ctx.strokeStyle = '#c8a25a';
         ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.moveTo(120, 298);
-        ctx.lineTo(840, 298);
+        ctx.moveTo(120, 340);
+        ctx.lineTo(840, 340);
         ctx.stroke();
 
         // Teşekkür Metni (Word-wrap)
         ctx.fillStyle = '#475569';
-        ctx.font = 'italic 28px Georgia, serif';
+        ctx.font = 'italic 30px Georgia, serif';
         const fullText = dateStr + ' tarihinde "' + campaign + '" kampanyamıza sunduğunuz ' + points + ' DP su tasarrufu katkılarından dolayı teşekkürlerimizi sunarız.';
         const words = fullText.split(' ');
         let line = '';
-        let y = 370;
-        const maxWidth = 860;
+        let y = 425;
+        const maxWidth = 850;
         for (let i = 0; i < words.length; i++) {
             const testLine = line + words[i] + ' ';
             if (ctx.measureText(testLine).width > maxWidth && i > 0) {
                 ctx.fillText(line.trim(), 120, y);
                 line = words[i] + ' ';
-                y += 42;
+                y += 46;
             } else {
                 line = testLine;
             }
@@ -1205,52 +1406,26 @@ document.addEventListener('DOMContentLoaded', function () {
             ctx.fillText(line.trim(), 120, y);
         }
 
-        // Göstergeli Katkı Kutusu
-        const boxY = 485;
-        ctx.fillStyle = '#f8fafc';
-        ctx.fillRect(120, boxY, 840, 96);
-        ctx.strokeStyle = '#cbd5e1';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(120, boxY, 840, 96);
-        ctx.fillStyle = '#16a34a';
-        ctx.fillRect(120, boxY, 6, 96);
-
-        ctx.fillStyle = '#166534';
-        ctx.font = 'bold 22px "Segoe UI", Arial, sans-serif';
-        ctx.fillText('💧 Katkı Göstergesi: +' + points + ' DP', 144, boxY + 36);
-
-        ctx.fillStyle = '#475569';
-        ctx.font = 'bold 20px "Segoe UI", Arial, sans-serif';
-        const targetLabel = 'Kampanya Hedefi: ' + currentDp.toLocaleString('tr-TR') + ' / ' + targetDp.toLocaleString('tr-TR') + ' DP (%' + progress.toFixed(1).replace('.', ',') + ')';
-        ctx.fillText(targetLabel, 450, boxY + 36);
-
-        // İlerleme Çubuğu
-        ctx.fillStyle = '#e2e8f0';
-        ctx.fillRect(144, boxY + 58, 792, 16);
-        ctx.fillStyle = '#16a34a';
-        const fillW = Math.round(792 * (Math.min(100, Math.max(5, progress)) / 100));
-        ctx.fillRect(144, boxY + 58, fillW, 16);
-
         // Alt İmza Alanları (Düzenleyen kurum & Kurum Başkanı)
-        const sigY = 665;
+        const sigY = 635;
         ctx.fillStyle = '#4b5563';
-        ctx.font = '26px "Trebuchet MS", Arial, sans-serif';
+        ctx.font = '28px "Trebuchet MS", Arial, sans-serif';
         ctx.fillText('Düzenleyen kurum', 120, sigY);
         ctx.fillText('Kurum Başkanı', 560, sigY);
 
         ctx.strokeStyle = '#c8a25a';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(120, sigY + 12);
-        ctx.lineTo(390, sigY + 12);
-        ctx.moveTo(560, sigY + 12);
-        ctx.lineTo(800, sigY + 12);
+        ctx.moveTo(120, sigY + 14);
+        ctx.lineTo(390, sigY + 14);
+        ctx.moveTo(560, sigY + 14);
+        ctx.lineTo(800, sigY + 14);
         ctx.stroke();
 
         ctx.fillStyle = '#1e293b';
-        ctx.font = 'bold 21px "Segoe UI", Arial, sans-serif';
-        ctx.fillText(partner, 120, sigY + 44);
-        ctx.fillText(president, 560, sigY + 44);
+        ctx.font = 'bold 22px "Segoe UI", Arial, sans-serif';
+        ctx.fillText(partner, 120, sigY + 48);
+        ctx.fillText(president, 560, sigY + 48);
 
         return canvas;
     }
