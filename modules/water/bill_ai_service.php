@@ -10,7 +10,6 @@
  */
 function analyze_water_bill_image(array $file): array
 {
-    require_once __DIR__ . '/invoice_storage.php';
     if (empty($file['tmp_name']) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
         return ['ok' => false, 'error' => 'Lütfen net okunabilen bir su faturası fotoğrafı seçin.'];
     }
@@ -33,23 +32,17 @@ function analyze_water_bill_image(array $file): array
         return ['ok' => false, 'error' => 'Fatura fotoğrafı en fazla 8 MB olabilir.'];
     }
 
-    try {
-        $encryptedReference = encrypt_invoice_file($file['tmp_name'], $allowedMimes[$mime]);
-        $secureName = basename((string) parse_url($encryptedReference, PHP_URL_PATH));
-        $relPath = 'invoice.php?file=' . rawurlencode($secureName) . '&type=' . rawurlencode($allowedMimes[$mime]);
-        $_SESSION['pending_invoice_reference'] = $relPath;
-        $fullPath = tempnam(sys_get_temp_dir(), 'debi_bill_');
-        if ($fullPath === false) {
-            throw new RuntimeException('Geçici fatura dosyası oluşturulamadı.');
-        }
-        file_put_contents($fullPath, (string) file_get_contents($file['tmp_name']));
-        register_shutdown_function(static function () use ($fullPath): void {
-            if (is_file($fullPath)) {
-                @unlink($fullPath);
-            }
-        });
-    } catch (Throwable $exception) {
-        return ['ok' => false, 'error' => 'Fatura görseli güvenli biçimde saklanamadı.'];
+    $uploadDir = __DIR__ . '/../../uploads/bills';
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
+    }
+
+    $fileName = 'bill_' . date('Ymd_His') . '_' . bin2hex(random_bytes(5)) . '.' . $allowedMimes[$mime];
+    $fullPath = $uploadDir . '/' . $fileName;
+    $relPath  = 'uploads/bills/' . $fileName;
+
+    if (!move_uploaded_file($file['tmp_name'], $fullPath)) {
+        return ['ok' => false, 'error' => 'Fatura görseli sunucuya kaydedilemedi.'];
     }
 
     $apiKey = defined('GEMINI_API_KEY') ? trim((string) GEMINI_API_KEY) : '';

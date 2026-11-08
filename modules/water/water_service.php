@@ -84,8 +84,8 @@ function save_water_log(array $user, array $input): array
         return ['ok' => false, 'error' => 'Lütfen geçerli bir su tüketim miktarı (m³) girin (Örn: 9.5).'];
     }
 
-    // Yalnızca yetkili invoice.php üzerinden sunulan şifreli referansları kabul et
-    if ($billImagePath !== '' && !preg_match('/^invoice\.php\?file=[a-f0-9]{48}\.enc&(?:amp;)?type=(?:jpg|jpeg|png|webp)$/', $billImagePath)) {
+    // Yalnızca uploads/bills/ altındaki geçerli görsel yoluna izin ver
+    if ($billImagePath !== '' && strpos($billImagePath, 'uploads/bills/') !== 0) {
         $billImagePath = '';
     }
 

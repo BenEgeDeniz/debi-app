@@ -136,7 +136,6 @@ define('DB_CHARSET', 'utf8mb4');
 
 define('GEMINI_API_KEY', 'gemini-api-key');
 define('DEBBIE_GEMINI_MODEL', 'gemini-3.5-flash-lite');
-define('DEBI_INVOICE_ENCRYPTION_KEY', 'base64-encoded-32-byte-key');
 ```
 
 Gemini anahtarı yerine ortam değişkeni de kullanılabilir:
@@ -144,7 +143,6 @@ Gemini anahtarı yerine ortam değişkeni de kullanılabilir:
 ```bash
 export GEMINI_API_KEY="gemini-api-key"
 export DEBBIE_GEMINI_MODEL="gemini-3.5-flash-lite"
-export DEBI_INVOICE_ENCRYPTION_KEY="$(openssl rand -base64 32)"
 ```
 
 ### 3. Veritabanını oluşturun
@@ -206,12 +204,6 @@ Plesk gibi panellerde PHP binary’si ile doğrudan scheduled task tanımlayın 
 
 - `config/database.local.php` hiçbir koşulda commit edilmemelidir.
 - API anahtarlarını kaynak koduna veya public dump dosyalarına koymayın.
-- `DEBI_INVOICE_ENCRYPTION_KEY` için her ortamda ayrı, 32 baytlık rastgele bir
-  anahtar kullanın; anahtar kaybolursa eski fatura görselleri çözülemez.
-- Fatura görselleri web kökünün dışındaki özel klasörde AES-256-GCM ile tutulur.
-  Görüntüleme yalnızca yetkili `invoice.php` endpoint’i üzerinden yapılır.
-- Kullanıcı şifresi cookie, local storage veya istemciye gönderilen bir anahtar
-  olarak tutulmaz; şifre türetme ile istemci tarafında fatura çözme yapılmaz.
 - Production’da `uploads/` erişim kurallarını kontrol edin.
 - Migration’ları tekrar çalıştırmadan önce durum ekranını ve checksum’ları
   kontrol edin.

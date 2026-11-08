@@ -3,7 +3,7 @@ $document = $_GET['doc'] ?? 'privacy';
 $documents = [
     'kvkk' => ['title' => 'KVKK Aydınlatma Metni', 'body' => 'Debi; hesap, hane, fatura ve kullanım verilerini hizmetin çalışması, su tüketimi analizi, etkinlik doğrulaması ve güvenlik amacıyla işler. Veriler yalnızca gerekli süre boyunca saklanır; üçüncü taraf yapay zekâ hizmetine gönderilen fatura görselleri bu aktarım hakkında açık bilgilendirme ile işlenir.'],
     'terms' => ['title' => 'Kullanım Sözleşmesi', 'body' => 'Debi’yi kullanırken doğru bilgi vermeyi, yalnızca kendi hanenize ait verileri yüklemeyi, etkinlik ve topluluk özelliklerini kötüye kullanmamayı kabul edersiniz. Puanlar ve etkinlik doğrulamaları hizmet kurallarına göre verilir.'],
-    'privacy' => ['title' => 'Gizlilik Politikası', 'body' => 'Şifreler geri döndürülemez biçimde hashlenir. Fatura görselleri sunucu tarafında şifreli saklanır ve yalnızca yetkili hane sahibi, ilgili sakin veya admin incelemesi için yetkilendirilmiş kullanıcı tarafından görüntülenebilir. Şifreler cookie veya tarayıcı depolamasında tutulmaz.'],
+    'privacy' => ['title' => 'Gizlilik Politikası', 'body' => 'Şifreler geri döndürülemez biçimde hashlenir. Fatura görselleri hizmetin fatura analizi ve inceleme akışı için sunucuda saklanır; erişim uygulama yetkilendirmeleriyle sınırlandırılır. Şifreler cookie veya tarayıcı depolamasında tutulmaz.'],
 ];
 $doc = $documents[$document] ?? $documents['privacy'];
 ?>
