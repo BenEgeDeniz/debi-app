@@ -1,0 +1,20 @@
+CREATE TABLE debbie_reply_queue (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    actor_user_id INT UNSIGNED NOT NULL,
+    post_id INT UNSIGNED NOT NULL,
+    parent_comment_id INT UNSIGNED NULL,
+    trigger_content TEXT NOT NULL,
+    status ENUM('pending', 'processing', 'completed', 'failed') NOT NULL DEFAULT 'pending',
+    attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    available_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    locked_at DATETIME NULL,
+    completed_at DATETIME NULL,
+    last_error VARCHAR(500) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_debbie_queue_ready (status, available_at, id),
+    KEY idx_debbie_queue_post (post_id),
+    CONSTRAINT fk_debbie_queue_actor FOREIGN KEY (actor_user_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT fk_debbie_queue_post FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE,
+    CONSTRAINT fk_debbie_queue_parent FOREIGN KEY (parent_comment_id) REFERENCES comments (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -158,22 +158,129 @@ function debbie_extract_interaction_output_text(array $response): string
     return '';
 }
 
-function maybe_answer_as_debbie(array $actor, int $postId, ?int $parentCommentId, string $content): void
+function debbie_enqueue_reply(array $actor, int $postId, ?int $parentCommentId, string $content): void
 {
     if (!debbie_mention_in_text($content)) {
         return;
     }
+
+    $stmt = db()->prepare('
+        INSERT INTO debbie_reply_queue
+            (actor_user_id, post_id, parent_comment_id, trigger_content)
+        VALUES (:actor, :post, :parent, :content)
+    ');
+    $stmt->execute([
+        ':actor' => (int) $actor['id'],
+        ':post' => $postId,
+        ':parent' => $parentCommentId ?: null,
+        ':content' => $content,
+    ]);
+}
+
+function debbie_process_queue_item(int $queueId): bool
+{
+    $stmt = db()->prepare('
+        SELECT q.*, u.id AS actor_id, u.nickname AS actor_nickname
+        FROM debbie_reply_queue q
+        INNER JOIN users u ON u.id = q.actor_user_id
+        WHERE q.id = :id AND q.status = "processing"
+        LIMIT 1
+    ');
+    $stmt->execute([':id' => $queueId]);
+    $job = $stmt->fetch();
+    if (!$job) {
+        return false;
+    }
+
     try {
-        $reply = debbie_generate_reply($actor, $postId, $parentCommentId, $content);
-        if (!$reply) {
-            return;
+        $reply = debbie_generate_reply(
+            ['id' => (int) $job['actor_id'], 'nickname' => (string) $job['actor_nickname']],
+            (int) $job['post_id'],
+            $job['parent_comment_id'] !== null ? (int) $job['parent_comment_id'] : null,
+            (string) $job['trigger_content']
+        );
+        if ($reply !== null) {
+            $bot = debbie_bot_user();
+            if ($bot) {
+                add_post_comment($bot, (int) $job['post_id'], $reply, [], (int) ($job['parent_comment_id'] ?? 0), false);
+            }
         }
-        $bot = debbie_bot_user();
-        if (!$bot) {
-            return;
-        }
-        add_post_comment($bot, $postId, $reply, [], $parentCommentId ?? 0, false);
+
+        $done = db()->prepare('
+            UPDATE debbie_reply_queue
+            SET status = "completed", completed_at = NOW(), last_error = NULL
+            WHERE id = :id
+        ');
+        $done->execute([':id' => $queueId]);
+        return true;
     } catch (Throwable $exception) {
-        error_log('Debbie AI reply failed: ' . $exception->getMessage());
+        $failed = db()->prepare('
+            UPDATE debbie_reply_queue
+            SET status = CASE WHEN attempts >= 3 THEN "failed" ELSE "pending" END,
+                available_at = DATE_ADD(NOW(), INTERVAL 1 MINUTE),
+                last_error = :error
+            WHERE id = :id
+        ');
+        $failed->execute([
+            ':id' => $queueId,
+            ':error' => mb_substr($exception->getMessage(), 0, 500, 'UTF-8'),
+        ]);
+        error_log('Debbie queue job ' . $queueId . ' failed: ' . $exception->getMessage());
+        return false;
+    }
+}
+
+function debbie_process_queue_batch(int $limit = 2): int
+{
+    $limit = max(1, min(2, $limit));
+    $pdo = db();
+    $pdo->beginTransaction();
+    try {
+        $reset = $pdo->prepare('
+            UPDATE debbie_reply_queue
+            SET status = "pending", locked_at = NULL
+            WHERE status = "processing" AND locked_at < DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+        ');
+        $reset->execute();
+
+        $stmt = $pdo->query("
+            SELECT id
+            FROM debbie_reply_queue
+            WHERE status = 'pending' AND available_at <= NOW()
+            ORDER BY id ASC
+            LIMIT {$limit}
+            FOR UPDATE
+        ");
+        $ids = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        if ($ids) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $claim = $pdo->prepare("
+                UPDATE debbie_reply_queue
+                SET status = 'processing', attempts = attempts + 1, locked_at = NOW()
+                WHERE id IN ($placeholders)
+            ");
+            $claim->execute($ids);
+        }
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        $pdo->rollBack();
+        throw $exception;
+    }
+
+    $processed = 0;
+    foreach ($ids ?? [] as $id) {
+        if (debbie_process_queue_item($id)) {
+            $processed++;
+        }
+    }
+    return $processed;
+}
+
+function maybe_answer_as_debbie(array $actor, int $postId, ?int $parentCommentId, string $content): void
+{
+    try {
+        debbie_enqueue_reply($actor, $postId, $parentCommentId, $content);
+    } catch (Throwable $exception) {
+        error_log('Debbie AI queue failed: ' . $exception->getMessage());
     }
 }
