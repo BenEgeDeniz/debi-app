@@ -2,6 +2,12 @@
  * DEBI - İstemci Tarafı Etkileşimleri (Vanilla JS)
  */
 document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-close-event-modal]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const modal = button.closest('.event-start-modal');
+            if (modal) modal.remove();
+        });
+    });
     document.querySelectorAll('.notification-toggle').forEach(function (toggle) {
         const menu = toggle.closest('.notification-menu');
         const dropdown = menu ? menu.querySelector('.notification-dropdown') : null;

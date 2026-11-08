@@ -66,7 +66,7 @@ function render_event_card(array $event, array $currentUser, array $managedAtten
         </div>
         <p><?= nl2br(e($event['description'])) ?></p>
         <div class="event-meta-row">
-            <span>Oluşturan: <?= e($event['creator_name']) ?></span>
+            <span>Oluşturan: <a class="event-creator-link" href="profile.php?id=<?= (int) $event['creator_id'] ?>"><?= e($event['creator_name']) ?> · @<?= e($event['creator_nickname'] ?? '') ?></a></span>
             <span><?= (int) $event['attendee_count'] ?> katılımcı</span>
             <span class="tag"><?= $event['cancelled'] ? 'Etkinlik iptal edildi' : ($event['ended'] ? 'Etkinlik sona erdi' : ($event['started'] ? 'Etkinlik devam ediyor' : 'Başlamadı')) ?></span>
         </div>

@@ -12,11 +12,16 @@ if (!function_exists('count_unread_notifications')) {
         require_once $feedServicePath;
     }
 }
+$eventServicePath = __DIR__ . '/../modules/events/event_service.php';
+if (is_file($eventServicePath)) {
+    require_once $eventServicePath;
+}
 $pendingFriendCnt = !empty($currentUser) && function_exists('count_incoming_friend_requests')
     ? count_incoming_friend_requests((int) $currentUser['id'])
     : 0;
 $unreadNotificationCnt = 0;
 $headerNotifications = [];
+$eventStartModal = null;
 if (!empty($currentUser)) {
     try {
         if (function_exists('count_unread_notifications')) {
@@ -33,6 +38,15 @@ if (!empty($currentUser)) {
         ");
         $notificationStmt->execute([':uid' => (int) $currentUser['id']]);
         $headerNotifications = $notificationStmt->fetchAll();
+        $seenEventStarts = $_SESSION['seen_event_start_modal'] ?? [];
+        $startedEvent = function_exists('get_started_created_event')
+            ? get_started_created_event((int) $currentUser['id'])
+            : null;
+        if ($startedEvent && empty($seenEventStarts[(string) $startedEvent['id']])) {
+            $eventStartModal = $startedEvent;
+            $seenEventStarts[(string) $startedEvent['id']] = time();
+            $_SESSION['seen_event_start_modal'] = $seenEventStarts;
+        }
     } catch (Throwable $e) {
         $unreadNotificationCnt = 0;
         $headerNotifications = [];
@@ -140,6 +154,17 @@ if (!empty($currentUser)) {
         <div class="container-narrow flash-wrapper">
             <div class="alert alert-<?= e($flash['type']) ?>">
                 <span><?= e($flash['message']) ?></span>
+            </div>
+        </div>
+    <?php endif; ?>
+    <?php if ($eventStartModal): ?>
+        <div class="event-start-modal" id="eventStartModal" role="dialog" aria-modal="true" aria-labelledby="eventStartModalTitle">
+            <div class="event-start-modal-card">
+                <button type="button" class="event-start-modal-close" data-close-event-modal aria-label="Kapat">×</button>
+                <span class="event-scope-label">Etkinlik başladı</span>
+                <h2 id="eventStartModalTitle"><?= e($eventStartModal['title']) ?></h2>
+                <p>Etkinliğiniz başladı. Katılımcılar geldiğinde yoklamayı etkinlikler sayfasından işaretleyebilirsiniz.</p>
+                <a class="btn btn-primary" href="events.php">Etkinliğe git</a>
             </div>
         </div>
     <?php endif; ?>

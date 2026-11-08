@@ -52,7 +52,7 @@ function get_events_for_user(array $user): array
 {
     try {
         $stmt = db()->prepare("
-        SELECT e.*, u.full_name AS creator_name,
+        SELECT e.*, u.full_name AS creator_name, u.nickname AS creator_nickname,
                ea.status AS attendee_status, ep.ai_status AS photo_status,
                (SELECT COUNT(*) FROM event_attendees ea2 WHERE ea2.event_id = e.id) AS attendee_count
         FROM events e
@@ -79,6 +79,37 @@ function get_events_for_user(array $user): array
             : 'Etkinlikler yüklenirken veritabanı hatası oluştu.';
         throw new RuntimeException($message, 0, $e);
     }
+}
+
+function count_started_attending_events(int $userId): int
+{
+    $stmt = db()->prepare("
+        SELECT COUNT(*)
+        FROM event_attendees ea
+        INNER JOIN events e ON e.id = ea.event_id
+        WHERE ea.user_id = :uid
+          AND e.creator_id <> :creator_uid
+          AND e.ended_at IS NULL
+          AND TIMESTAMP(e.event_date, e.start_time) <= NOW()
+    ");
+    $stmt->execute([':uid' => $userId, ':creator_uid' => $userId]);
+    return (int) $stmt->fetchColumn();
+}
+
+function get_started_created_event(int $userId): ?array
+{
+    $stmt = db()->prepare("
+        SELECT e.*, u.full_name AS creator_name, u.nickname AS creator_nickname
+        FROM events e
+        INNER JOIN users u ON u.id = e.creator_id
+        WHERE e.creator_id = :uid
+          AND e.ended_at IS NULL
+          AND TIMESTAMP(e.event_date, e.start_time) <= NOW()
+        ORDER BY TIMESTAMP(e.event_date, e.start_time) ASC
+        LIMIT 1
+    ");
+    $stmt->execute([':uid' => $userId]);
+    return $stmt->fetch() ?: null;
 }
 
 function categorize_events_for_user(array $events): array
