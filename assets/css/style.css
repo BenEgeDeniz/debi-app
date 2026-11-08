@@ -4267,6 +4267,293 @@ a.timeline-meta-item:hover {
     gap: 10px;
 }
 
+/* Mağaza Satın Alımınız Onaylandı & Kupon Kodu Pop-up Stilleri */
+.store-popup-card.store-coupon-success-card {
+    max-width: 470px;
+    border-color: #4ade80;
+}
+
+.store-popup-icon.store-success-icon {
+    background-color: var(--brand-green-bg);
+    border-color: #86efac;
+    color: var(--brand-green-dark);
+    font-weight: 900;
+}
+
+.store-popup-title.store-success-title {
+    color: var(--brand-green-dark);
+}
+
+.store-coupon-popup-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    margin: 0 0 16px 0;
+    background-color: #f0fdf4;
+    border: 2px dashed #22c55e;
+    border-radius: var(--radius-md);
+    text-align: left;
+}
+
+.store-coupon-popup-code-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.store-coupon-popup-label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+
+.store-coupon-popup-code-wrap code {
+    font-size: 1.16rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    color: #0f172a;
+    background: transparent;
+    padding: 0;
+}
+
+.store-coupon-popup-copy-btn {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+/* Kampanya Destek Göstergeli Teşekkür Belgesi Modal & Belge Stilleri */
+.store-popup-card.certificate-modal-shell {
+    position: relative;
+    max-width: 780px;
+    padding: 20px;
+    border: 2px solid #d4af37;
+    background-color: #f8fafc;
+}
+
+.certificate-close-x {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    z-index: 20;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background: #ffffff;
+    color: var(--text-main);
+    font-weight: 900;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.thankyou-certificate {
+    position: relative;
+    background-color: #ffffff;
+    border-radius: 10px;
+    padding: 46px 56px 40px 56px;
+    text-align: left;
+    overflow: hidden;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.09);
+}
+
+/* Çift Altın Çerçeve (Görseldeki Tasarım) */
+.cert-frame-outer {
+    position: absolute;
+    inset: 18px 26px;
+    border: 2px solid #c8a25a;
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.cert-frame-inner {
+    position: absolute;
+    inset: 26px 18px;
+    border: 2px solid #d4b26f;
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.cert-leaves {
+    position: absolute;
+    pointer-events: none;
+    z-index: 3;
+}
+
+.cert-leaves-top-right {
+    top: 0;
+    right: 0;
+    width: 230px;
+    height: 245px;
+}
+
+.cert-leaves-bottom-left {
+    bottom: 0;
+    left: 0;
+    width: 165px;
+    height: 185px;
+}
+
+.cert-body-content {
+    position: relative;
+    z-index: 5;
+    max-width: 560px;
+}
+
+.cert-script-title {
+    font-family: 'Georgia', 'Palatino Linotype', 'Times New Roman', serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 2.65rem;
+    line-height: 1.12;
+    color: #cca35e;
+    margin: 0 0 18px 0;
+    letter-spacing: 0.01em;
+    text-shadow: 0 1px 0 rgba(204, 163, 94, 0.18);
+}
+
+.cert-recipient-line {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding-bottom: 6px;
+    margin-bottom: 18px;
+    border-bottom: 1.6px solid #c8a25a;
+    max-width: 470px;
+}
+
+.cert-sn-prefix {
+    font-family: 'Oswald', 'Trebuchet MS', sans-serif;
+    font-size: 1.7rem;
+    font-weight: 500;
+    color: #4b5563;
+}
+
+.cert-recipient-name {
+    font-size: 1.42rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.cert-appreciation-text {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-style: italic;
+    font-size: 1.04rem;
+    line-height: 1.58;
+    color: #475569;
+    margin: 0 0 18px 0;
+}
+
+.cert-appreciation-text strong {
+    color: #1e293b;
+    font-weight: 700;
+}
+
+/* Göstergeli Katkı & Kampanya İlerleme Kutusu */
+.cert-indicator-box {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #16a34a;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 0 0 24px 0;
+}
+
+.cert-indicator-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 7px;
+    font-size: 0.82rem;
+    color: #334155;
+}
+
+.cert-indicator-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background-color: #dcfce7;
+    color: #166534;
+    font-weight: 800;
+}
+
+.cert-indicator-target {
+    font-weight: 700;
+    color: #475569;
+}
+
+.cert-indicator-track {
+    width: 100%;
+    height: 8px;
+    background-color: #e2e8f0;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.cert-indicator-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #16a34a 0%, #22c55e 100%);
+    border-radius: 999px;
+}
+
+.cert-signatures-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 56px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.cert-sig-block {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 165px;
+}
+
+.cert-sig-title {
+    font-size: 0.96rem;
+    font-weight: 600;
+    color: #4b5563;
+    padding-bottom: 4px;
+    border-bottom: 1.5px solid #c8a25a;
+}
+
+.cert-sig-value {
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.certificate-actions-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.certificate-share-feedback {
+    margin: 10px 0 0 0;
+    font-size: 0.84rem;
+    font-weight: 800;
+    color: var(--brand-green-dark);
+}
+
 .store-balance-hint {
     text-align: center;
     font-size: 0.75rem;
@@ -4337,5 +4624,17 @@ a.timeline-meta-item:hover {
         width: 100%;
         border-left: none;
         border-top: 1px dashed var(--border-strong);
+    }
+
+    .thankyou-certificate {
+        padding: 34px 26px 30px 26px;
+    }
+
+    .cert-script-title {
+        font-size: 2rem;
+    }
+
+    .cert-signatures-row {
+        gap: 24px;
     }
 }

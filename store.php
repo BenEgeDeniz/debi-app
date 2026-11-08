@@ -22,6 +22,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $itemId    = (int) ($_POST['item_id'] ?? 0);
             $res       = redeem_store_item($currentUser, $itemId);
             if ($res['ok']) {
+                $_SESSION['store_purchase_popup'] = [
+                    'brand_name'   => (string) ($res['brand_name'] ?? 'Mağaza'),
+                    'discount_pct' => (int) ($res['discount_pct'] ?? 30),
+                    'spent_points' => (int) ($res['spent_points'] ?? 30),
+                    'coupon_code'  => (string) ($res['coupon_code'] ?? ''),
+                ];
                 set_flash('success', $res['message']);
                 redirect('store.php?tab=brands');
             }
@@ -32,6 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $requestedPoints = (int) ($_POST['support_points'] ?? 50);
             $res             = support_campaign_with_points($currentUser, $campaignId, $requestedPoints);
             if ($res['ok']) {
+                if (!empty($res['certificate']) && is_array($res['certificate'])) {
+                    $_SESSION['campaign_certificate_popup'] = $res['certificate'];
+                }
                 set_flash('success', $res['message']);
                 redirect('store.php?tab=campaigns');
             }
@@ -40,6 +49,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Geçersiz mağaza işlemi.';
         }
     }
+}
+
+$purchasePopup = null;
+if (!empty($_SESSION['store_purchase_popup']) && is_array($_SESSION['store_purchase_popup'])) {
+    $purchasePopup = $_SESSION['store_purchase_popup'];
+    unset($_SESSION['store_purchase_popup']);
+}
+
+$certificatePopup = null;
+if (!empty($_SESSION['campaign_certificate_popup']) && is_array($_SESSION['campaign_certificate_popup'])) {
+    $certificatePopup = $_SESSION['campaign_certificate_popup'];
+    unset($_SESSION['campaign_certificate_popup']);
 }
 
 $walletBalance    = get_store_wallet_balance($currentUser);
@@ -98,6 +119,153 @@ require_once __DIR__ . '/includes/header.php';
                     <button type="button" class="btn btn-outline js-cancel-store-confirm">Vazgeç</button>
                     <button type="button" class="btn btn-primary js-approve-store-confirm">Onayla</button>
                 </div>
+            </div>
+        </div>
+
+        <!-- Mağaza Satın Alımınız Onaylandı & Kupon Kodu Pop-up Modalı -->
+        <div class="store-popup-overlay"
+             id="storeCouponSuccessModal"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="storeCouponSuccessTitle"
+             <?= $purchasePopup ? '' : 'hidden' ?>>
+            <div class="store-popup-card store-coupon-success-card">
+                <div class="store-popup-icon store-success-icon" aria-hidden="true">✓</div>
+                <h3 class="store-popup-title store-success-title" id="storeCouponSuccessTitle">Satın Alımınız Onaylandı</h3>
+                <p class="store-popup-message" id="storeCouponSuccessDesc">
+                    <?php if ($purchasePopup): ?>
+                        <strong><?= e($purchasePopup['brand_name']) ?></strong> mağazasında <strong>%<?= (int) $purchasePopup['discount_pct'] ?> indirim</strong> kuponunuz oluşturuldu ve <strong>Aktif Kuponlar</strong> bölümüne eklendi (-<?= (int) $purchasePopup['spent_points'] ?> DP).
+                    <?php endif; ?>
+                </p>
+
+                <!-- Altta Kupon Kodu, Sağ Tarafında Kopyalama Butonu -->
+                <div class="store-coupon-popup-bar">
+                    <div class="store-coupon-popup-code-wrap">
+                        <span class="store-coupon-popup-label">Kupon Kodunuz</span>
+                        <code id="storeCouponSuccessCode"><?= e($purchasePopup['coupon_code'] ?? '') ?></code>
+                    </div>
+                    <button type="button"
+                            class="btn btn-primary btn-copy store-coupon-popup-copy-btn"
+                            id="storeCouponSuccessCopyBtn"
+                            data-copy="<?= e($purchasePopup['coupon_code'] ?? '') ?>">
+                        Kopyala
+                    </button>
+                </div>
+
+                <button type="button" class="btn btn-outline btn-block js-close-store-popup">Tamam</button>
+            </div>
+        </div>
+
+        <!-- Kampanya Destek Göstergeli Teşekkür Belgesi Pop-up Modalı -->
+        <?php
+        $certRecipient  = (string) ($certificatePopup['recipient_name'] ?? ($currentUser['full_name'] ?? 'Değerli Katılımcı'));
+        $certCampaign   = (string) ($certificatePopup['campaign_title'] ?? 'Su Tasarrufu Kampanyası');
+        $certPartner    = (string) ($certificatePopup['partner_name'] ?? 'Debi Su İşbirliği');
+        $certPoints     = (int) ($certificatePopup['spent_points'] ?? 50);
+        $certCurrentDp  = (int) ($certificatePopup['current_dp'] ?? 1000);
+        $certTargetDp   = max(1, (int) ($certificatePopup['target_dp'] ?? 5000));
+        $certProgress   = (float) ($certificatePopup['progress_pct'] ?? min(100, round(($certCurrentDp / $certTargetDp) * 100, 1)));
+        $certSupporters = (int) ($certificatePopup['supporter_count'] ?? 20);
+        $certDate       = (string) ($certificatePopup['date_label'] ?? format_date_tr(date('Y-m-d H:i:s'), false));
+        $certPresident  = (string) ($certificatePopup['president_name'] ?? 'Debi Su Koruma Kurulu');
+        ?>
+        <div class="store-popup-overlay"
+             id="campaignCertificateModal"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="certTitleHeading"
+             <?= $certificatePopup ? '' : 'hidden' ?>>
+            <div class="store-popup-card certificate-modal-shell">
+                <button type="button" class="certificate-close-x js-close-store-popup" aria-label="Belgeyi Kapat">✕</button>
+
+                <!-- Görseldeki Tasarıma Uygun Çift Altın Çerçeveli & Yapraklı Teşekkür Belgesi -->
+                <div class="thankyou-certificate"
+                     id="thankyouCertificateCard"
+                     data-recipient="<?= e($certRecipient) ?>"
+                     data-campaign="<?= e($certCampaign) ?>"
+                     data-partner="<?= e($certPartner) ?>"
+                     data-points="<?= $certPoints ?>"
+                     data-current-dp="<?= $certCurrentDp ?>"
+                     data-target-dp="<?= $certTargetDp ?>"
+                     data-progress="<?= $certProgress ?>"
+                     data-date="<?= e($certDate) ?>"
+                     data-president="<?= e($certPresident) ?>">
+
+                    <!-- Sağ Üst Suluboya Yeşil Yapraklar (SVG) -->
+                    <svg class="cert-leaves cert-leaves-top-right" viewBox="0 0 260 280" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M265 0C195 10 125 45 78 108C142 98 205 70 265 18Z" fill="#7eb37a" fill-opacity="0.78"/>
+                        <path d="M265 18C210 62 175 135 190 245C228 190 255 120 265 18Z" fill="#689f65" fill-opacity="0.82"/>
+                        <path d="M260 -5C180 18 115 62 82 106" stroke="#558b52" stroke-width="2" stroke-opacity="0.55"/>
+                        <path d="M255 20C212 85 195 155 193 238" stroke="#4c8049" stroke-width="2" stroke-opacity="0.5"/>
+                    </svg>
+
+                    <!-- Sol Alt Suluboya Yeşil Yapraklar (SVG) -->
+                    <svg class="cert-leaves cert-leaves-bottom-left" viewBox="0 0 200 220" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M-10 115C32 105 75 112 115 135C72 155 28 168 -10 158Z" fill="#7eb37a" fill-opacity="0.78"/>
+                        <path d="M-10 158C28 168 68 195 92 230C42 230 5 215 -10 158Z" fill="#689f65" fill-opacity="0.84"/>
+                        <path d="M-8 135C35 130 75 132 110 135" stroke="#558b52" stroke-width="1.8" stroke-opacity="0.5"/>
+                    </svg>
+
+                    <!-- Çift Altın Çerçeve -->
+                    <div class="cert-frame-outer"></div>
+                    <div class="cert-frame-inner"></div>
+
+                    <div class="cert-body-content">
+                        <h2 class="cert-script-title" id="certTitleHeading">Teşekkür Belgesi</h2>
+
+                        <div class="cert-recipient-line">
+                            <span class="cert-sn-prefix">Sn.</span>
+                            <span class="cert-recipient-name" id="certRecipientName"><?= e($certRecipient) ?></span>
+                        </div>
+
+                        <p class="cert-appreciation-text" id="certAppreciationText">
+                            <span id="certDateSpan"><?= e($certDate) ?></span> tarihinde
+                            <strong>"<span id="certCampaignSpan"><?= e($certCampaign) ?></span>"</strong>
+                            kampanyamıza sunduğunuz <strong><span id="certPointsSpan"><?= $certPoints ?></span> DP</strong>
+                            su tasarrufu katkılarından dolayı teşekkürlerimizi sunarız.
+                        </p>
+
+                        <!-- Göstergeli Katkı & Kampanya İlerleme Kutusu -->
+                        <div class="cert-indicator-box">
+                            <div class="cert-indicator-top">
+                                <span class="cert-indicator-badge">
+                                    💧 Katkı Göstergesi: +<strong id="certBadgePoints"><?= $certPoints ?></strong> DP
+                                </span>
+                                <span class="cert-indicator-target">
+                                    Kampanya Hedefi: <strong id="certCurrentDpText"><?= number_format($certCurrentDp, 0, ',', '.') ?></strong> / <span id="certTargetDpText"><?= number_format($certTargetDp, 0, ',', '.') ?></span> DP (<strong id="certProgressPctText">%<?= number_format($certProgress, 1, ',', '.') ?></strong>)
+                                </span>
+                            </div>
+                            <div class="cert-indicator-track">
+                                <div class="cert-indicator-fill" id="certProgressFill" style="width: <?= min(100, max(5, $certProgress)) ?>%;"></div>
+                            </div>
+                        </div>
+
+                        <div class="cert-signatures-row">
+                            <div class="cert-sig-block">
+                                <span class="cert-sig-title">Düzenleyen kurum</span>
+                                <strong class="cert-sig-value" id="certPartnerName"><?= e($certPartner) ?></strong>
+                            </div>
+                            <div class="cert-sig-block">
+                                <span class="cert-sig-title">Kurum Başkanı</span>
+                                <strong class="cert-sig-value" id="certPresidentName"><?= e($certPresident) ?></strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Belgeyi Paylaş / İndir Seçenekleri -->
+                <div class="certificate-actions-bar">
+                    <button type="button" class="btn btn-primary js-download-certificate">
+                        📥 Belgeyi İndir
+                    </button>
+                    <button type="button" class="btn btn-outline js-share-certificate">
+                        📤 Belgeyi Paylaş
+                    </button>
+                    <button type="button" class="btn btn-ghost js-close-store-popup">
+                        Kapat
+                    </button>
+                </div>
+                <p class="certificate-share-feedback" id="certificateShareFeedback" hidden></p>
             </div>
         </div>
 
@@ -379,7 +547,7 @@ require_once __DIR__ . '/includes/header.php';
             </section>
 
             <!-- Katkıda Bulunduğum Kampanyalar (Akordiyon Sistem) -->
-            <details class="panel-card store-accordion">
+            <details class="panel-card store-accordion" <?= ($certificatePopup || !empty($mySupports)) ? 'open' : '' ?>>
                 <summary class="store-accordion-header">
                     <div class="store-accordion-title-wrap">
                         <span class="section-title">Katkıda Bulunduğum Kampanyalar</span>
@@ -396,14 +564,35 @@ require_once __DIR__ . '/includes/header.php';
                     <?php else: ?>
                         <div class="store-redemption-list">
                             <?php foreach ($mySupports as $sup): ?>
+                                <?php
+                                $supCurrentDp = (int) ($sup['current_dp'] ?? 1000);
+                                $supTargetDp  = max(1, (int) ($sup['target_dp'] ?? 5000));
+                                $supProgPct   = min(100, round(($supCurrentDp / $supTargetDp) * 100, 1));
+                                $supDateOnly  = format_date_tr($sup['created_at'] ?? '', false);
+                                ?>
                                 <div class="store-redemption-row">
                                     <div class="store-redemption-info">
                                         <strong><?= e($sup['campaign_title']) ?></strong>
                                         <span><?= e($sup['partner_name']) ?> · <?= e($sup['full_name'] ?? '') ?> · <?= e(format_date_tr($sup['created_at'])) ?></span>
                                     </div>
-                                    <span class="metric-pill pill-good">
-                                        -<?= (int) $sup['spent_points'] ?> DP Gönderildi
-                                    </span>
+                                    <div class="code-share-box">
+                                        <span class="metric-pill pill-good">
+                                            -<?= (int) $sup['spent_points'] ?> DP Gönderildi
+                                        </span>
+                                        <button type="button"
+                                                class="btn btn-outline btn-sm js-open-certificate-btn"
+                                                data-recipient="<?= e($sup['full_name'] ?? ($currentUser['full_name'] ?? 'Değerli Katılımcı')) ?>"
+                                                data-campaign="<?= e($sup['campaign_title']) ?>"
+                                                data-partner="<?= e($sup['partner_name']) ?>"
+                                                data-points="<?= (int) $sup['spent_points'] ?>"
+                                                data-current-dp="<?= $supCurrentDp ?>"
+                                                data-target-dp="<?= $supTargetDp ?>"
+                                                data-progress="<?= $supProgPct ?>"
+                                                data-date="<?= e($supDateOnly) ?>"
+                                                data-president="Debi Su Koruma Kurulu">
+                                            📜 Teşekkür Belgesi
+                                        </button>
+                                    </div>
                                 </div>
                             <?php endforeach; ?>
                         </div>

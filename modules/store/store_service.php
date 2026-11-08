@@ -22,12 +22,13 @@ function ensure_store_schema(): void
         $pdo = db();
 
         $sqlPath = __DIR__ . '/../../sql-dum/101_store_and_campaigns.sql';
+        $statements = [];
         if (is_file($sqlPath)) {
             $sql = (string) file_get_contents($sqlPath);
             $statements = array_filter(array_map('trim', explode(';', $sql)));
             foreach ($statements as $stmtSql) {
                 $clean = trim((string) preg_replace('/^\s*--.*$/m', '', $stmtSql));
-                if ($clean !== '') {
+                if ($clean !== '' && stripos($clean, 'CREATE TABLE') === 0) {
                     try {
                         $pdo->exec($clean);
                     } catch (Throwable $inner) {
@@ -37,7 +38,7 @@ function ensure_store_schema(): void
             }
         }
 
-        // Eski şemadan kalma sütun/kayıt varsa temizle ve yeni yapıya uyarla
+        // Eski şemadan kalma sütun/kayıt varsa temizle ve yeni yapıya uyarla (INSERT öncesi çalıştır)
         try {
             $pdo->exec("ALTER TABLE store_items MODIFY COLUMN category ENUM('cafe','restaurant','detergent','eco_product') NOT NULL DEFAULT 'cafe'");
         } catch (Throwable $e) {
@@ -69,6 +70,18 @@ function ensure_store_schema(): void
         try {
             $pdo->exec("ALTER TABLE support_campaigns ADD COLUMN current_dp INT UNSIGNED NOT NULL DEFAULT 1250");
         } catch (Throwable $e) {
+        }
+
+        // Şema güncellendikten sonra INSERT / ON DUPLICATE KEY ifadelerini çalıştır
+        foreach ($statements as $stmtSql) {
+            $clean = trim((string) preg_replace('/^\s*--.*$/m', '', $stmtSql));
+            if ($clean !== '' && stripos($clean, 'CREATE TABLE') !== 0) {
+                try {
+                    $pdo->exec($clean);
+                } catch (Throwable $inner) {
+                    // Tekil ifade hatasını geç
+                }
+            }
         }
 
         // İndirim oranı = Harcanacak DP kuralını ve görsel yollarını senkronize et
@@ -358,9 +371,12 @@ function redeem_store_item(array $user, int $itemId): array
         $pdo->commit();
 
         return [
-            'ok'          => true,
-            'coupon_code' => $couponCode,
-            'message'     => "Tebrikler! {$costPoints} DP harcayarak \"{$item['brand_name']}\" mağazasında %{$discountPct} aktif indirim kuponu aldınız. Kupon Kodunuz: {$couponCode}",
+            'ok'           => true,
+            'coupon_code'  => $couponCode,
+            'brand_name'   => (string) $item['brand_name'],
+            'discount_pct' => $discountPct,
+            'spent_points' => $costPoints,
+            'message'      => "Satın alımınız onaylandı! \"{$item['brand_name']}\" mağazasında %{$discountPct} indirim kuponu aldınız. Kupon Kodunuz: {$couponCode}",
         ];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -490,9 +506,35 @@ function support_campaign_with_points(array $user, int $campaignId, int $request
 
         $pdo->commit();
 
+        $neighborhoodName = trim((string) ($user['neighborhood_name'] ?? 'Moda Mah.'));
+        $slug             = (string) ($campaign['slug'] ?? '');
+        $displayTitle     = $slug === 'okul-cesmeleri-tasarruf-donusumu'
+            ? "{$neighborhoodName} Okullarında Tasarruflu Musluk & Gri Su Dönüşüm Kampanyası"
+            : (string) ($campaign['title'] ?? 'Kampanya');
+        $newCurrentDp     = (int) ($campaign['current_dp'] ?? 0) + $requestedPoints;
+        $targetDp         = max(1, (int) ($campaign['target_dp'] ?? 5000));
+        $progressPct      = min(100, round(($newCurrentDp / $targetDp) * 100, 1));
+        $newSupporters    = (int) ($campaign['supporter_count'] ?? 0) + 1;
+        $dateLabel        = function_exists('format_date_tr')
+            ? format_date_tr(date('Y-m-d H:i:s'), false)
+            : date('d.m.Y');
+
         return [
-            'ok'      => true,
-            'message' => "Teşekkürler! \"{$campaign['title']}\" kampanyasına {$requestedPoints} DP destek gönderimi sağladınız.",
+            'ok'          => true,
+            'message'     => "Teşekkürler! \"{$displayTitle}\" kampanyasına {$requestedPoints} DP destek gönderimi sağladınız.",
+            'certificate' => [
+                'support_id'      => $supportId,
+                'recipient_name'  => (string) ($user['full_name'] ?? 'Değerli Katılımcı'),
+                'campaign_title'  => $displayTitle,
+                'partner_name'    => (string) ($campaign['partner_name'] ?? 'Debi Su İşbirliği'),
+                'spent_points'    => $requestedPoints,
+                'current_dp'      => $newCurrentDp,
+                'target_dp'       => $targetDp,
+                'progress_pct'    => $progressPct,
+                'supporter_count' => $newSupporters,
+                'date_label'      => $dateLabel,
+                'president_name'  => 'Debi Su Koruma Kurulu',
+            ],
         ];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -543,7 +585,8 @@ function get_household_campaign_supports(int $householdId, int $limit = 20): arr
 
     try {
         $stmt = db()->prepare("
-            SELECT cs.*, sc.title AS campaign_title, sc.partner_name, sc.slug AS campaign_slug, u.full_name
+            SELECT cs.*, sc.title AS campaign_title, sc.partner_name, sc.slug AS campaign_slug,
+                   sc.current_dp, sc.target_dp, sc.supporter_count, u.full_name
             FROM campaign_supports cs
             INNER JOIN support_campaigns sc ON sc.id = cs.campaign_id
             INNER JOIN users u ON u.id = cs.user_id
