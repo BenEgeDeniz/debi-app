@@ -182,7 +182,10 @@ document.addEventListener('DOMContentLoaded', function () {
             });
             const toggle = root.querySelector('.comment-thread-toggle');
             if (toggle) {
-                toggle.textContent = open ? 'Yanıt zincirini kapat' : 'Yanıtları göster';
+                const label = toggle.querySelector('.comment-thread-label');
+                const arrow = toggle.querySelector('.comment-thread-arrow');
+                if (label) label.textContent = `${toggle.dataset.replyLabel} ${open ? 'gizle' : 'göster'}`;
+                if (arrow) arrow.textContent = open ? '⌃' : '⌄';
                 toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
             }
             if (open) openRoot = root;
@@ -194,7 +197,9 @@ document.addEventListener('DOMContentLoaded', function () {
             const toggle = document.createElement('button');
             toggle.type = 'button';
             toggle.className = 'comment-thread-toggle';
-            toggle.textContent = 'Yanıtları göster';
+            toggle.dataset.replyLabel = `${descendants.length} yanıt`;
+            toggle.innerHTML = '<span class="comment-thread-label"></span><span class="comment-thread-arrow" aria-hidden="true">⌄</span>';
+            toggle.querySelector('.comment-thread-label').textContent = `${toggle.dataset.replyLabel} göster`;
             toggle.setAttribute('aria-expanded', 'false');
             toggle.addEventListener('click', function () {
                 const shouldOpen = descendants.some(function (item) {
@@ -204,7 +209,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 setRootOpen(root, shouldOpen);
             });
             const content = root.querySelector('.comment-content');
-            if (content) content.appendChild(toggle);
+            const replyButton = content ? content.querySelector('.comment-reply-btn') : null;
+            const replyForm = content ? content.querySelector('.comment-reply-form') : null;
+            if (content && replyButton) {
+                const actions = document.createElement('div');
+                actions.className = 'comment-actions';
+                replyButton.replaceWith(actions);
+                actions.appendChild(replyButton);
+                actions.appendChild(toggle);
+                if (replyForm) actions.after(replyForm);
+            } else if (content) {
+                content.appendChild(toggle);
+            }
             setRootOpen(root, false);
         });
 
