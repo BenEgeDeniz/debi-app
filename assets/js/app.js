@@ -80,34 +80,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     event.preventDefault();
                     choose(user);
                 });
-                document.querySelectorAll('.comment-reply-btn').forEach(function (button) {
-                    button.addEventListener('click', function () {
-                        const box = button.closest('.comments-box');
-                        const form = box ? box.querySelector('.comment-form') : null;
-                        if (!form) return;
-                        const parent = form.querySelector('[name="parent_comment_id"]');
-                        const input = form.querySelector('[name="comment_content"]');
-                        if (parent) parent.value = button.dataset.commentId || '0';
-                        if (input) {
-                            input.placeholder = 'Yanıt yazın...';
-                            input.focus();
-                        }
-                    });
-                });
-                document.querySelectorAll('.comment-list').forEach(function (list) {
-                    const items = Array.from(list.children);
-                    if (items.length <= 6) return;
-                    items.slice(5).forEach(function (item) { item.hidden = true; });
-                    const more = document.createElement('button');
-                    more.type = 'button';
-                    more.className = 'comments-more-btn';
-                    more.textContent = 'Devamını oku';
-                    more.addEventListener('click', function () {
-                        items.slice(5).forEach(function (item) { item.hidden = false; });
-                        more.remove();
-                    });
-                    list.parentNode.insertBefore(more, list.nextSibling);
-                });
                 popup.appendChild(button);
             });
             activeIndex = 0;
@@ -140,6 +112,36 @@ document.addEventListener('DOMContentLoaded', function () {
         document.addEventListener('click', function (event) {
             if (!field.contains(event.target)) close();
         });
+    });
+
+    document.querySelectorAll('.comment-reply-btn').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const box = button.closest('.comments-box');
+            const form = box ? box.querySelector('.comment-form') : null;
+            if (!form) return;
+            const parent = form.querySelector('[name="parent_comment_id"]');
+            const input = form.querySelector('[name="comment_content"]');
+            if (parent) parent.value = button.dataset.commentId || '0';
+            if (input) {
+                input.placeholder = 'Yanıt yazın...';
+                input.focus();
+            }
+        });
+    });
+
+    document.querySelectorAll('.comment-list').forEach(function (list) {
+        const items = Array.from(list.children);
+        if (items.length <= 6) return;
+        items.slice(5).forEach(function (item) { item.hidden = true; });
+        const more = document.createElement('button');
+        more.type = 'button';
+        more.className = 'comments-more-btn';
+        more.textContent = 'Devamını oku';
+        more.addEventListener('click', function () {
+            items.slice(5).forEach(function (item) { item.hidden = false; });
+            more.remove();
+        });
+        list.parentNode.insertBefore(more, list.nextSibling);
     });
     const modeInput = document.getElementById('registerModeInput');
     const locationSection = document.getElementById('locationSection');
