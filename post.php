@@ -3,7 +3,35 @@ require_once __DIR__ . '/includes/init.php';
 require_once __DIR__ . '/modules/feed/feed_service.php';
 
 $currentUser = require_login();
-$post = get_single_feed_post((int) ($_GET['id'] ?? 0), $currentUser);
+$postId = (int) ($_GET['id'] ?? 0);
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verify_csrf()) {
+        set_flash('error', 'Güvenlik doğrulaması başarısız oldu.');
+        redirect('post.php?id=' . $postId);
+    }
+
+    $action = $_POST['action'] ?? '';
+    if ($action === 'toggle_reaction') {
+        $result = toggle_post_reaction($postId, (int) $currentUser['id']);
+        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode($result);
+            exit;
+        }
+    } elseif ($action === 'add_comment') {
+        $result = add_post_comment(
+            $currentUser,
+            $postId,
+            (string) ($_POST['comment_content'] ?? ''),
+            (array) ($_POST['tagged_user_ids'] ?? [])
+        );
+        set_flash($result['ok'] ? 'success' : 'error', $result['ok'] ? 'Yorumunuz eklendi.' : $result['error']);
+    }
+    redirect('post.php?id=' . $postId);
+}
+
+$post = get_single_feed_post($postId, $currentUser);
 if (!$post) {
     set_flash('error', 'Bu paylaşım bulunamadı veya görüntüleme yetkiniz yok.');
     redirect('index.php');
@@ -19,9 +47,10 @@ if (!empty($_GET['notification'])) {
 
 $pageTitle = 'Paylaşım — Debi';
 $activeNav = 'feed';
+$taggableUsers = get_taggable_users($currentUser, $post['visibility']);
 require_once __DIR__ . '/includes/header.php';
 ?>
-<div class="app-shell app-shell-2col">
+<div class="app-shell">
     <?php require_once __DIR__ . '/includes/sidebar_left.php'; ?>
     <main class="main-column">
         <div class="page-back-row"><a href="index.php" class="btn btn-outline btn-sm">← Akışa dön</a></div>
@@ -47,11 +76,18 @@ require_once __DIR__ . '/includes/header.php';
                 <?php endif; ?>
             </div>
             <div class="post-footer">
-                <span class="btn-action">💧 <?= (int) $post['reaction_count'] ?></span>
+                <form method="post" action="post.php?id=<?= (int) $post['id'] ?>" class="reaction-form">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="toggle_reaction">
+                    <button type="submit" class="btn-action <?= (int) $post['user_reacted'] > 0 ? 'reacted' : '' ?>">
+                        <span class="drop-symbol">💧</span>
+                        <span class="reaction-count"><?= (int) $post['reaction_count'] ?></span>
+                    </button>
+                </form>
                 <span class="btn-action">💬 <?= (int) $post['comment_count'] ?></span>
             </div>
-            <?php if (!empty($post['comments'])): ?>
-                <div class="comments-box">
+            <div class="comments-box">
+                <?php if (!empty($post['comments'])): ?>
                     <ul class="comment-list">
                         <?php foreach ($post['comments'] as $comment): ?>
                             <li class="comment-item">
@@ -66,8 +102,17 @@ require_once __DIR__ . '/includes/header.php';
                             </li>
                         <?php endforeach; ?>
                     </ul>
-                </div>
-            <?php endif; ?>
+                <?php endif; ?>
+                <form method="post" action="post.php?id=<?= (int) $post['id'] ?>" class="comment-form">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="add_comment">
+                    <div class="mention-field" data-mention-users="<?= e(json_encode($taggableUsers, JSON_UNESCAPED_UNICODE)) ?>">
+                        <input type="text" name="comment_content" required placeholder="Yorum yazın...">
+                        <div class="mention-suggestions" hidden></div>
+                    </div>
+                    <button type="submit" class="btn btn-outline btn-sm">Gönder</button>
+                </form>
+            </div>
         </article>
     </main>
     <?php require_once __DIR__ . '/includes/sidebar_right.php'; ?>
