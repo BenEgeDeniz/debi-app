@@ -425,8 +425,10 @@ function render_mention_content(?string $content): string
                 error_log('Mention rendering failed: ' . $exception->getMessage());
             }
             if ($user) {
-                $html .= '<a class="mention-link" href="profile.php?id=' . (int) $user['id'] . '"><strong>'
-                    . e($user['full_name']) . ' · @' . e($user['nickname']) . '</strong></a>';
+                $suffix = str_ends_with($part, ';') ? ';' : '';
+                $html .= '<a class="mention-link" href="profile.php?id=' . (int) $user['id']
+                    . '" title="' . e($user['full_name']) . '"><strong>@'
+                    . e($user['nickname']) . $suffix . '</strong></a>';
                 continue;
             }
         }
