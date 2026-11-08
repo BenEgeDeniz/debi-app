@@ -1644,30 +1644,54 @@ a.timeline-meta-item:hover {
 .comment-list {
     list-style: none;
     margin: 0 0 10px 0;
-    padding: 0;
+    padding: 10px 12px;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
 }
 
 .comment-item {
     display: flex;
     align-items: flex-start;
     gap: 9px;
-    background-color: var(--bg-subtle);
-    border: 1px solid var(--border-color);
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
+    position: relative;
+    padding: 8px 4px;
 }
 
-.comment-depth-1 { margin-left: 28px; }
-.comment-depth-2 { margin-left: 56px; }
+.comment-depth-1,
+.comment-depth-2,
 .comment-depth-3,
 .comment-depth-4,
 .comment-depth-5,
 .comment-depth-6,
 .comment-depth-7,
-.comment-depth-8 { margin-left: 84px; }
+.comment-depth-8 {
+    margin-left: 22px;
+    padding-left: 18px;
+    border-left: 2px solid var(--border-strong);
+}
+
+.comment-depth-2,
+.comment-depth-3,
+.comment-depth-4,
+.comment-depth-5,
+.comment-depth-6,
+.comment-depth-7,
+.comment-depth-8 {
+    margin-left: 44px;
+}
+
+.comment-depth-3,
+.comment-depth-4,
+.comment-depth-5,
+.comment-depth-6,
+.comment-depth-7,
+.comment-depth-8 {
+    margin-left: 66px;
+}
 
 .comment-reply-btn {
     display: block;
@@ -1680,6 +1704,20 @@ a.timeline-meta-item:hover {
     font-size: .75rem;
     font-weight: 800;
     cursor: pointer;
+}
+
+.comment-reply-form {
+    overflow: hidden;
+    max-height: 0;
+    margin-top: 0;
+    opacity: 0;
+    transition: max-height .2s ease, margin-top .2s ease, opacity .2s ease;
+}
+
+.comment-reply-form.is-open {
+    max-height: 100px;
+    margin-top: 8px;
+    opacity: 1;
 }
 
 .comments-more-btn {
