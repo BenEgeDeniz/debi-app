@@ -205,9 +205,6 @@ require_once __DIR__ . '/includes/header.php';
                                             <a href="profile.php?id=<?= (int) $post['user_id'] ?>" class="author-link">
                                                 <strong><?= e($post['full_name']) ?> · @<?= e($post['nickname'] ?? '') ?></strong>
                                             </a>
-                                            <?php if ($post['user_role'] === 'manager'): ?>
-                                                <span class="tag tag-manager">Yönetici</span>
-                                            <?php endif; ?>
                                         </div>
                                         <div class="post-location-line">
                                             <?php if (!empty($post['post_apartment'])): ?>
