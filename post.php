@@ -90,7 +90,9 @@ require_once __DIR__ . '/includes/header.php';
                 <?php if (!empty($post['comments'])): ?>
                     <ul class="comment-list">
                         <?php foreach ($post['comments'] as $comment): ?>
-                            <li class="comment-item comment-depth-<?= (int) ($comment['depth'] ?? 0) ?>">
+                            <li class="comment-item comment-depth-<?= (int) ($comment['depth'] ?? 0) ?>"
+                                data-comment-id="<?= (int) $comment['id'] ?>"
+                                data-parent-comment-id="<?= (int) ($comment['parent_comment_id'] ?? 0) ?>">
                                 <a href="profile.php?id=<?= (int) $comment['user_id'] ?>"><?= render_avatar($comment, 'avatar-xs') ?></a>
                                 <div class="comment-content">
                                     <div class="comment-meta">

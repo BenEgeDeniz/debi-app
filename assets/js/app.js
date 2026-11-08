@@ -155,17 +155,69 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.querySelectorAll('.comment-list').forEach(function (list) {
         const items = Array.from(list.children);
-        if (items.length <= 6) return;
-        items.slice(5).forEach(function (item) { item.hidden = true; });
-        const more = document.createElement('button');
-        more.type = 'button';
-        more.className = 'comments-more-btn';
-        more.textContent = 'Devamını oku';
-        more.addEventListener('click', function () {
-            items.slice(5).forEach(function (item) { item.hidden = false; });
-            more.remove();
+        const byId = new Map(items.map(function (item) {
+            return [item.dataset.commentId, item];
+        }));
+        const rootFor = function (item) {
+            let current = item;
+            const seen = new Set();
+            while (current.dataset.parentCommentId !== '0' && !seen.has(current.dataset.commentId)) {
+                seen.add(current.dataset.commentId);
+                current = byId.get(current.dataset.parentCommentId) || current;
+            }
+            return current;
+        };
+        const descendantsOf = function (root) {
+            return items.filter(function (item) {
+                return item !== root && rootFor(item) === root;
+            });
+        };
+        const roots = items.filter(function (item) {
+            return item.dataset.parentCommentId === '0';
         });
-        list.parentNode.insertBefore(more, list.nextSibling);
+        let openRoot = null;
+        const setRootOpen = function (root, open) {
+            descendantsOf(root).forEach(function (item) { item.hidden = !open; });
+            const toggle = root.querySelector('.comment-thread-toggle');
+            if (toggle) {
+                toggle.textContent = open ? 'Yanıt zincirini kapat' : 'Yanıtları göster';
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            }
+            if (open) openRoot = root;
+            else if (openRoot === root) openRoot = null;
+        };
+        roots.forEach(function (root) {
+            const descendants = descendantsOf(root);
+            if (!descendants.length) return;
+            const toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'comment-thread-toggle';
+            toggle.textContent = 'Yanıtları göster';
+            toggle.setAttribute('aria-expanded', 'false');
+            toggle.addEventListener('click', function () {
+                const shouldOpen = descendants.some(function (item) { return item.hidden; });
+                if (openRoot && openRoot !== root) setRootOpen(openRoot, false);
+                setRootOpen(root, shouldOpen);
+            });
+            const content = root.querySelector('.comment-content');
+            if (content) content.appendChild(toggle);
+            setRootOpen(root, false);
+        });
+
+        items.forEach(function (item) {
+            const paragraph = item.querySelector('.comment-content > p');
+            if (!paragraph || paragraph.textContent.trim().length <= 280) return;
+            paragraph.classList.add('comment-text-collapsed');
+            const more = document.createElement('button');
+            more.type = 'button';
+            more.className = 'comment-text-toggle';
+            more.textContent = 'Devamını oku';
+            more.addEventListener('click', function () {
+                const expanded = paragraph.classList.toggle('is-expanded');
+                more.textContent = expanded ? 'Kısalt' : 'Devamını oku';
+            });
+            paragraph.insertAdjacentElement('afterend', more);
+        });
     });
     const modeInput = document.getElementById('registerModeInput');
     const locationSection = document.getElementById('locationSection');
