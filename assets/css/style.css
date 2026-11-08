@@ -1656,6 +1656,40 @@ a.timeline-meta-item:hover {
     border-radius: var(--radius-sm);
 }
 
+.comment-depth-1 { margin-left: 28px; }
+.comment-depth-2 { margin-left: 56px; }
+.comment-depth-3,
+.comment-depth-4,
+.comment-depth-5,
+.comment-depth-6,
+.comment-depth-7,
+.comment-depth-8 { margin-left: 84px; }
+
+.comment-reply-btn {
+    display: block;
+    margin-top: 5px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--brand-primary-dark);
+    font: inherit;
+    font-size: .75rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.comments-more-btn {
+    margin: 4px 0 10px 28px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--brand-primary-dark);
+    font: inherit;
+    font-size: .8rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
 .comment-content {
     flex: 1;
     font-size: 0.86rem;

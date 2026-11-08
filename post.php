@@ -24,7 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $currentUser,
             $postId,
             (string) ($_POST['comment_content'] ?? ''),
-            (array) ($_POST['tagged_user_ids'] ?? [])
+            (array) ($_POST['tagged_user_ids'] ?? []),
+            (int) ($_POST['parent_comment_id'] ?? 0)
         );
         set_flash($result['ok'] ? 'success' : 'error', $result['ok'] ? 'Yorumunuz eklendi.' : $result['error']);
     }
@@ -90,7 +91,7 @@ require_once __DIR__ . '/includes/header.php';
                 <?php if (!empty($post['comments'])): ?>
                     <ul class="comment-list">
                         <?php foreach ($post['comments'] as $comment): ?>
-                            <li class="comment-item">
+                            <li class="comment-item comment-depth-<?= (int) ($comment['depth'] ?? 0) ?>">
                                 <a href="profile.php?id=<?= (int) $comment['user_id'] ?>"><?= render_avatar($comment, 'avatar-xs') ?></a>
                                 <div class="comment-content">
                                     <div class="comment-meta">
@@ -98,6 +99,7 @@ require_once __DIR__ . '/includes/header.php';
                                         <time><?= e(time_ago($comment['created_at'])) ?></time>
                                     </div>
                                     <p><?= render_mention_content($comment['content']) ?></p>
+                                    <button type="button" class="comment-reply-btn" data-comment-id="<?= (int) $comment['id'] ?>">Yanıtla</button>
                                 </div>
                             </li>
                         <?php endforeach; ?>
@@ -106,6 +108,7 @@ require_once __DIR__ . '/includes/header.php';
                 <form method="post" action="post.php?id=<?= (int) $post['id'] ?>" class="comment-form">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="add_comment">
+                    <input type="hidden" name="parent_comment_id" value="0">
                     <div class="mention-field" data-mention-users="<?= e(json_encode($taggableUsers, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)) ?>">
                         <input type="text" name="comment_content" autocomplete="off" required placeholder="Yorum yazın...">
                         <div class="mention-suggestions" hidden></div>

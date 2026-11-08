@@ -79,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $postId  = (int) ($_POST['post_id'] ?? 0);
         $content = $_POST['comment_content'] ?? '';
         if ($postId > 0) {
-            $res = add_post_comment($currentUser, $postId, $content, (array) ($_POST['tagged_user_ids'] ?? []));
+            $res = add_post_comment($currentUser, $postId, $content, (array) ($_POST['tagged_user_ids'] ?? []), (int) ($_POST['parent_comment_id'] ?? 0));
             if (!$res['ok']) {
                 set_flash('error', $res['error']);
             }
@@ -416,7 +416,7 @@ require_once __DIR__ . '/includes/header.php';
                             <?php if (!empty($post['comments'])): ?>
                                 <ul class="comment-list">
                                     <?php foreach ($post['comments'] as $comment): ?>
-                                        <li class="comment-item">
+                                        <li class="comment-item comment-depth-<?= (int) ($comment['depth'] ?? 0) ?>">
                                             <a href="profile.php?id=<?= (int) $comment['user_id'] ?>">
                                                 <?= render_avatar($comment, 'avatar-xs') ?>
                                             </a>
@@ -428,6 +428,7 @@ require_once __DIR__ . '/includes/header.php';
                                                     <time><?= e(time_ago($comment['created_at'])) ?></time>
                                                 </div>
                                                 <p><?= render_mention_content($comment['content']) ?></p>
+                                                <button type="button" class="comment-reply-btn" data-comment-id="<?= (int) $comment['id'] ?>">Yanıtla</button>
                                             </div>
                                         </li>
                                     <?php endforeach; ?>
@@ -438,6 +439,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="action" value="add_comment">
                                 <input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>">
+                                <input type="hidden" name="parent_comment_id" value="0">
                                 <div class="mention-field" data-mention-users="<?= e(json_encode(array_values($profileTaggableByVisibility[$post['visibility']] ?? []), JSON_UNESCAPED_UNICODE)) ?>">
                                     <input type="text" name="comment_content" required placeholder="Yorum yazın...">
                                     <div class="mention-suggestions" hidden></div>

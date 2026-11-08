@@ -289,7 +289,27 @@ function fetch_posts_with_comments(PDO $pdo, string $whereSql, array $params): a
     }
 
     foreach ($posts as &$post) {
-        $post['comments'] = $commentsByPost[(int) $post['id']] ?? [];
+        $post['comments'] = add_comment_depths($commentsByPost[(int) $post['id']] ?? []);
+    }
+
+    function add_comment_depths(array $comments): array
+    {
+        $byParent = [];
+        foreach ($comments as $comment) {
+            $parentId = (int) ($comment['parent_comment_id'] ?? 0);
+            $byParent[$parentId][] = $comment;
+        }
+
+        $result = [];
+        $visit = function (int $parentId, int $depth) use (&$visit, &$result, $byParent): void {
+            foreach ($byParent[$parentId] ?? [] as $comment) {
+                $comment['depth'] = min($depth, 8);
+                $result[] = $comment;
+                $visit((int) $comment['id'], $depth + 1);
+            }
+        };
+        $visit(0, 0);
+        return $result;
     }
     unset($post);
 
@@ -352,7 +372,7 @@ function toggle_post_reaction(int $postId, int $userId): array
 /**
  * Gönderiye Yorum Ekleme
  */
-function add_post_comment(array $user, int $postId, string $content, array $taggedUserIds = []): array
+function add_post_comment(array $user, int $postId, string $content, array $taggedUserIds = [], int $parentCommentId = 0): array
 {
     $content = trim($content);
     if (mb_strlen($content, 'UTF-8') < 2) {
@@ -360,12 +380,19 @@ function add_post_comment(array $user, int $postId, string $content, array $tagg
     }
 
     $pdo  = db();
+    $parentCommentId = max(0, $parentCommentId);
     $stmt = $pdo->prepare("
-        INSERT INTO comments (post_id, user_id, content)
-        VALUES (:pid, :uid, :content)
+        INSERT INTO comments (post_id, parent_comment_id, user_id, content)
+        SELECT :pid, CASE WHEN :parent_id > 0 AND EXISTS (
+            SELECT 1 FROM comments parent WHERE parent.id = :parent_id_check AND parent.post_id = :parent_post
+        ) THEN :parent_id_value ELSE NULL END, :uid, :content
     ");
     $stmt->execute([
         ':pid'     => $postId,
+        ':parent_id' => $parentCommentId,
+        ':parent_id_check' => $parentCommentId,
+        ':parent_post' => $postId,
+        ':parent_id_value' => $parentCommentId,
         ':uid'     => (int) $user['id'],
         ':content' => $content,
     ]);
