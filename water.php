@@ -40,6 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect($waterRedirect);
         }
         $scanResult = $res;
+        set_flash('success', 'Fatura okundu. Bilgileri kontrol edip onaylayın.');
         if (!empty($res['ai_used'])) {
             $scanResult['ai_approved_notice'] = 'Fatura doğrulandı. Görsel ve bilgiler uygun bulundu; şimdi değerleri kontrol edip onaylayın.';
         }
@@ -97,6 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pondAfter = get_household_pond_state($householdId);
 
             if ($aiUnmodified) {
+                set_flash('success', 'Fatura kaydedildi · +' . (int) ($res['points_awarded'] ?? 0) . ' Damla');
                 $_SESSION['pond_celebration'] = [
                     'earned_drops'    => (int) ($res['points_awarded'] ?? 0),
                     'drop_reasons'    => !empty($res['drop_reasons']) ? $res['drop_reasons'] : ['✨ Yapay Zeka Doğrulaması: +10 Damla'],
