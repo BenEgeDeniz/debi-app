@@ -133,7 +133,15 @@ document.addEventListener('DOMContentLoaded', function () {
             form.classList.add('is-open');
             button.textContent = 'Yanıtı kapat';
             const input = form.querySelector('[name="comment_content"]');
-            if (input) input.focus();
+            if (input) {
+                const nickname = button.dataset.replyNickname;
+                const prefix = nickname ? '@' + nickname + '; ' : '';
+                if (!input.value.trim() || !input.value.startsWith(prefix)) {
+                    input.value = prefix;
+                }
+                input.focus();
+                input.setSelectionRange(input.value.length, input.value.length);
+            }
         }
     });
 

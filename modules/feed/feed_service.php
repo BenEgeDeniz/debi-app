@@ -406,6 +406,26 @@ function add_post_comment(array $user, int $postId, string $content, array $tagg
 
     $pdo  = db();
     $parentCommentId = max(0, $parentCommentId);
+    if ($parentCommentId > 0) {
+        $parentUserStmt = $pdo->prepare("
+            SELECT u.nickname
+            FROM comments c
+            INNER JOIN users u ON u.id = c.user_id
+            WHERE c.id = :comment_id AND c.post_id = :post_id
+            LIMIT 1
+        ");
+        $parentUserStmt->execute([
+            ':comment_id' => $parentCommentId,
+            ':post_id' => $postId,
+        ]);
+        $parentNickname = $parentUserStmt->fetchColumn();
+        if ($parentNickname) {
+            $requiredMention = '@' . $parentNickname . ';';
+            if (!preg_match('/^@' . preg_quote((string) $parentNickname, '/') . '(?:;|\s)/i', $content)) {
+                $content = $requiredMention . ' ' . $content;
+            }
+        }
+    }
     $stmt = $pdo->prepare("
         INSERT INTO comments (post_id, parent_comment_id, user_id, content)
         SELECT :pid, CASE WHEN :parent_id > 0 AND EXISTS (
