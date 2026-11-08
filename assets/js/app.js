@@ -155,6 +155,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.querySelectorAll('.comment-list').forEach(function (list) {
         const items = Array.from(list.children);
+        const storageKey = 'debi-open-comment-thread-' + (list.dataset.postId || window.location.pathname);
         const byId = new Map(items.map(function (item) {
             return [item.dataset.commentId, item];
         }));
@@ -176,6 +177,12 @@ document.addEventListener('DOMContentLoaded', function () {
             return item.dataset.parentCommentId === '0';
         });
         let openRoot = null;
+        let savedRootId = null;
+        try {
+            savedRootId = window.localStorage.getItem(storageKey);
+        } catch (error) {
+            savedRootId = null;
+        }
         const setRootOpen = function (root, open) {
             descendantsOf(root).forEach(function (item) {
                 item.classList.toggle('comment-thread-collapsed', !open);
@@ -188,8 +195,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (arrow) arrow.classList.toggle('is-open', open);
                 toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
             }
-            if (open) openRoot = root;
-            else if (openRoot === root) openRoot = null;
+            if (open) {
+                openRoot = root;
+                try {
+                    window.localStorage.setItem(storageKey, root.dataset.commentId);
+                } catch (error) {}
+            } else if (openRoot === root) {
+                openRoot = null;
+                try {
+                    window.localStorage.removeItem(storageKey);
+                } catch (error) {}
+            }
         };
         roots.forEach(function (root) {
             const descendants = descendantsOf(root);
@@ -221,7 +237,7 @@ document.addEventListener('DOMContentLoaded', function () {
             } else if (content) {
                 content.appendChild(toggle);
             }
-            setRootOpen(root, false);
+            setRootOpen(root, root.dataset.commentId === savedRootId);
         });
 
         items.forEach(function (item) {

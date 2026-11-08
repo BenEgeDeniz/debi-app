@@ -88,7 +88,7 @@ require_once __DIR__ . '/includes/header.php';
             </div>
             <div class="comments-box">
                 <?php if (!empty($post['comments'])): ?>
-                    <ul class="comment-list">
+                    <ul class="comment-list" data-post-id="<?= (int) $post['id'] ?>">
                         <?php foreach ($post['comments'] as $comment): ?>
                             <li class="comment-item comment-depth-<?= (int) ($comment['depth'] ?? 0) ?>"
                                 data-comment-id="<?= (int) $comment['id'] ?>"

@@ -249,6 +249,21 @@ code {
     padding: 18px 14px;
 }
 
+.notification-dropdown-all {
+    display: block;
+    padding: 10px 14px;
+    color: var(--brand-primary-dark);
+    text-align: center;
+    text-decoration: none;
+    font-size: .8rem;
+    font-weight: 800;
+    background: var(--bg-subtle);
+}
+
+.notification-dropdown-all:hover {
+    background: var(--bg-highlight);
+}
+
 .post-permalink {
     float: right;
     color: var(--text-muted);

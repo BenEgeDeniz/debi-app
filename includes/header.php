@@ -29,7 +29,7 @@ if (!empty($currentUser)) {
             INNER JOIN users u ON u.id = n.actor_user_id
             WHERE n.user_id = :uid
             ORDER BY n.created_at DESC
-            LIMIT 8
+            LIMIT 3
         ");
         $notificationStmt->execute([':uid' => (int) $currentUser['id']]);
         $headerNotifications = $notificationStmt->fetchAll();
@@ -111,6 +111,7 @@ if (!empty($currentUser)) {
                                     </a>
                                 <?php endforeach; ?>
                             <?php endif; ?>
+                            <a class="notification-dropdown-all" href="notifications.php">Tümünü gör</a>
                         </div>
                     </div>
 
