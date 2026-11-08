@@ -102,13 +102,24 @@ function render_event_card(array $event, array $currentUser, array $managedAtten
                         <span>Katılım fotoğrafı</span>
                         <small>Fotoğrafın doğrulanırsa etkinlik puanın hesabına eklenir.</small>
                     </div>
-                    <form method="post" enctype="multipart/form-data" class="event-photo-form">
+                    <form method="post" enctype="multipart/form-data" class="event-photo-form event-photo-drop-form">
                         <?= csrf_field() ?><input type="hidden" name="action" value="upload_event_photo"><input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>">
-                        <label class="event-file-input">
-                            <span>Fotoğraf seç</span>
+                        <label class="event-photo-dropzone">
                             <input type="file" name="event_photo" accept="image/jpeg,image/png,image/webp" required>
+                            <span class="event-photo-drop-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <rect x="3" y="5" width="18" height="14" rx="2"/>
+                                    <circle cx="8.5" cy="10" r="1.5"/>
+                                    <path d="m21 15-4.5-4.5L9 18"/>
+                                </svg>
+                            </span>
+                            <span class="event-photo-drop-copy">
+                                <strong>Katılım fotoğrafını bırakın</strong>
+                                <small>Seçmek için tıklayın · JPG, PNG veya WebP</small>
+                            </span>
+                            <span class="event-photo-file-name">Henüz fotoğraf seçilmedi</span>
                         </label>
-                        <button class="btn btn-outline btn-sm">Fotoğraf yükle ve doğrula</button>
+                        <button class="btn btn-primary btn-sm">Fotoğrafı yükle ve doğrula</button>
                     </form>
                 <?php elseif ($event['attendee_status'] === 'attended' && !$event['ended']): ?>
                     <span class="form-help">Etkinlik bitince fotoğraf yükleyebilirsiniz.</span>

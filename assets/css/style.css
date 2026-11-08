@@ -908,6 +908,82 @@ code {
     margin-top: 8px;
 }
 
+.event-photo-drop-form {
+    align-items: stretch;
+    flex-direction: column;
+}
+
+.event-photo-dropzone {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 10px 12px;
+    min-height: 74px;
+    padding: 12px 14px;
+    color: var(--text-secondary);
+    background: var(--bg-surface);
+    border: 1px dashed #7dd3fc;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.event-photo-dropzone:hover,
+.event-photo-dropzone.is-dragging,
+.event-photo-dropzone.has-file {
+    background: var(--brand-primary-bg);
+    border-color: var(--brand-primary);
+    box-shadow: 0 4px 12px rgba(14, 165, 233, .1);
+}
+
+.event-photo-dropzone input[type="file"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.event-photo-drop-icon {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    color: var(--brand-primary-dark);
+    background: var(--brand-primary-bg);
+    border-radius: 10px;
+}
+
+.event-photo-drop-icon svg {
+    width: 22px;
+    height: 22px;
+}
+
+.event-photo-drop-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.event-photo-drop-copy strong {
+    color: var(--text-main);
+    font-size: .86rem;
+}
+
+.event-photo-drop-copy small,
+.event-photo-file-name {
+    color: var(--text-muted);
+    font-size: .75rem;
+    font-weight: 600;
+}
+
+.event-photo-file-name {
+    grid-column: 2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .event-file-input {
     display: flex;
     align-items: center;
