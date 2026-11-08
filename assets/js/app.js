@@ -973,9 +973,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // 11. Ekranı Karartıp Gerçek Daire Göletine Damla Yağdıran Kutlama Modalı (water.php)
-    const celData = window.DEBI_POND_CELEBRATION;
-    const celOverlay = document.getElementById('pondCelebrationOverlay');
-    if (celData && celOverlay) {
+    function initPondCelebration(celData, celOverlay) {
+        if (!celData || !celOverlay || celOverlay.dataset.initialized === '1') return;
+        celOverlay.dataset.initialized = '1';
         const dropLayer = document.getElementById('pondCelDropLayer');
         const rippleRing = document.getElementById('pondCelRippleRing');
         const stageImg = document.getElementById('pondCelStageImg');
@@ -1070,6 +1070,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+    initPondCelebration(window.DEBI_POND_CELEBRATION, document.getElementById('pondCelebrationOverlay'));
 
     // 12. Sağ Sütun Debi Puan Sıralaması Sekmeleri (Arkadaş / Apartman / Genel)
     const lbTabs = document.querySelectorAll('.js-lb-tab');
@@ -1830,6 +1831,28 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 }
                 mainColumn.replaceWith(updatedMain);
+                const responseCelebration = documentFromResponse.getElementById('pondCelebrationOverlay');
+                if (responseCelebration) {
+                    const responseScript = Array.from(documentFromResponse.querySelectorAll('script'))
+                        .find(function (script) {
+                            return script.textContent.indexOf('DEBI_POND_CELEBRATION') !== -1;
+                        });
+                    const dataMatch = responseScript && responseScript.textContent.match(/window\.DEBI_POND_CELEBRATION\s*=\s*(\{[\s\S]*\});/);
+                    let celebrationData = null;
+                    if (dataMatch) {
+                        try {
+                            celebrationData = JSON.parse(dataMatch[1]);
+                        } catch (parseError) {
+                            celebrationData = null;
+                        }
+                    }
+                    if (celebrationData) {
+                        const currentCelebration = document.getElementById('pondCelebrationOverlay');
+                        if (currentCelebration) currentCelebration.remove();
+                        document.body.appendChild(responseCelebration);
+                        initPondCelebration(celebrationData, responseCelebration);
+                    }
+                }
                 if (updatedMain.querySelector('.alert-error')) {
                     preservedFields.forEach(function (savedField) {
                         const matchingFields = updatedMain.querySelectorAll('[name="' + CSS.escape(savedField.name) + '"]');
