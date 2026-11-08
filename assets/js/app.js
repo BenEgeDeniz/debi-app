@@ -794,7 +794,117 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 13. Puan Kullanım & Mağaza Sayfası Yan Yana 2 Seçenek Sekme Geçişi + Kupon Kopyalama (Delegation)
+    // 13. Mağazalar ve Kampanyalar: Navbar DP Kıyaslaması, Yetersiz Puan Pop-up'ı, Satın Alım Onay Pop-up'ı ve Kupon Kopyalama
+    let pendingStoreForm = null;
+
+    function getCurrentNavbarDp() {
+        const navCountEl = document.getElementById('navbarDpCount') || document.querySelector('.topbar-drop-count');
+        if (navCountEl) {
+            const attrDp = navCountEl.getAttribute('data-dp');
+            if (attrDp !== null && attrDp !== '') {
+                return Math.max(0, parseInt(attrDp, 10) || 0);
+            }
+            const rawDigits = (navCountEl.textContent || '').replace(/[^\d]/g, '');
+            if (rawDigits !== '') {
+                return Math.max(0, parseInt(rawDigits, 10) || 0);
+            }
+        }
+        const mainCol = document.querySelector('.main-column[data-current-dp]');
+        if (mainCol) {
+            return Math.max(0, parseInt(mainCol.getAttribute('data-current-dp') || '0', 10) || 0);
+        }
+        return 0;
+    }
+
+    function openStoreErrorPopup(title, message) {
+        const modal = document.getElementById('storeErrorPopupModal');
+        const titleEl = document.getElementById('storePopupTitle');
+        const msgEl = document.getElementById('storeErrorPopupMessage');
+        if (titleEl) titleEl.textContent = title || 'Yetersiz Puan';
+        if (msgEl) msgEl.textContent = message || 'Yetersiz puan!';
+        if (modal) {
+            modal.hidden = false;
+        }
+    }
+
+    function openStoreConfirmPopup(title, message, form) {
+        pendingStoreForm = form;
+        const modal = document.getElementById('storeConfirmPopupModal');
+        const titleEl = document.getElementById('storeConfirmPopupTitle');
+        const msgEl = document.getElementById('storeConfirmPopupMessage');
+        if (titleEl) titleEl.textContent = title || 'Satın alımını onaylıyor musun?';
+        if (msgEl) msgEl.textContent = message || '';
+        if (modal) {
+            modal.hidden = false;
+        }
+    }
+
+    document.addEventListener('submit', function (ev) {
+        const form = ev.target;
+        if (!(form instanceof HTMLFormElement)) return;
+        if (!form.classList.contains('js-store-spend-form')) return;
+
+        // Kullanıcı onay pop-up'ında "Onayla"ya bastıysa gerçek gönderime izin ver
+        if (form.getAttribute('data-confirmed') === '1') {
+            form.removeAttribute('data-confirmed');
+            return;
+        }
+
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+
+        const spendType = form.getAttribute('data-spend-type') || 'brand';
+        const navbarDp = getCurrentNavbarDp();
+        let requiredDp = 0;
+
+        if (spendType === 'brand') {
+            requiredDp = Math.max(1, parseInt(form.getAttribute('data-required-dp') || '30', 10) || 30);
+            const brandName = form.getAttribute('data-brand-name') || 'Mağaza';
+            const discountPct = form.getAttribute('data-discount-pct') || String(requiredDp);
+
+            if (navbarDp < requiredDp) {
+                openStoreErrorPopup(
+                    'Yetersiz Puan',
+                    'Yetersiz puan! "' + brandName + '" mağazasında %' + discountPct + ' indirim için ' + requiredDp + ' DP gerekiyor (Mevcut puanınız: ' + navbarDp + ' DP).'
+                );
+                return;
+            }
+
+            openStoreConfirmPopup(
+                'Satın alımını onaylıyor musun?',
+                '"' + brandName + '" mağazasında %' + discountPct + ' indirim kuponu almak için ' + requiredDp + ' DP harcanacaktır. Satın alımını onaylıyor musun?',
+                form
+            );
+        } else if (spendType === 'campaign') {
+            const minDp = Math.max(50, parseInt(form.getAttribute('data-min-dp') || '50', 10) || 50);
+            const campaignTitle = form.getAttribute('data-campaign-title') || 'Kampanya';
+            const ptsInput = form.querySelector('input[name="support_points"]');
+            requiredDp = parseInt(ptsInput ? ptsInput.value : String(minDp), 10) || 0;
+
+            if (requiredDp < minDp) {
+                openStoreErrorPopup(
+                    'Geçersiz Puan Miktarı',
+                    'Kampanyaya gönderilecek destek miktarı en az ' + minDp + ' DP olmalıdır.'
+                );
+                return;
+            }
+
+            if (navbarDp < requiredDp) {
+                openStoreErrorPopup(
+                    'Yetersiz Puan',
+                    'Yetersiz puan! ' + requiredDp + ' DP göndermek için yeterli puanınız yok (Mevcut puanınız: ' + navbarDp + ' DP).'
+                );
+                return;
+            }
+
+            openStoreConfirmPopup(
+                'Satın alımını onaylıyor musun?',
+                '"' + campaignTitle + '" kampanyasına ' + requiredDp + ' DP göndermek üzeresiniz. Satın alımını onaylıyor musun?',
+                form
+            );
+        }
+    }, true);
+
     document.addEventListener('click', function (ev) {
         const tabBtn = ev.target.closest('.js-store-tab-btn');
         if (tabBtn) {
@@ -818,12 +928,38 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
+        const approveBtn = ev.target.closest('.js-approve-store-confirm');
+        if (approveBtn) {
+            const confirmModal = document.getElementById('storeConfirmPopupModal');
+            if (confirmModal) confirmModal.hidden = true;
+            if (pendingStoreForm) {
+                const formToSubmit = pendingStoreForm;
+                pendingStoreForm = null;
+                formToSubmit.setAttribute('data-confirmed', '1');
+                if (typeof formToSubmit.requestSubmit === 'function') {
+                    formToSubmit.requestSubmit();
+                } else {
+                    formToSubmit.submit();
+                }
+            }
+            return;
+        }
+
+        const cancelConfirmBtn = ev.target.closest('.js-cancel-store-confirm');
+        if (cancelConfirmBtn) {
+            pendingStoreForm = null;
+            const confirmModal = document.getElementById('storeConfirmPopupModal');
+            if (confirmModal) confirmModal.hidden = true;
+            return;
+        }
+
         const closePopupBtn = ev.target.closest('.js-close-store-popup');
         if (closePopupBtn || ev.target.classList.contains('store-popup-overlay')) {
-            const modal = document.getElementById('storeErrorPopupModal');
-            if (modal && modal.parentNode) {
-                modal.parentNode.removeChild(modal);
-            }
+            pendingStoreForm = null;
+            const errModal = document.getElementById('storeErrorPopupModal');
+            if (errModal) errModal.hidden = true;
+            const confirmModal = document.getElementById('storeConfirmPopupModal');
+            if (confirmModal) confirmModal.hidden = true;
             return;
         }
 
@@ -845,10 +981,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.addEventListener('keydown', function (ev) {
         if (ev.key === 'Escape') {
-            const modal = document.getElementById('storeErrorPopupModal');
-            if (modal && modal.parentNode) {
-                modal.parentNode.removeChild(modal);
-            }
+            pendingStoreForm = null;
+            const errModal = document.getElementById('storeErrorPopupModal');
+            if (errModal) errModal.hidden = true;
+            const confirmModal = document.getElementById('storeConfirmPopupModal');
+            if (confirmModal) confirmModal.hidden = true;
         }
     });
 
@@ -920,6 +1057,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 const updatedTopbarPoints = documentFromResponse.querySelector('.topbar-drop-count');
                 if (currentTopbarPoints && updatedTopbarPoints) {
                     currentTopbarPoints.textContent = updatedTopbarPoints.textContent;
+                    const newDp = updatedTopbarPoints.getAttribute('data-dp');
+                    if (newDp !== null) {
+                        currentTopbarPoints.setAttribute('data-dp', newDp);
+                    }
                 }
                 const responseFlash = documentFromResponse.querySelector('.flash-wrapper');
                 if (responseFlash) {

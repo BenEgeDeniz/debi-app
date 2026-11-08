@@ -1,6 +1,6 @@
 <?php
 /**
- * DEBI - Mağaza Sayfası
+ * DEBI - Mağazalar ve Kampanyalar Sayfası
  * 1) Yeşil Markalarla Harcama Yapma (%30 İndirim -> 30 DP, %50 İndirim -> 50 DP, %10 İndirim -> 10 DP, %15 İndirim -> 15 DP)
  * 2) Kampanyaya Destek Olma (Mahalle Okulları & Burdur Gölü saha kampanyalarına min. 50 DP destek gönderimi)
  */
@@ -26,15 +26,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('store.php?tab=brands');
             }
             $error = $res['error'] ?? 'İşlem gerçekleştirilemedi.';
-        } elseif ($action === 'use_coupon') {
-            $activeTab    = 'brands';
-            $redemptionId = (int) ($_POST['redemption_id'] ?? 0);
-            $res          = mark_store_coupon_used($currentUser, $redemptionId);
-            if ($res['ok']) {
-                set_flash('success', $res['message']);
-                redirect('store.php?tab=brands');
-            }
-            $error = $res['error'] ?? 'Kupon güncellenemedi.';
         } elseif ($action === 'support_campaign') {
             $activeTab       = 'campaigns';
             $campaignId      = (int) ($_POST['campaign_id'] ?? 0);
@@ -76,18 +67,39 @@ require_once __DIR__ . '/includes/header.php';
 <div class="app-shell app-shell-2col">
     <?php require_once __DIR__ . '/includes/sidebar_left.php'; ?>
 
-    <main class="main-column">
-        <?php if ($error): ?>
-            <!-- Uyarı Mesajı Pop-up Modalı -->
-            <div class="store-popup-overlay" id="storeErrorPopupModal" role="alertdialog" aria-modal="true" aria-labelledby="storePopupTitle">
-                <div class="store-popup-card">
-                    <div class="store-popup-icon" aria-hidden="true">⚠️</div>
-                    <h3 class="store-popup-title" id="storePopupTitle">Yetersiz Puan Bakiyesi</h3>
-                    <p class="store-popup-message"><?= e($error) ?></p>
-                    <button type="button" class="btn btn-primary btn-block js-close-store-popup">Tamam</button>
+    <main class="main-column" data-current-dp="<?= (int) $walletBalance ?>">
+        <!-- Yetersiz Puan Uyarı Pop-up Modalı -->
+        <div class="store-popup-overlay"
+             id="storeErrorPopupModal"
+             role="alertdialog"
+             aria-modal="true"
+             aria-labelledby="storePopupTitle"
+             <?= $error ? '' : 'hidden' ?>>
+            <div class="store-popup-card">
+                <div class="store-popup-icon" aria-hidden="true">⚠️</div>
+                <h3 class="store-popup-title" id="storePopupTitle">Yetersiz Puan</h3>
+                <p class="store-popup-message" id="storeErrorPopupMessage"><?= e($error ?? '') ?></p>
+                <button type="button" class="btn btn-primary btn-block js-close-store-popup">Tamam</button>
+            </div>
+        </div>
+
+        <!-- Satın Alım / Gönderim Onaylama Pop-up Modalı -->
+        <div class="store-popup-overlay"
+             id="storeConfirmPopupModal"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="storeConfirmPopupTitle"
+             hidden>
+            <div class="store-popup-card store-confirm-card">
+                <div class="store-popup-icon store-confirm-icon" aria-hidden="true">💧</div>
+                <h3 class="store-popup-title store-confirm-title" id="storeConfirmPopupTitle">Satın alımını onaylıyor musun?</h3>
+                <p class="store-popup-message" id="storeConfirmPopupMessage"></p>
+                <div class="store-confirm-actions">
+                    <button type="button" class="btn btn-outline js-cancel-store-confirm">Vazgeç</button>
+                    <button type="button" class="btn btn-primary js-approve-store-confirm">Onayla</button>
                 </div>
             </div>
-        <?php endif; ?>
+        </div>
 
         <!-- Üst Seçim Kartı: Başlık ve Yan Yana 2 Seçenek -->
         <section class="panel-card store-hero-card">
@@ -163,7 +175,13 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
 
                             <div class="store-card-action">
-                                <form method="post" action="store.php?tab=brands" class="store-action-form">
+                                <form method="post"
+                                      action="store.php?tab=brands"
+                                      class="store-action-form js-store-spend-form"
+                                      data-spend-type="brand"
+                                      data-brand-name="<?= e($item['brand_name']) ?>"
+                                      data-discount-pct="<?= $discountPct ?>"
+                                      data-required-dp="<?= $costPts ?>">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="action" value="redeem_store_item">
                                     <input type="hidden" name="item_id" value="<?= $itemId ?>">
@@ -180,7 +198,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </section>
 
-            <!-- Aktif Kuponlar Kısmı (Geçmişin Üstünde) -->
+            <!-- Aktif Kuponlar Kısmı (Geçmişin Üstünde, Sağda Random Kupon Kodu ve En Sağda Kopyala Butonu) -->
             <section class="panel-card store-active-coupons-card">
                 <div class="panel-card-header">
                     <div>
@@ -191,7 +209,7 @@ require_once __DIR__ . '/includes/header.php';
 
                 <?php if (empty($activeCoupons)): ?>
                     <div class="empty-inline">
-                        Şu anda aktif indirim kuponunuz bulunmuyor. Yukarıdaki yeşil markalardan birinin indirim butonuna bastığınızda aktif kuponunuz burada oluşturulur.
+                        Şu anda aktif indirim kuponunuz bulunmuyor. Yukarıdaki yeşil markalardan birinin indirim butonuna basıp satın alımı onayladığınızda rastgele kupon kodunuz burada oluşturulur.
                     </div>
                 <?php else: ?>
                     <div class="store-redemption-list">
@@ -199,19 +217,13 @@ require_once __DIR__ . '/includes/header.php';
                             <div class="store-redemption-row active-coupon-row">
                                 <div class="store-redemption-info">
                                     <strong><?= e($ac['brand_name']) ?> — %<?= (int) $ac['discount_pct'] ?> İndirim Kuponu</strong>
-                                    <span>Oluşturulma: <?= e(format_date_tr($ac['created_at'])) ?> · Harcanan: <?= (int) $ac['spent_points'] ?> DP</span>
+                                    <span><?= e(format_date_tr($ac['created_at'])) ?> · Harcanan: <?= (int) $ac['spent_points'] ?> DP</span>
                                 </div>
                                 <div class="code-share-box">
                                     <code><?= e($ac['coupon_code']) ?></code>
-                                    <button type="button" class="btn btn-outline btn-sm btn-copy" data-copy="<?= e($ac['coupon_code']) ?>">
+                                    <button type="button" class="btn btn-primary btn-sm btn-copy" data-copy="<?= e($ac['coupon_code']) ?>">
                                         Kopyala
                                     </button>
-                                    <form method="post" action="store.php?tab=brands" style="display:inline-block; margin:0;">
-                                        <?= csrf_field() ?>
-                                        <input type="hidden" name="action" value="use_coupon">
-                                        <input type="hidden" name="redemption_id" value="<?= (int) $ac['id'] ?>">
-                                        <button type="submit" class="btn btn-primary btn-sm">Kullandım</button>
-                                    </form>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -237,18 +249,17 @@ require_once __DIR__ . '/includes/header.php';
                     <?php else: ?>
                         <div class="store-redemption-list">
                             <?php foreach ($myRedemptions as $red): ?>
-                                <?php $isUsed = (int) ($red['is_used'] ?? 0) === 1; ?>
                                 <div class="store-redemption-row">
                                     <div class="store-redemption-info">
                                         <strong><?= e($red['brand_name']) ?> — %<?= (int) $red['discount_pct'] ?> İndirim</strong>
-                                        <span>
-                                            <?= e($red['full_name'] ?? '') ?> · <?= e(format_date_tr($red['created_at'])) ?>
-                                            · <?= $isUsed ? 'Kasada Kullanıldı' : 'Aktif Kupon' ?>
-                                        </span>
+                                        <span><?= e($red['full_name'] ?? '') ?> · <?= e(format_date_tr($red['created_at'])) ?></span>
                                     </div>
                                     <div class="code-share-box">
                                         <span class="metric-pill pill-good">-<?= (int) $red['spent_points'] ?> DP</span>
                                         <code><?= e($red['coupon_code']) ?></code>
+                                        <button type="button" class="btn btn-outline btn-sm btn-copy" data-copy="<?= e($red['coupon_code']) ?>">
+                                            Kopyala
+                                        </button>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
@@ -284,7 +295,7 @@ require_once __DIR__ . '/includes/header.php';
                         $scopeItems  = (array) ($camp['scope_items'] ?? []);
                         ?>
                         <article class="campaign-feature-card campaign-support-card">
-                            <!-- Kampanyanın Üst Kısmında Geniş ve Uzun (0.75x Daha Uzun Ölçekli) Görsel Alanı -->
+                            <!-- Kampanyanın Üst Kısmında Geniş ve Uzun Görsel Alanı -->
                             <?php if ($campImg !== ''): ?>
                                 <div class="campaign-top-banner">
                                     <img src="<?= e($campImg) ?>" alt="<?= e($camp['title']) ?>" class="campaign-top-banner-img">
@@ -336,7 +347,12 @@ require_once __DIR__ . '/includes/header.php';
                                 </div>
 
                                 <div class="store-card-action">
-                                    <form method="post" action="store.php?tab=campaigns" class="store-action-form campaign-send-form">
+                                    <form method="post"
+                                          action="store.php?tab=campaigns"
+                                          class="store-action-form campaign-send-form js-store-spend-form"
+                                          data-spend-type="campaign"
+                                          data-campaign-title="<?= e($camp['title']) ?>"
+                                          data-min-dp="<?= $minPts ?>">
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="action" value="support_campaign">
                                         <input type="hidden" name="campaign_id" value="<?= $campId ?>">
@@ -386,7 +402,7 @@ require_once __DIR__ . '/includes/header.php';
                                         <span><?= e($sup['partner_name']) ?> · <?= e($sup['full_name'] ?? '') ?> · <?= e(format_date_tr($sup['created_at'])) ?></span>
                                     </div>
                                     <span class="metric-pill pill-good">
-                                        <?= (int) $sup['spent_points'] ?> DP Gönderildi
+                                        -<?= (int) $sup['spent_points'] ?> DP Gönderildi
                                     </span>
                                 </div>
                             <?php endforeach; ?>

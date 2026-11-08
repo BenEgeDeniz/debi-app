@@ -4190,7 +4190,11 @@ a.timeline-meta-item:hover {
     padding-top: 14px;
 }
 
-/* Mağaza & Kampanya Uyarı Pop-up Modalı */
+/* Mağaza & Kampanya Uyarı ve Onay Pop-up Modalı */
+.store-popup-overlay[hidden] {
+    display: none !important;
+}
+
 .store-popup-overlay {
     position: fixed;
     inset: 0;
@@ -4206,7 +4210,7 @@ a.timeline-meta-item:hover {
 
 .store-popup-card {
     width: 100%;
-    max-width: 420px;
+    max-width: 430px;
     background-color: #ffffff;
     border: 2px solid #fca5a5;
     border-radius: var(--radius-lg);
@@ -4214,6 +4218,10 @@ a.timeline-meta-item:hover {
     text-align: center;
     box-shadow: 0 20px 50px rgba(15, 23, 42, 0.32);
     animation: pondCardPopIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.store-popup-card.store-confirm-card {
+    border-color: #38bdf8;
 }
 
 .store-popup-icon {
@@ -4229,11 +4237,20 @@ a.timeline-meta-item:hover {
     font-size: 1.55rem;
 }
 
+.store-popup-icon.store-confirm-icon {
+    background-color: var(--brand-primary-bg);
+    border-color: #7dd3fc;
+}
+
 .store-popup-title {
     font-size: 1.18rem;
     font-weight: 900;
     color: var(--brand-danger-dark);
     margin: 0 0 8px 0;
+}
+
+.store-popup-title.store-confirm-title {
+    color: var(--text-main);
 }
 
 .store-popup-message {
@@ -4242,6 +4259,12 @@ a.timeline-meta-item:hover {
     color: var(--text-main);
     line-height: 1.48;
     margin: 0 0 18px 0;
+}
+
+.store-confirm-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
 }
 
 .store-balance-hint {

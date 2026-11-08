@@ -90,7 +90,7 @@ function ensure_store_schema(): void
 }
 
 /**
- * Kullanıcının / Hanesinin güncel kullanılabilir puan (DP) bakiyesini döndürür.
+ * Kullanıcının / Hanesinin güncel kullanılabilir puan (DP) bakiyesini (Navbar'daki DP ile birebir aynı kaynak) döndürür.
  */
 function get_store_wallet_balance(array $user): int
 {
@@ -101,6 +101,10 @@ function get_store_wallet_balance(array $user): int
 
     try {
         ensure_store_schema();
+        if (function_exists('get_household_pond_state')) {
+            $pond = get_household_pond_state($householdId);
+            return max(0, (int) ($pond['total_drops'] ?? 0));
+        }
         recalculate_household_water_savings($householdId, (int) ($user['id'] ?? 0));
         $stmt = db()->prepare("SELECT total_points FROM households WHERE id = :hid LIMIT 1");
         $stmt->execute([':hid' => $householdId]);

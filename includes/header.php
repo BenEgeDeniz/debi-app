@@ -47,9 +47,9 @@ if (!empty($currentUser)) {
 
             <?php if (!empty($currentUser)): ?>
                 <div class="topbar-user">
-                    <a href="store.php" class="topbar-drop-pill" title="Mağazalar ve Kampanyalar sayfasına git">
+                    <a href="store.php" class="topbar-drop-pill" id="navbarDpPill" title="Mağazalar ve Kampanyalar sayfasına git">
                         <span class="topbar-drop-icon">💧</span>
-                        <span class="topbar-drop-count"><?= number_format($headerPondDrops, 0, ',', '.') ?> DP</span>
+                        <span class="topbar-drop-count" id="navbarDpCount" data-dp="<?= (int) $headerPondDrops ?>"><?= number_format($headerPondDrops, 0, ',', '.') ?> DP</span>
                     </a>
 
                     <?php if ($pendingFriendCnt > 0): ?>
