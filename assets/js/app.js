@@ -5,19 +5,89 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 1. Kayıt Sayfası Mod Seçimi (Bireysel / Davetli Daire / Apartman Yöneticisi)
     const modeTabs = document.querySelectorAll('.mode-tab[data-mode-target]');
-    document.querySelectorAll('[data-mention-scope]').forEach(function (picker) {
-        const form = picker.closest('form');
-        const visibility = form ? form.querySelector('[name="visibility"]') : null;
-        const updateMentionOptions = function () {
-            const scope = visibility ? visibility.value : 'public';
-            picker.querySelectorAll('[data-mention-visibility]').forEach(function (option) {
-                const visible = option.getAttribute('data-mention-visibility') === scope;
-                option.hidden = !visible;
-                if (!visible) option.selected = false;
-            });
+    document.querySelectorAll('.mention-field').forEach(function (field) {
+        const input = field.querySelector('textarea, input[type="text"]');
+        const popup = field.querySelector('.mention-suggestions');
+        if (!input || !popup) return;
+        let users = [];
+        let usersByScope = null;
+        try {
+            usersByScope = JSON.parse(field.getAttribute('data-mention-users-by-scope') || 'null');
+            users = JSON.parse(field.getAttribute('data-mention-users') || '[]');
+        } catch (error) {
+            users = [];
+        }
+        const visibility = field.closest('form')?.querySelector('[name="visibility"]');
+        const refreshUsers = function () {
+            if (usersByScope && visibility) users = usersByScope[visibility.value] || [];
         };
-        if (visibility) visibility.addEventListener('change', updateMentionOptions);
-        updateMentionOptions();
+        if (visibility) visibility.addEventListener('change', refreshUsers);
+        refreshUsers();
+        let activeIndex = 0;
+        const close = function () {
+            popup.hidden = true;
+            popup.innerHTML = '';
+            activeIndex = 0;
+        };
+        const choose = function (user) {
+            const value = input.value;
+            const cursor = input.selectionStart || value.length;
+            const before = value.slice(0, cursor);
+            const match = before.match(/@([a-z0-9_]*)$/i);
+            if (!match) return close();
+            const start = cursor - match[0].length;
+            input.value = value.slice(0, start) + '@' + user.nickname + '; ' + value.slice(cursor);
+            const nextCursor = start + user.nickname.length + 3;
+            input.setSelectionRange(nextCursor, nextCursor);
+            input.focus();
+            close();
+        };
+        const render = function (query) {
+            const matches = users.filter(function (user) {
+                return String(user.nickname).toLowerCase().indexOf(query.toLowerCase()) === 0;
+            }).slice(0, 8);
+            if (!matches.length) return close();
+            popup.innerHTML = '';
+            matches.forEach(function (user, index) {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'mention-suggestion' + (index === 0 ? ' is-active' : '');
+                button.innerHTML = '<strong>' + user.full_name.replace(/[&<>"']/g, '') + '</strong> · @' + user.nickname;
+                button.addEventListener('mousedown', function (event) {
+                    event.preventDefault();
+                    choose(user);
+                });
+                popup.appendChild(button);
+            });
+            activeIndex = 0;
+            popup.hidden = false;
+        };
+        input.addEventListener('input', function () {
+            const before = input.value.slice(0, input.selectionStart || input.value.length);
+            const match = before.match(/@([a-z0-9_]*)$/i);
+            if (match) render(match[1]);
+            else close();
+        });
+        input.addEventListener('keydown', function (event) {
+            if (popup.hidden) return;
+            const options = popup.querySelectorAll('.mention-suggestion');
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                activeIndex = (activeIndex + (event.key === 'ArrowDown' ? 1 : options.length - 1)) % options.length;
+                options.forEach(function (option, index) { option.classList.toggle('is-active', index === activeIndex); });
+            } else if (event.key === 'Enter' || event.key === 'Tab') {
+                event.preventDefault();
+                const usersByNickname = users.find(function (user) {
+                    return '@' + user.nickname === options[activeIndex].textContent.split(' · ')[1];
+                });
+                if (usersByNickname) choose(usersByNickname);
+            } else if (event.key === 'Escape') {
+                close();
+            }
+        });
+        document.addEventListener('click', function (event) {
+            if (!field.contains(event.target)) close();
+        });
     });
     const modeInput = document.getElementById('registerModeInput');
     const locationSection = document.getElementById('locationSection');

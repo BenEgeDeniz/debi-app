@@ -314,15 +314,10 @@ require_once __DIR__ . '/includes/header.php';
                     <input type="hidden" name="action" value="create_post">
                     <input type="hidden" name="category" value="tip">
 
-                    <textarea name="content" rows="2" required
-                              placeholder="Bir şeyler paylaş..."></textarea>
-                    <select name="tagged_user_ids[]" multiple class="mention-picker" aria-label="Kişileri etiketle" data-mention-scope>
-                        <?php foreach ($profileTaggableByVisibility as $mentionScope => $mentionUsers): ?>
-                            <?php foreach ($mentionUsers as $tagUser): ?>
-                                <option value="<?= (int) $tagUser['id'] ?>" data-mention-visibility="<?= e($mentionScope) ?>" <?= $mentionScope !== 'public' ? 'hidden' : '' ?>>@<?= e($tagUser['nickname']) ?> — <?= e($tagUser['full_name']) ?></option>
-                            <?php endforeach; ?>
-                        <?php endforeach; ?>
-                    </select>
+                    <div class="mention-field" data-mention-users-by-scope="<?= e(json_encode($profileTaggableByVisibility, JSON_UNESCAPED_UNICODE)) ?>">
+                        <textarea name="content" rows="2" required placeholder="Bir şeyler paylaş..."></textarea>
+                        <div class="mention-suggestions" hidden></div>
+                    </div>
 
                     <div class="composer-bar-clean">
                         <div class="composer-bar-left">
@@ -363,7 +358,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <div>
                                     <div class="post-author-line">
                                         <a href="profile.php?id=<?= (int) $post['user_id'] ?>" class="author-link">
-                                            <strong><?= e($post['full_name']) ?></strong>
+                                            <strong><?= e($post['full_name']) ?> · @<?= e($post['nickname'] ?? '') ?></strong>
                                         </a>
                                     </div>
                                     <div class="post-location-line">
@@ -381,7 +376,7 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
 
                         <div class="post-body">
-                            <p><?= nl2br(e($post['content'])) ?></p>
+                            <p><?= render_mention_content($post['content']) ?></p>
 
                             <?php if (!empty($post['image_path'])): ?>
                                 <div class="post-media-frame">
@@ -427,11 +422,11 @@ require_once __DIR__ . '/includes/header.php';
                                             <div class="comment-content">
                                                 <div class="comment-meta">
                                                     <a href="profile.php?id=<?= (int) $comment['user_id'] ?>" class="author-link">
-                                                        <strong><?= e($comment['full_name']) ?></strong>
+                                                        <strong><?= e($comment['full_name']) ?> · @<?= e($comment['nickname'] ?? '') ?></strong>
                                                     </a>
                                                     <time><?= e(time_ago($comment['created_at'])) ?></time>
                                                 </div>
-                                                <p><?= nl2br(e($comment['content'])) ?></p>
+                                                <p><?= render_mention_content($comment['content']) ?></p>
                                             </div>
                                         </li>
                                     <?php endforeach; ?>
@@ -442,12 +437,10 @@ require_once __DIR__ . '/includes/header.php';
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="action" value="add_comment">
                                 <input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>">
-                                <input type="text" name="comment_content" required placeholder="Yorum yazın...">
-                                <select name="tagged_user_ids[]" multiple class="mention-picker" aria-label="Yorumda kişileri etiketle">
-                                    <?php foreach ($profileTaggableByVisibility[$post['visibility']] ?? [] as $tagUser): ?>
-                                        <option value="<?= (int) $tagUser['id'] ?>">@<?= e($tagUser['nickname']) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
+                                <div class="mention-field" data-mention-users="<?= e(json_encode(array_values($profileTaggableByVisibility[$post['visibility']] ?? []), JSON_UNESCAPED_UNICODE)) ?>">
+                                    <input type="text" name="comment_content" required placeholder="Yorum yazın...">
+                                    <div class="mention-suggestions" hidden></div>
+                                </div>
                                 <button type="submit" class="btn btn-outline btn-sm">Gönder</button>
                             </form>
                         </div>

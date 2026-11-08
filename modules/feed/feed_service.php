@@ -88,7 +88,7 @@ function create_post(array $user, array $input, ?array $file = null): array
     ]);
 
     $postId = (int) db()->lastInsertId();
-    create_mention_notifications($user, $postId, null, (array) ($input['tagged_user_ids'] ?? []), $visibility);
+    create_mention_notifications($user, $postId, null, mentioned_user_ids_from_content($content), $visibility);
     $pts = 0;
     if (function_exists('award_points')) {
         $pts = award_points(
@@ -189,6 +189,7 @@ function fetch_posts_with_comments(PDO $pdo, string $whereSql, array $params): a
         SELECT
             p.*,
             u.full_name,
+            u.nickname,
             u.role AS user_role,
             u.avatar_color,
             u.avatar_photo,
@@ -228,6 +229,7 @@ function fetch_posts_with_comments(PDO $pdo, string $whereSql, array $params): a
         SELECT
             c.*,
             u.full_name,
+            u.nickname,
             u.avatar_color,
             u.avatar_photo,
             h.unit_label,
@@ -331,7 +333,7 @@ function add_post_comment(array $user, int $postId, string $content, array $tagg
     $commentId = (int) $pdo->lastInsertId();
     $postStmt = $pdo->prepare("SELECT visibility FROM posts WHERE id = :id LIMIT 1");
     $postStmt->execute([':id' => $postId]);
-    create_mention_notifications($user, $postId, $commentId, $taggedUserIds, (string) $postStmt->fetchColumn());
+    create_mention_notifications($user, $postId, $commentId, mentioned_user_ids_from_content($content), (string) $postStmt->fetchColumn());
 
     $pts = 0;
     if (function_exists('award_points')) {
@@ -384,6 +386,43 @@ function create_mention_notifications(array $actor, int $postId, ?int $commentId
             ':uid' => $userId, ':actor' => (int) $actor['id'], ':post' => $postId ?: null,
             ':comment' => $commentId, ':message' => $commentId ? 'Bir yorumda etiketlendin.' : 'Bir paylaşımda etiketlendin.',
         ]);
+    }
+
+    function mentioned_user_ids_from_content(string $content): array
+    {
+        preg_match_all('/@([a-z0-9_]{3,32})(?:;|\\b)/i', $content, $matches);
+        if (empty($matches[1])) return [];
+        $nicknames = array_values(array_unique(array_map(static fn ($value) => mb_strtolower($value, 'UTF-8'), $matches[1])));
+        $placeholders = [];
+        $params = [];
+        foreach ($nicknames as $index => $nickname) {
+            $key = ':nickname_' . $index;
+            $placeholders[] = $key;
+            $params[$key] = $nickname;
+        }
+        $stmt = db()->prepare('SELECT id FROM users WHERE nickname IN (' . implode(',', $placeholders) . ')');
+        $stmt->execute($params);
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    function render_mention_content(string $content): string
+    {
+        $parts = preg_split('/(@[a-z0-9_]{3,32}(?:;|\\b))/i', $content, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $html = '';
+        foreach ($parts as $part) {
+            if (preg_match('/^@([a-z0-9_]{3,32})(?:;|\\b)$/i', $part, $match)) {
+                $stmt = db()->prepare('SELECT id, full_name, nickname FROM users WHERE nickname = :nickname LIMIT 1');
+                $stmt->execute([':nickname' => mb_strtolower($match[1], 'UTF-8')]);
+                $user = $stmt->fetch();
+                if ($user) {
+                    $html .= '<a class="mention-link" href="profile.php?id=' . (int) $user['id'] . '"><strong>'
+                        . e($user['full_name']) . ' · @' . e($user['nickname']) . '</strong></a>';
+                    continue;
+                }
+            }
+            $html .= nl2br(e($part));
+        }
+        return $html;
     }
 }
 

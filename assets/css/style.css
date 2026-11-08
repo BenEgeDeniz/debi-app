@@ -1610,17 +1610,54 @@ a.timeline-meta-item:hover {
     gap: 8px;
 }
 
-.mention-picker {
-    min-width: 180px;
-    max-width: 260px;
-    min-height: 36px;
-    padding: 7px 9px;
+.mention-field {
+    position: relative;
+    width: 100%;
+}
+
+.mention-field textarea,
+.mention-field input[type="text"] {
+    width: 100%;
+}
+
+.mention-suggestions {
+    position: absolute;
+    z-index: 20;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    max-height: 220px;
+    overflow-y: auto;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     background: var(--bg-surface);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+}
+
+.mention-suggestion {
+    display: block;
+    width: 100%;
+    padding: 9px 11px;
+    border: 0;
+    background: transparent;
     color: var(--text-main);
-    font: inherit;
-    font-size: 0.78rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.mention-suggestion:hover,
+.mention-suggestion.is-active {
+    background: var(--bg-highlight);
+}
+
+.mention-suggestion strong {
+    font-weight: 800;
+}
+
+.mention-link {
+    color: var(--brand-primary-dark);
+    text-decoration: none;
+    font-weight: 800;
 }
 
 .profile-nickname {

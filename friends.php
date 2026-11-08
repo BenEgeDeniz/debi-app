@@ -87,8 +87,7 @@ require_once __DIR__ . '/includes/header.php';
                                     <a href="profile.php?id=<?= (int) $u['id'] ?>" class="friend-compact-user">
                                         <?= render_avatar($u) ?>
                                         <div class="friend-compact-meta">
-                                            <strong><?= e($u['full_name']) ?></strong>
-                                            <span>@<?= e($u['nickname'] ?? '') ?></span>
+                                            <strong><?= e($u['full_name']) ?> · @<?= e($u['nickname'] ?? '') ?></strong>
                                         </div>
                                     </a>
 
@@ -139,8 +138,7 @@ require_once __DIR__ . '/includes/header.php';
                             <a href="profile.php?id=<?= (int) $req['user_id'] ?>" class="friend-compact-user">
                                 <?= render_avatar($req) ?>
                                 <div class="friend-compact-meta">
-                                    <strong><?= e($req['full_name']) ?></strong>
-                                    <span>@<?= e($req['nickname'] ?? '') ?></span>
+                                    <strong><?= e($req['full_name']) ?> · @<?= e($req['nickname'] ?? '') ?></strong>
                                     <span><?= e($req['district'] . ' / ' . $req['city']) ?></span>
                                 </div>
                             </a>
@@ -179,8 +177,7 @@ require_once __DIR__ . '/includes/header.php';
                             <a href="profile.php?id=<?= (int) $u['id'] ?>" class="friend-compact-user">
                                 <?= render_avatar($u) ?>
                                 <div class="friend-compact-meta">
-                                    <strong><?= e($u['full_name']) ?></strong>
-                                    <span>@<?= e($u['nickname'] ?? '') ?></span>
+                                    <strong><?= e($u['full_name']) ?> · @<?= e($u['nickname'] ?? '') ?></strong>
                                     <span><?= e($u['unit_label']) ?></span>
                                 </div>
                             </a>
@@ -234,8 +231,7 @@ require_once __DIR__ . '/includes/header.php';
                             <div class="friend-compact-user">
                                 <?= render_avatar($fr) ?>
                                 <div class="friend-compact-meta">
-                                    <strong><?= e($fr['full_name']) ?></strong>
-                                    <span>@<?= e($fr['nickname'] ?? '') ?></span>
+                                    <strong><?= e($fr['full_name']) ?> · @<?= e($fr['nickname'] ?? '') ?></strong>
                                 </div>
                             </div>
                             <?php if ($fr['daily_liters_per_person'] !== null): ?>
