@@ -31,7 +31,7 @@ function render_leaderboard_rows(array $rows, string $type, array $currentUser):
             $isMyApt = $type === 'general' && !empty($currentUser['apartment_id'])
                 && (int) $row['apartment_id'] === (int) $currentUser['apartment_id'];
             ?>
-            <li class="leaderboard-item <?= ($isMe || $isMyUnit || $isMyApt) ? 'leaderboard-me' : '' ?>" data-leaderboard-row>
+            <li class="leaderboard-item <?= ($isMe || $isMyUnit || $isMyApt) ? 'leaderboard-me' : '' ?>">
                 <span class="rank-num"><?= $idx + 1 ?></span>
                 <div class="rank-info">
                     <div class="rank-name">
@@ -73,12 +73,6 @@ require_once __DIR__ . '/includes/header.php';
                 <p class="page-subtitle">Hanelerin biriktirdiği damlaları arkadaş, apartman ve genel ölçekte karşılaştır.</p>
             </div>
         </div>
-        <div class="leaderboard-search">
-            <label for="leaderboardSearch">Sıralamalarda ara</label>
-            <input type="search" id="leaderboardSearch" class="form-control" placeholder="İsim, daire veya apartman ara..." autocomplete="off">
-            <span class="leaderboard-search-status" aria-live="polite"></span>
-        </div>
-
         <section class="leaderboard-page-grid">
             <article class="panel-card leaderboard-board">
                 <div class="leaderboard-board-header">

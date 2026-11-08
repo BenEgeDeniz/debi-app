@@ -3297,33 +3297,6 @@ a.timeline-meta-item:hover {
     padding: 16px 0 4px;
 }
 
-.leaderboard-search {
-    position: relative;
-    margin: -4px 0 20px;
-}
-
-.leaderboard-search label {
-    display: block;
-    margin-bottom: 6px;
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-    font-weight: 800;
-}
-
-.leaderboard-search input {
-    width: 100%;
-    max-width: 560px;
-}
-
-.leaderboard-search-status {
-    display: block;
-    min-height: 18px;
-    margin-top: 5px;
-    color: var(--text-muted);
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-
 @media (max-width: 700px) {
     .leaderboard-hero {
         align-items: flex-start;
