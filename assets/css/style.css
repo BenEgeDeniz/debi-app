@@ -1714,7 +1714,12 @@ a.timeline-meta-item:hover {
     transition: max-height .2s ease, margin-top .2s ease, opacity .2s ease;
 }
 
+.comment-reply-form[hidden] {
+    display: none;
+}
+
 .comment-reply-form.is-open {
+    display: flex;
     max-height: 100px;
     margin-top: 8px;
     opacity: 1;

@@ -114,29 +114,27 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    document.querySelectorAll('.comment-reply-btn').forEach(function (button) {
-        button.addEventListener('click', function () {
-            const item = button.closest('.comment-item');
-            const form = item ? item.querySelector('.comment-reply-form') : null;
-            if (!form) return;
-            const isHidden = form.hidden;
-            document.querySelectorAll('.comment-reply-form').forEach(function (replyForm) {
-                replyForm.hidden = true;
-                replyForm.classList.remove('is-open');
-            });
-            document.querySelectorAll('.comment-reply-btn').forEach(function (replyButton) {
-                replyButton.textContent = 'Yanıtla';
-            });
-            form.hidden = !isHidden;
-            if (!form.hidden) {
-                form.classList.add('is-open');
-                button.textContent = 'Yanıtı kapat';
-                const input = form.querySelector('[name="comment_content"]');
-                if (input) input.focus();
-            } else {
-                button.textContent = 'Yanıtla';
-            }
+    document.addEventListener('click', function (event) {
+        const button = event.target.closest('.comment-reply-btn');
+        if (!button) return;
+        const item = button.closest('.comment-item');
+        const form = item ? item.querySelector('.comment-reply-form') : null;
+        if (!form) return;
+        const shouldOpen = !form.classList.contains('is-open');
+        document.querySelectorAll('.comment-reply-form').forEach(function (replyForm) {
+            replyForm.hidden = true;
+            replyForm.classList.remove('is-open');
         });
+        document.querySelectorAll('.comment-reply-btn').forEach(function (replyButton) {
+            replyButton.textContent = 'Yanıtla';
+        });
+        if (shouldOpen) {
+            form.hidden = false;
+            form.classList.add('is-open');
+            button.textContent = 'Yanıtı kapat';
+            const input = form.querySelector('[name="comment_content"]');
+            if (input) input.focus();
+        }
     });
 
     document.querySelectorAll('.post-clickable').forEach(function (post) {

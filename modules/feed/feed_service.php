@@ -111,15 +111,19 @@ function create_post(array $user, array $input, ?array $file = null): array
 function get_feed_posts(array $user, string $scope = 'friends', ?string $categoryFilter = null): array
 {
     $pdo    = db();
-    $params = [':current_uid' => (int) $user['id']];
+    $params = [
+        ':current_uid' => (int) $user['id'],
+        ':mention_access_uid' => (int) $user['id'],
+    ];
     $where  = [];
 
     if ($scope === 'apartment') {
         if (empty($user['apartment_id'])) {
-            return [];
+            $where[] = '1 = 0';
+        } else {
+            $where[]        = "p.apartment_id = :aid";
+            $params[':aid'] = (int) $user['apartment_id'];
         }
-        $where[]        = "p.apartment_id = :aid";
-        $params[':aid'] = (int) $user['apartment_id'];
     } elseif ($scope === 'friends') {
         $friendIds   = function_exists('get_user_friend_ids') ? get_user_friend_ids((int) $user['id']) : [];
         $authorIds   = array_values(array_unique(array_merge([(int) $user['id']], $friendIds)));
@@ -142,6 +146,12 @@ function get_feed_posts(array $user, string $scope = 'friends', ?string $categor
     }
 
     $whereSql = implode(' AND ', $where);
+    $whereSql = "({$whereSql} OR EXISTS (
+        SELECT 1 FROM notifications mention_access
+        WHERE mention_access.post_id = p.id
+          AND mention_access.user_id = :mention_access_uid
+          AND mention_access.type = 'mention'
+    ))";
 
     return fetch_posts_with_comments($pdo, $whereSql, $params);
 }
@@ -158,6 +168,7 @@ function get_user_timeline_posts(array $profileUser, array $viewerUser): array
     $params = [
         ':current_uid' => $viewerId,
         ':author_uid'  => $profileId,
+        ':mention_access_uid' => $viewerId,
     ];
 
     if ($profileId === $viewerId) {
@@ -176,6 +187,12 @@ function get_user_timeline_posts(array $profileUser, array $viewerUser): array
         $visList  = implode(',', $allowedVis);
         $whereSql = "p.user_id = :author_uid AND p.visibility IN ({$visList})";
     }
+    $whereSql = "({$whereSql} OR EXISTS (
+        SELECT 1 FROM notifications mention_access
+        WHERE mention_access.post_id = p.id
+          AND mention_access.user_id = :mention_access_uid
+          AND mention_access.type = 'mention'
+    ))";
 
     return fetch_posts_with_comments($pdo, $whereSql, $params);
 }
@@ -190,6 +207,7 @@ function get_single_feed_post(int $postId, array $user): ?array
     $params = [
         ':current_uid' => (int) $user['id'],
         ':viewer_uid' => (int) $user['id'],
+        ':mention_access_uid' => (int) $user['id'],
         ':post_id' => $postId,
     ];
     $allowed = ["'public'", "'neighborhood'"];
@@ -213,6 +231,12 @@ function get_single_feed_post(int $postId, array $user): ?array
     if (!empty($friendSql)) {
         $where .= " OR (p.user_id IN ({$friendSql}) AND p.visibility = 'friends')";
     }
+    $where .= " OR EXISTS (
+        SELECT 1 FROM notifications mention_access
+        WHERE mention_access.post_id = p.id
+          AND mention_access.user_id = :mention_access_uid
+          AND mention_access.type = 'mention'
+    )";
     $where .= ')';
 
     $posts = fetch_posts_with_comments($pdo, $where, $params);
@@ -445,11 +469,12 @@ function create_mention_notifications(array $actor, int $postId, ?int $commentId
 {
     if (!$taggedUserIds) return;
     try {
-        $allowed = get_taggable_users($actor, $visibility);
-        $allowedIds = array_fill_keys(array_map(static fn ($row) => (int) $row['id'], $allowed), true);
         $insert = db()->prepare("INSERT INTO notifications (user_id, actor_user_id, type, post_id, comment_id, message) VALUES (:uid, :actor, 'mention', :post, :comment, :message)");
         foreach (array_unique(array_map('intval', $taggedUserIds)) as $userId) {
-            if ($userId <= 0 || empty($allowedIds[$userId])) continue;
+            if ($userId <= 0 || $userId === (int) $actor['id']) continue;
+            $userExists = db()->prepare('SELECT 1 FROM users WHERE id = :uid LIMIT 1');
+            $userExists->execute([':uid' => $userId]);
+            if (!$userExists->fetchColumn()) continue;
             $insert->execute([
                 ':uid' => $userId, ':actor' => (int) $actor['id'], ':post' => $postId ?: null,
                 ':comment' => $commentId, ':message' => $commentId ? 'Bir yorumda etiketlendin.' : 'Bir paylaşımda etiketlendin.',
