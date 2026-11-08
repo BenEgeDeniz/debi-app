@@ -2,6 +2,7 @@
 /**
  * DEBI - Sosyal Medya Akış Modülü (Gönderi, Damla Tepkisi, Yorum)
  */
+require_once __DIR__ . '/debbie_ai_service.php';
 
 /**
  * Yeni Gönderi Oluşturma (Opsiyonel Görsel Yükleme Desteği ile)
@@ -89,6 +90,7 @@ function create_post(array $user, array $input, ?array $file = null): array
 
     $postId = (int) db()->lastInsertId();
     create_mention_notifications($user, $postId, null, mentioned_user_ids_from_content($content), $visibility);
+    maybe_answer_as_debbie($user, $postId, null, $content);
     $pts = 0;
     if (function_exists('award_points')) {
         $pts = award_points(
@@ -397,7 +399,7 @@ function toggle_post_reaction(int $postId, int $userId): array
 /**
  * Gönderiye Yorum Ekleme
  */
-function add_post_comment(array $user, int $postId, string $content, array $taggedUserIds = [], int $parentCommentId = 0): array
+function add_post_comment(array $user, int $postId, string $content, array $taggedUserIds = [], int $parentCommentId = 0, bool $awardPoints = true): array
 {
     $content = trim($content);
     if (mb_strlen($content, 'UTF-8') < 2) {
@@ -445,9 +447,10 @@ function add_post_comment(array $user, int $postId, string $content, array $tagg
     $postStmt = $pdo->prepare("SELECT visibility FROM posts WHERE id = :id LIMIT 1");
     $postStmt->execute([':id' => $postId]);
     create_mention_notifications($user, $postId, $commentId, mentioned_user_ids_from_content($content), (string) $postStmt->fetchColumn());
+    maybe_answer_as_debbie($user, $postId, $commentId, $content);
 
     $pts = 0;
-    if (function_exists('award_points')) {
+    if ($awardPoints && function_exists('award_points')) {
         $uSt = $pdo->prepare("SELECT household_id FROM users WHERE id = :uid LIMIT 1");
         $uSt->execute([':uid' => (int) $user['id']]);
         $hid = (int) $uSt->fetchColumn();
@@ -480,9 +483,15 @@ function get_taggable_users(array $user, string $visibility): array
         $where = 'u.neighborhood_id = :nid';
         $params[':nid'] = (int) $user['neighborhood_id'];
     }
-    $stmt = db()->prepare("SELECT u.id, u.full_name, u.nickname FROM users u WHERE u.id != :uid AND {$where} ORDER BY u.full_name LIMIT 100");
+    $stmt = db()->prepare("SELECT u.id, u.full_name, u.nickname FROM users u WHERE u.id != :uid AND (u.is_ai_bot = 0 OR u.is_ai_bot IS NULL) AND {$where} ORDER BY u.full_name LIMIT 100");
     $stmt->execute($params);
-    return $stmt->fetchAll();
+    $users = $stmt->fetchAll();
+    $botStmt = db()->query("SELECT id, full_name, nickname FROM users WHERE nickname = 'debbie' AND is_ai_bot = 1 LIMIT 1");
+    $bot = $botStmt->fetch();
+    if ($bot) {
+        array_unshift($users, $bot);
+    }
+    return $users;
 }
 
 function create_mention_notifications(array $actor, int $postId, ?int $commentId, array $taggedUserIds, string $visibility): void

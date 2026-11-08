@@ -33,6 +33,7 @@ function get_apartment_friend_suggestions(array $currentUser, int $limit = 50): 
             INNER JOIN apartments a ON a.id = u.apartment_id
             WHERE u.apartment_id = :apartment_id
               AND u.id != :user_id
+              AND (u.is_ai_bot = 0 OR u.is_ai_bot IS NULL)
             ORDER BY u.full_name ASC
             LIMIT " . (int) max(1, min(100, $limit)));
         $stmt->execute([

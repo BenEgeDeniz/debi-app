@@ -19,6 +19,9 @@ if (file_exists(__DIR__ . '/database.local.php')) {
 if (!defined('GEMINI_API_KEY')) {
     define('GEMINI_API_KEY', getenv('GEMINI_API_KEY') ?: '');
 }
+if (!defined('DEBBIE_GEMINI_MODEL')) {
+    define('DEBBIE_GEMINI_MODEL', getenv('DEBBIE_GEMINI_MODEL') ?: 'gemini-3.5-flash-lite');
+}
 
 /**
  * Tekil (Singleton) PDO bağlantısı döndürür.

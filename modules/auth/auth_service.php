@@ -125,6 +125,9 @@ function register_user(array $input): array
     if (!preg_match('/^[a-z0-9_]{3,32}$/', $nickname)) {
         return ['ok' => false, 'error' => 'Nickname 3-32 karakter olmalı; yalnızca İngilizce harf, rakam ve alt çizgi kullanılabilir.'];
     }
+    if ($nickname === 'debbie') {
+        return ['ok' => false, 'error' => 'Bu nickname Debi yapay zeka asistanı için ayrılmıştır.'];
+    }
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         return ['ok' => false, 'error' => 'Geçerli bir e-posta adresi girin.'];
     }
@@ -343,7 +346,7 @@ function login_user(string $identifier, string $password): array
         return ['ok' => false, 'error' => 'Nickname/e-posta ve şifre alanları boş bırakılamaz.'];
     }
 
-    $stmt = db()->prepare("SELECT id, password_hash FROM users WHERE email = :email OR nickname = :nickname LIMIT 1");
+    $stmt = db()->prepare("SELECT id, password_hash FROM users WHERE is_ai_bot = 0 AND (email = :email OR nickname = :nickname) LIMIT 1");
     $stmt->execute([':email' => $identifier, ':nickname' => $identifier]);
     $user = $stmt->fetch();
 

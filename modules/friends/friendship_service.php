@@ -325,6 +325,7 @@ function search_users_for_friendship(int $currentUserId, string $searchQuery = '
             INNER JOIN neighborhoods n ON n.id = u.neighborhood_id
             LEFT JOIN apartments a ON a.id = u.apartment_id
             WHERE u.id != :me
+              AND (u.is_ai_bot = 0 OR u.is_ai_bot IS NULL)
               AND (u.full_name LIKE :q1 OR u.nickname LIKE :q2 OR a.name LIKE :q3 OR n.district LIKE :q4 OR n.city LIKE :q5)
             ORDER BY u.full_name ASC
             LIMIT " . (int) max(1, min(15, $limit));
