@@ -185,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const label = toggle.querySelector('.comment-thread-label');
                 const arrow = toggle.querySelector('.comment-thread-arrow');
                 if (label) label.textContent = toggle.dataset.replyLabel;
-                if (arrow) arrow.textContent = open ? '⌃' : '⌄';
+                if (arrow) arrow.classList.toggle('is-open', open);
                 toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
             }
             if (open) openRoot = root;
@@ -198,7 +198,7 @@ document.addEventListener('DOMContentLoaded', function () {
             toggle.type = 'button';
             toggle.className = 'comment-thread-toggle';
             toggle.dataset.replyLabel = `${descendants.length} yanıt`;
-            toggle.innerHTML = '<span class="comment-thread-label"></span><span class="comment-thread-arrow" aria-hidden="true">⌄</span>';
+            toggle.innerHTML = '<span class="comment-thread-label"></span><span class="comment-thread-arrow" aria-hidden="true"></span>';
             toggle.querySelector('.comment-thread-label').textContent = toggle.dataset.replyLabel;
             toggle.setAttribute('aria-expanded', 'false');
             toggle.addEventListener('click', function () {

@@ -1785,13 +1785,17 @@ a.timeline-meta-item:hover {
 }
 
 .comment-thread-arrow {
-    font-size: .8rem;
-    line-height: 1;
-    transition: transform .2s ease;
+    width: 6px;
+    height: 6px;
+    margin-left: 2px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-2px) rotate(45deg);
+    transition: transform .18s ease;
 }
 
-.comment-thread-toggle[aria-expanded="true"] .comment-thread-arrow {
-    transform: translateY(1px);
+.comment-thread-arrow.is-open {
+    transform: translateY(2px) rotate(225deg);
 }
 
 .comment-text-collapsed {
