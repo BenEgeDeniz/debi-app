@@ -56,6 +56,57 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    const notificationMenu = document.querySelector('.notification-menu');
+    const notificationList = notificationMenu?.querySelector('.notification-dropdown-list');
+    const notificationToggle = notificationMenu?.querySelector('.notification-toggle');
+    if (notificationList && notificationToggle) {
+        const updateNotifications = function () {
+            fetch('notifications_poll.php', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (response) {
+                    if (!response.ok) throw new Error('Notification polling failed');
+                    return response.json();
+                })
+                .then(function (payload) {
+                    if (!payload.ok) return;
+                    const count = Number(payload.unread_count) || 0;
+                    const badge = notificationToggle.querySelector('b') || document.createElement('b');
+                    if (count > 0) {
+                        badge.textContent = count;
+                        if (!badge.parentNode) notificationToggle.appendChild(badge);
+                    } else if (badge.parentNode) {
+                        badge.remove();
+                    }
+                    notificationList.replaceChildren();
+                    if (!payload.notifications.length) {
+                        const empty = document.createElement('div');
+                        empty.className = 'notification-empty';
+                        empty.textContent = 'Henüz bildirimin yok.';
+                        notificationList.appendChild(empty);
+                        return;
+                    }
+                    payload.notifications.forEach(function (notification) {
+                        const item = document.createElement(notification.post_id ? 'a' : 'div');
+                        item.className = 'notification-dropdown-item' + (notification.post_id ? '' : ' is-static');
+                        if (notification.post_id) {
+                            item.href = 'post.php?id=' + notification.post_id + '&notification=' + notification.id;
+                        }
+                        const actor = document.createElement('strong');
+                        actor.textContent = '@' + notification.actor_nickname;
+                        const message = document.createElement('span');
+                        message.textContent = notification.message;
+                        const time = document.createElement('time');
+                        time.textContent = notification.created_at;
+                        item.append(actor, message, time);
+                        notificationList.appendChild(item);
+                    });
+                })
+                .catch(function (error) {
+                    console.warn('Bildirimler güncellenemedi.', error);
+                });
+        };
+        window.setInterval(updateNotifications, 3000);
+    }
+
     // 1. Kayıt Sayfası Mod Seçimi (Bireysel / Davetli Daire / Apartman Yöneticisi)
     const modeTabs = document.querySelectorAll('.mode-tab[data-mode-target]');
     document.querySelectorAll('.mention-field').forEach(function (field) {

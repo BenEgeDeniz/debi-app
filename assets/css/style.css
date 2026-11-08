@@ -2019,6 +2019,7 @@ a.timeline-meta-item:hover {
     align-items: flex-start;
     gap: 9px;
     position: relative;
+    max-width: 100%;
     padding: 8px 4px;
 }
 
@@ -2172,6 +2173,7 @@ a.timeline-meta-item:hover {
 
 .comment-content {
     flex: 1;
+    min-width: 0;
     font-size: 0.86rem;
 }
 
@@ -2198,6 +2200,11 @@ a.timeline-meta-item:hover {
 .comment-form {
     display: flex;
     gap: 8px;
+    min-width: 0;
+}
+
+.comment-form .mention-field {
+    min-width: 0;
 }
 
 .mention-field {

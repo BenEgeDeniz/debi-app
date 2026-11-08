@@ -113,21 +113,23 @@ if (!empty($currentUser)) {
                                 <strong>Bildirimler</strong>
                                 <a href="notifications.php">Tümü</a>
                             </div>
-                            <?php if (!$headerNotifications): ?>
-                                <div class="notification-empty">Henüz bildirimin yok.</div>
-                            <?php else: ?>
-                                <?php foreach ($headerNotifications as $notification): ?>
-                                    <?php $notificationTarget = !empty($notification['post_id'])
-                                        ? 'post.php?id=' . (int) $notification['post_id'] . '&notification=' . (int) $notification['id']
-                                        : 'notifications.php'; ?>
-                                    <a class="notification-dropdown-item <?= $notification['post_id'] ? '' : 'is-static' ?>"
-                                       href="<?= e($notificationTarget) ?>">
-                                        <strong>@<?= e($notification['actor_nickname']) ?></strong>
-                                        <span><?= e($notification['message']) ?></span>
-                                        <time><?= e(time_ago($notification['created_at'])) ?></time>
-                                    </a>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
+                            <div class="notification-dropdown-list">
+                                <?php if (!$headerNotifications): ?>
+                                    <div class="notification-empty">Henüz bildirimin yok.</div>
+                                <?php else: ?>
+                                    <?php foreach ($headerNotifications as $notification): ?>
+                                        <?php $notificationTarget = !empty($notification['post_id'])
+                                            ? 'post.php?id=' . (int) $notification['post_id'] . '&notification=' . (int) $notification['id']
+                                            : 'notifications.php'; ?>
+                                        <a class="notification-dropdown-item <?= $notification['post_id'] ? '' : 'is-static' ?>"
+                                           href="<?= e($notificationTarget) ?>">
+                                            <strong>@<?= e($notification['actor_nickname']) ?></strong>
+                                            <span><?= e($notification['message']) ?></span>
+                                            <time><?= e(time_ago($notification['created_at'])) ?></time>
+                                        </a>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </div>
                             <a class="notification-dropdown-all" href="notifications.php">Tümünü gör</a>
                         </div>
                     </div>
