@@ -38,38 +38,31 @@ function ensure_store_schema(): void
             }
         }
 
-        // Eski şemadan kalma sütun/kayıt varsa temizle ve yeni yapıya uyarla (INSERT öncesi çalıştır)
-        try {
-            $pdo->exec("ALTER TABLE store_items MODIFY COLUMN category ENUM('cafe','restaurant','detergent','eco_product') NOT NULL DEFAULT 'cafe'");
-        } catch (Throwable $e) {
-        }
-        try {
-            $pdo->exec("ALTER TABLE store_items ADD COLUMN image_path VARCHAR(255) DEFAULT NULL AFTER description");
-        } catch (Throwable $e) {
-        }
-        try {
-            $pdo->exec("ALTER TABLE store_redemptions ADD COLUMN is_used TINYINT(1) NOT NULL DEFAULT 0 AFTER coupon_code");
-        } catch (Throwable $e) {
-        }
-        try {
-            $pdo->exec("ALTER TABLE store_redemptions ADD COLUMN used_at DATETIME DEFAULT NULL AFTER is_used");
-        } catch (Throwable $e) {
-        }
-        try {
-            $pdo->exec("ALTER TABLE support_campaigns ADD COLUMN image_path VARCHAR(255) DEFAULT NULL AFTER description");
-        } catch (Throwable $e) {
-        }
-        try {
-            $pdo->exec("ALTER TABLE support_campaigns ADD COLUMN min_points INT UNSIGNED NOT NULL DEFAULT 50");
-        } catch (Throwable $e) {
-        }
-        try {
-            $pdo->exec("ALTER TABLE support_campaigns ADD COLUMN target_dp INT UNSIGNED NOT NULL DEFAULT 5000");
-        } catch (Throwable $e) {
-        }
-        try {
-            $pdo->exec("ALTER TABLE support_campaigns ADD COLUMN current_dp INT UNSIGNED NOT NULL DEFAULT 1250");
-        } catch (Throwable $e) {
+        // Eski şemadan kalma zorunlu sütunları temizle / varsayılan değer ata ve yeni sütunları ekle
+        $alterCommands = [
+            "ALTER TABLE store_items MODIFY COLUMN category VARCHAR(50) NOT NULL DEFAULT 'cafe'",
+            "ALTER TABLE store_items MODIFY COLUMN title VARCHAR(180) NOT NULL DEFAULT ''",
+            "ALTER TABLE store_items DROP COLUMN badge_label",
+            "ALTER TABLE store_items ADD COLUMN image_path VARCHAR(255) DEFAULT NULL AFTER description",
+            "ALTER TABLE store_redemptions ADD COLUMN is_used TINYINT(1) NOT NULL DEFAULT 0 AFTER coupon_code",
+            "ALTER TABLE store_redemptions ADD COLUMN used_at DATETIME DEFAULT NULL AFTER is_used",
+            "ALTER TABLE support_campaigns DROP COLUMN contrib_unit",
+            "ALTER TABLE support_campaigns DROP COLUMN contrib_amount",
+            "ALTER TABLE support_campaigns DROP COLUMN cost_points",
+            "ALTER TABLE support_campaigns DROP COLUMN target_contrib_amount",
+            "ALTER TABLE support_campaigns DROP COLUMN current_contrib_amount",
+            "ALTER TABLE support_campaigns ADD COLUMN image_path VARCHAR(255) DEFAULT NULL AFTER description",
+            "ALTER TABLE support_campaigns ADD COLUMN min_points INT UNSIGNED NOT NULL DEFAULT 50",
+            "ALTER TABLE support_campaigns ADD COLUMN target_dp INT UNSIGNED NOT NULL DEFAULT 5000",
+            "ALTER TABLE support_campaigns ADD COLUMN current_dp INT UNSIGNED NOT NULL DEFAULT 1250",
+            "ALTER TABLE campaign_supports DROP COLUMN contrib_unit",
+            "ALTER TABLE campaign_supports DROP COLUMN contrib_amount",
+        ];
+        foreach ($alterCommands as $altSql) {
+            try {
+                $pdo->exec($altSql);
+            } catch (Throwable $e) {
+            }
         }
 
         // Şema güncellendikten sonra INSERT / ON DUPLICATE KEY ifadelerini çalıştır
@@ -293,20 +286,57 @@ function get_active_support_campaigns(?array $user = null): array
 /**
  * Yeşil Mağaza Ürününde %X İndirim İçin X DP Harcama İşlemi
  */
-function redeem_store_item(array $user, int $itemId): array
+function redeem_store_item(array $user, int $itemId, string $itemSlug = ''): array
 {
     ensure_store_schema();
 
     $userId      = (int) ($user['id'] ?? 0);
     $householdId = (int) ($user['household_id'] ?? 0);
-    if ($userId <= 0 || $householdId <= 0 || $itemId <= 0) {
+    if ($userId <= 0 || $householdId <= 0 || ($itemId <= 0 && $itemSlug === '')) {
         return ['ok' => false, 'error' => 'Geçersiz mağaza seçimi.'];
     }
 
-    $pdo = db();
-    $itemStmt = $pdo->prepare("SELECT * FROM store_items WHERE id = :id AND is_active = 1 LIMIT 1");
-    $itemStmt->execute([':id' => $itemId]);
-    $item = $itemStmt->fetch();
+    $pdo  = db();
+    $item = null;
+
+    if ($itemSlug !== '') {
+        $stmt = $pdo->prepare("SELECT * FROM store_items WHERE slug = :slug AND is_active = 1 LIMIT 1");
+        $stmt->execute([':slug' => $itemSlug]);
+        $item = $stmt->fetch() ?: null;
+    }
+    if (!$item && $itemId > 0) {
+        $stmt = $pdo->prepare("SELECT * FROM store_items WHERE id = :id AND is_active = 1 LIMIT 1");
+        $stmt->execute([':id' => $itemId]);
+        $item = $stmt->fetch() ?: null;
+    }
+    if (!$item) {
+        foreach (get_active_store_items() as $fallbackItem) {
+            if (($itemSlug !== '' && ($fallbackItem['slug'] ?? '') === $itemSlug) || ((int) ($fallbackItem['id'] ?? 0) === $itemId)) {
+                try {
+                    $insItem = $pdo->prepare("
+                        INSERT INTO store_items (slug, category, brand_name, title, description, image_path, discount_pct, cost_points, is_active, sort_order)
+                        VALUES (:slug, :cat, :brand, '', :desc, :img, :disc, :cost, 1, 1)
+                        ON DUPLICATE KEY UPDATE brand_name = VALUES(brand_name), discount_pct = VALUES(discount_pct), cost_points = VALUES(cost_points)
+                    ");
+                    $insItem->execute([
+                        ':slug'  => $fallbackItem['slug'],
+                        ':cat'   => $fallbackItem['category'] ?? 'cafe',
+                        ':brand' => $fallbackItem['brand_name'],
+                        ':desc'  => $fallbackItem['description'] ?? '',
+                        ':img'   => $fallbackItem['image_path'] ?? null,
+                        ':disc'  => (int) $fallbackItem['discount_pct'],
+                        ':cost'  => (int) $fallbackItem['discount_pct'],
+                    ]);
+                    $stmt = $pdo->prepare("SELECT * FROM store_items WHERE slug = :slug LIMIT 1");
+                    $stmt->execute([':slug' => $fallbackItem['slug']]);
+                    $item = $stmt->fetch() ?: $fallbackItem;
+                } catch (Throwable $e) {
+                    $item = $fallbackItem;
+                }
+                break;
+            }
+        }
+    }
     if (!$item) {
         return ['ok' => false, 'error' => 'Seçilen anlaşmalı mağaza bulunamadı.'];
     }
@@ -327,14 +357,16 @@ function redeem_store_item(array $user, int $itemId): array
     try {
         $pdo->beginTransaction();
 
+        // PDO ATTR_EMULATE_PREPARES = false için her parametre ismi tekil olmalıdır (:pts_sub ve :pts_min)
         $deductStmt = $pdo->prepare("
             UPDATE households
-            SET total_points = total_points - :pts
-            WHERE id = :hid AND total_points >= :pts
+            SET total_points = total_points - :pts_sub
+            WHERE id = :hid AND total_points >= :pts_min
         ");
         $deductStmt->execute([
-            ':pts' => $costPoints,
-            ':hid' => $householdId,
+            ':pts_sub' => $costPoints,
+            ':hid'     => $householdId,
+            ':pts_min' => $costPoints,
         ]);
 
         if ($deductStmt->rowCount() !== 1) {
@@ -349,26 +381,30 @@ function redeem_store_item(array $user, int $itemId): array
         $insRedeem->execute([
             ':uid'  => $userId,
             ':hid'  => $householdId,
-            ':iid'  => (int) $item['id'],
+            ':iid'  => (int) ($item['id'] ?? 1),
             ':pts'  => $costPoints,
             ':disc' => $discountPct,
             ':code' => $couponCode,
         ]);
 
-        $desc = "🌿 {$item['brand_name']}: %{$discountPct} indirim kuponu oluşturuldu (-{$costPoints} DP · {$couponCode})";
-        $insLog = $pdo->prepare("
-            INSERT INTO point_logs (user_id, household_id, action_code, points, description, ref_key)
-            VALUES (:uid, :hid, 'store_redeem', :pts, :desc, :rkey)
-        ");
-        $insLog->execute([
-            ':uid'  => $userId,
-            ':hid'  => $householdId,
-            ':pts'  => -$costPoints,
-            ':desc' => $desc,
-            ':rkey' => 'store_redeem_' . $couponCode,
-        ]);
-
         $pdo->commit();
+
+        try {
+            $desc = "🌿 {$item['brand_name']}: %{$discountPct} indirim kuponu oluşturuldu (-{$costPoints} DP · {$couponCode})";
+            $insLog = $pdo->prepare("
+                INSERT INTO point_logs (user_id, household_id, action_code, points, description, ref_key)
+                VALUES (:uid, :hid, 'store_redeem', :pts, :desc, :rkey)
+            ");
+            $insLog->execute([
+                ':uid'  => $userId,
+                ':hid'  => $householdId,
+                ':pts'  => -$costPoints,
+                ':desc' => $desc,
+                ':rkey' => 'store_redeem_' . $couponCode,
+            ]);
+        } catch (Throwable $logErr) {
+            // Audit log hatası ana işlemi etkilemesin
+        }
 
         return [
             'ok'           => true,
@@ -416,20 +452,59 @@ function mark_store_coupon_used(array $user, int $redemptionId): array
 /**
  * Anlaşmalı Kampanyaya DP Gönderimi (Min 50 DP, Maksimum Sınır Yok)
  */
-function support_campaign_with_points(array $user, int $campaignId, int $requestedPoints = 50): array
+function support_campaign_with_points(array $user, int $campaignId, int $requestedPoints = 50, string $campaignSlug = ''): array
 {
     ensure_store_schema();
 
     $userId      = (int) ($user['id'] ?? 0);
     $householdId = (int) ($user['household_id'] ?? 0);
-    if ($userId <= 0 || $householdId <= 0 || $campaignId <= 0) {
+    if ($userId <= 0 || $householdId <= 0 || ($campaignId <= 0 && $campaignSlug === '')) {
         return ['ok' => false, 'error' => 'Geçersiz kampanya seçimi.'];
     }
 
-    $pdo = db();
-    $campStmt = $pdo->prepare("SELECT * FROM support_campaigns WHERE id = :id AND is_active = 1 LIMIT 1");
-    $campStmt->execute([':id' => $campaignId]);
-    $campaign = $campStmt->fetch();
+    $pdo      = db();
+    $campaign = null;
+
+    if ($campaignSlug !== '') {
+        $stmt = $pdo->prepare("SELECT * FROM support_campaigns WHERE slug = :slug AND is_active = 1 LIMIT 1");
+        $stmt->execute([':slug' => $campaignSlug]);
+        $campaign = $stmt->fetch() ?: null;
+    }
+    if (!$campaign && $campaignId > 0) {
+        $stmt = $pdo->prepare("SELECT * FROM support_campaigns WHERE id = :id AND is_active = 1 LIMIT 1");
+        $stmt->execute([':id' => $campaignId]);
+        $campaign = $stmt->fetch() ?: null;
+    }
+    if (!$campaign) {
+        foreach (get_active_support_campaigns($user) as $fallbackCamp) {
+            if (($campaignSlug !== '' && ($fallbackCamp['slug'] ?? '') === $campaignSlug) || ((int) ($fallbackCamp['id'] ?? 0) === $campaignId)) {
+                try {
+                    $insCamp = $pdo->prepare("
+                        INSERT INTO support_campaigns (slug, partner_name, title, description, image_path, min_points, target_dp, current_dp, supporter_count, is_active, sort_order)
+                        VALUES (:slug, :partner, :title, :desc, :img, :minp, :tardp, :curdp, :supcnt, 1, 1)
+                        ON DUPLICATE KEY UPDATE partner_name = VALUES(partner_name), title = VALUES(title)
+                    ");
+                    $insCamp->execute([
+                        ':slug'    => $fallbackCamp['slug'],
+                        ':partner' => $fallbackCamp['partner_name'],
+                        ':title'   => $fallbackCamp['title'],
+                        ':desc'    => $fallbackCamp['description'] ?? '',
+                        ':img'     => $fallbackCamp['image_path'] ?? null,
+                        ':minp'    => (int) ($fallbackCamp['min_points'] ?? 50),
+                        ':tardp'   => (int) ($fallbackCamp['target_dp'] ?? 5000),
+                        ':curdp'   => (int) ($fallbackCamp['current_dp'] ?? 1000),
+                        ':supcnt'  => (int) ($fallbackCamp['supporter_count'] ?? 20),
+                    ]);
+                    $stmt = $pdo->prepare("SELECT * FROM support_campaigns WHERE slug = :slug LIMIT 1");
+                    $stmt->execute([':slug' => $fallbackCamp['slug']]);
+                    $campaign = $stmt->fetch() ?: $fallbackCamp;
+                } catch (Throwable $e) {
+                    $campaign = $fallbackCamp;
+                }
+                break;
+            }
+        }
+    }
     if (!$campaign) {
         return ['ok' => false, 'error' => 'Seçilen anlaşmalı kampanya bulunamadı.'];
     }
@@ -453,14 +528,16 @@ function support_campaign_with_points(array $user, int $campaignId, int $request
     try {
         $pdo->beginTransaction();
 
+        // PDO ATTR_EMULATE_PREPARES = false için her parametre ismi tekil olmalıdır (:pts_sub ve :pts_min)
         $deductStmt = $pdo->prepare("
             UPDATE households
-            SET total_points = total_points - :pts
-            WHERE id = :hid AND total_points >= :pts
+            SET total_points = total_points - :pts_sub
+            WHERE id = :hid AND total_points >= :pts_min
         ");
         $deductStmt->execute([
-            ':pts' => $requestedPoints,
-            ':hid' => $householdId,
+            ':pts_sub' => $requestedPoints,
+            ':hid'     => $householdId,
+            ':pts_min' => $requestedPoints,
         ]);
 
         if ($deductStmt->rowCount() !== 1) {
@@ -476,7 +553,7 @@ function support_campaign_with_points(array $user, int $campaignId, int $request
         ");
         $updCamp->execute([
             ':pts' => $requestedPoints,
-            ':cid' => (int) $campaign['id'],
+            ':cid' => (int) ($campaign['id'] ?? 1),
         ]);
 
         $insSup = $pdo->prepare("
@@ -486,25 +563,29 @@ function support_campaign_with_points(array $user, int $campaignId, int $request
         $insSup->execute([
             ':uid' => $userId,
             ':hid' => $householdId,
-            ':cid' => (int) $campaign['id'],
+            ':cid' => (int) ($campaign['id'] ?? 1),
             ':pts' => $requestedPoints,
         ]);
         $supportId = (int) $pdo->lastInsertId();
 
-        $desc = "💧 {$campaign['title']} kampanyasına {$requestedPoints} DP destek gönderildi";
-        $insLog = $pdo->prepare("
-            INSERT INTO point_logs (user_id, household_id, action_code, points, description, ref_key)
-            VALUES (:uid, :hid, 'campaign_support', :pts, :desc, :rkey)
-        ");
-        $insLog->execute([
-            ':uid'  => $userId,
-            ':hid'  => $householdId,
-            ':pts'  => -$requestedPoints,
-            ':desc' => $desc,
-            ':rkey' => 'campaign_support_' . $supportId,
-        ]);
-
         $pdo->commit();
+
+        try {
+            $desc = "💧 {$campaign['title']} kampanyasına {$requestedPoints} DP destek gönderildi";
+            $insLog = $pdo->prepare("
+                INSERT INTO point_logs (user_id, household_id, action_code, points, description, ref_key)
+                VALUES (:uid, :hid, 'campaign_support', :pts, :desc, :rkey)
+            ");
+            $insLog->execute([
+                ':uid'  => $userId,
+                ':hid'  => $householdId,
+                ':pts'  => -$requestedPoints,
+                ':desc' => $desc,
+                ':rkey' => 'campaign_support_' . $supportId,
+            ]);
+        } catch (Throwable $logErr) {
+            // Audit log hatası ana işlemi etkilemesin
+        }
 
         $neighborhoodName = trim((string) ($user['neighborhood_name'] ?? 'Moda Mah.'));
         $slug             = (string) ($campaign['slug'] ?? '');
@@ -554,19 +635,22 @@ function get_household_store_redemptions(int $householdId, int $limit = 20): arr
         return [];
     }
 
+    $safeLimit = max(1, min(100, (int) $limit));
     try {
         $stmt = db()->prepare("
-            SELECT sr.*, si.brand_name, si.title, si.category, u.full_name
+            SELECT sr.*,
+                   COALESCE(si.brand_name, 'Yeşil Mağaza') AS brand_name,
+                   COALESCE(si.title, '') AS title,
+                   COALESCE(si.category, 'cafe') AS category,
+                   COALESCE(u.full_name, '') AS full_name
             FROM store_redemptions sr
-            INNER JOIN store_items si ON si.id = sr.store_item_id
-            INNER JOIN users u ON u.id = sr.user_id
+            LEFT JOIN store_items si ON si.id = sr.store_item_id
+            LEFT JOIN users u ON u.id = sr.user_id
             WHERE sr.household_id = :hid
             ORDER BY sr.created_at DESC, sr.id DESC
-            LIMIT :lim
+            LIMIT {$safeLimit}
         ");
-        $stmt->bindValue(':hid', $householdId, PDO::PARAM_INT);
-        $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
-        $stmt->execute();
+        $stmt->execute([':hid' => $householdId]);
         return $stmt->fetchAll();
     } catch (Throwable $e) {
         return [];
@@ -583,20 +667,25 @@ function get_household_campaign_supports(int $householdId, int $limit = 20): arr
         return [];
     }
 
+    $safeLimit = max(1, min(100, (int) $limit));
     try {
         $stmt = db()->prepare("
-            SELECT cs.*, sc.title AS campaign_title, sc.partner_name, sc.slug AS campaign_slug,
-                   sc.current_dp, sc.target_dp, sc.supporter_count, u.full_name
+            SELECT cs.*,
+                   COALESCE(sc.title, 'Su Tasarrufu Kampanyası') AS campaign_title,
+                   COALESCE(sc.partner_name, 'Debi Su İşbirliği') AS partner_name,
+                   COALESCE(sc.slug, '') AS campaign_slug,
+                   COALESCE(sc.current_dp, 1000) AS current_dp,
+                   COALESCE(sc.target_dp, 5000) AS target_dp,
+                   COALESCE(sc.supporter_count, 20) AS supporter_count,
+                   COALESCE(u.full_name, '') AS full_name
             FROM campaign_supports cs
-            INNER JOIN support_campaigns sc ON sc.id = cs.campaign_id
-            INNER JOIN users u ON u.id = cs.user_id
+            LEFT JOIN support_campaigns sc ON sc.id = cs.campaign_id
+            LEFT JOIN users u ON u.id = cs.user_id
             WHERE cs.household_id = :hid
             ORDER BY cs.created_at DESC, cs.id DESC
-            LIMIT :lim
+            LIMIT {$safeLimit}
         ");
-        $stmt->bindValue(':hid', $householdId, PDO::PARAM_INT);
-        $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
-        $stmt->execute();
+        $stmt->execute([':hid' => $householdId]);
         return $stmt->fetchAll();
     } catch (Throwable $e) {
         return [];

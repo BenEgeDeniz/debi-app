@@ -17,10 +17,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $action = (string) ($_POST['action'] ?? '');
 
+        $isAjax = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
+
         if ($action === 'redeem_store_item') {
             $activeTab = 'brands';
             $itemId    = (int) ($_POST['item_id'] ?? 0);
-            $res       = redeem_store_item($currentUser, $itemId);
+            $itemSlug  = trim((string) ($_POST['item_slug'] ?? ''));
+            $res       = redeem_store_item($currentUser, $itemId, $itemSlug);
             if ($res['ok']) {
                 $_SESSION['store_purchase_popup'] = [
                     'brand_name'   => (string) ($res['brand_name'] ?? 'Mağaza'),
@@ -28,23 +31,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'spent_points' => (int) ($res['spent_points'] ?? 30),
                     'coupon_code'  => (string) ($res['coupon_code'] ?? ''),
                 ];
-                set_flash('success', $res['message']);
-                redirect('store.php?tab=brands');
+                if (!$isAjax) {
+                    redirect('store.php?tab=brands');
+                }
+            } else {
+                $error = $res['error'] ?? 'İşlem gerçekleştirilemedi.';
             }
-            $error = $res['error'] ?? 'İşlem gerçekleştirilemedi.';
         } elseif ($action === 'support_campaign') {
             $activeTab       = 'campaigns';
             $campaignId      = (int) ($_POST['campaign_id'] ?? 0);
+            $campaignSlug    = trim((string) ($_POST['campaign_slug'] ?? ''));
             $requestedPoints = (int) ($_POST['support_points'] ?? 50);
-            $res             = support_campaign_with_points($currentUser, $campaignId, $requestedPoints);
+            $res             = support_campaign_with_points($currentUser, $campaignId, $requestedPoints, $campaignSlug);
             if ($res['ok']) {
                 if (!empty($res['certificate']) && is_array($res['certificate'])) {
                     $_SESSION['campaign_certificate_popup'] = $res['certificate'];
                 }
-                set_flash('success', $res['message']);
-                redirect('store.php?tab=campaigns');
+                if (!$isAjax) {
+                    redirect('store.php?tab=campaigns');
+                }
+            } else {
+                $error = $res['error'] ?? 'Kampanya desteği gönderilemedi.';
             }
-            $error = $res['error'] ?? 'Kampanya desteği gönderilemedi.';
         } else {
             $error = 'Geçersiz mağaza işlemi.';
         }
@@ -353,6 +361,7 @@ require_once __DIR__ . '/includes/header.php';
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="action" value="redeem_store_item">
                                     <input type="hidden" name="item_id" value="<?= $itemId ?>">
+                                    <input type="hidden" name="item_slug" value="<?= e($slugKey) ?>">
                                     <button type="submit"
                                             class="store-discount-btn"
                                             title="%<?= $discountPct ?> indirim almak için <?= $costPts ?> DP kullan">
@@ -524,6 +533,7 @@ require_once __DIR__ . '/includes/header.php';
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="action" value="support_campaign">
                                         <input type="hidden" name="campaign_id" value="<?= $campId ?>">
+                                        <input type="hidden" name="campaign_slug" value="<?= e($camp['slug'] ?? '') ?>">
                                         <label class="campaign-dp-input-wrap">
                                             <span>Gönderilecek DP (Min. <?= $minPts ?> DP)</span>
                                             <input type="number"
