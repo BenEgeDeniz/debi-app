@@ -170,6 +170,13 @@ require_once __DIR__ . '/includes/header.php';
                                value="<?= e($_POST['full_name'] ?? '') ?>" placeholder="Örn: Ahmet Yılmaz">
                     </div>
                     <div class="form-group">
+                        <label for="nickname">Nickname</label>
+                        <input type="text" id="nickname" name="nickname" required maxlength="32"
+                               pattern="[A-Za-z0-9_]{3,32}" value="<?= e($_POST['nickname'] ?? '') ?>"
+                               placeholder="Örn: ahmet_34" autocomplete="username">
+                        <small class="field-hint">3-32 karakter: İngilizce harf, rakam veya alt çizgi.</small>
+                    </div>
+                    <div class="form-group">
                         <label for="email">E-posta</label>
                         <input type="email" id="email" name="email" required
                                value="<?= e($_POST['email'] ?? '') ?>" placeholder="ornek@eposta.com">

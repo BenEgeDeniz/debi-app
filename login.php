@@ -10,15 +10,15 @@ if ($currentUser) {
 }
 
 $error = null;
-$email = '';
+$identifier = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf()) {
         $error = 'Oturum doğrulaması başarısız oldu, lütfen tekrar deneyin.';
     } else {
-        $email    = trim($_POST['email'] ?? '');
+        $identifier = trim($_POST['identifier'] ?? '');
         $password = $_POST['password'] ?? '';
-        $result   = login_user($email, $password);
+        $result   = login_user($identifier, $password);
 
         if ($result['ok']) {
             session_regenerate_id(true);
@@ -77,8 +77,8 @@ require_once __DIR__ . '/includes/header.php';
             <?= csrf_field() ?>
 
             <div class="form-group">
-                <label for="email">E-posta Adresi</label>
-                <input type="email" id="email" name="email" value="<?= e($email) ?>" required placeholder="ornek@eposta.com">
+                <label for="identifier">Nickname veya e-posta</label>
+                <input type="text" id="identifier" name="identifier" value="<?= e($identifier) ?>" required placeholder="nickname veya ornek@eposta.com" autocomplete="username">
             </div>
 
             <div class="form-group">

@@ -114,12 +114,16 @@ function register_user(array $input): array
 
     $mode          = trim($input['register_mode'] ?? 'individual');
     $fullName      = trim($input['full_name'] ?? '');
+    $nickname      = mb_strtolower(trim($input['nickname'] ?? ''), 'UTF-8');
     $email         = mb_strtolower(trim($input['email'] ?? ''), 'UTF-8');
     $password      = $input['password'] ?? '';
     $residentCount = max(1, min(20, (int) ($input['resident_count'] ?? 1)));
 
     if (mb_strlen($fullName, 'UTF-8') < 3) {
         return ['ok' => false, 'error' => 'Lütfen adınızı ve soyadınızı eksiksiz girin.'];
+    }
+    if (!preg_match('/^[a-z0-9_]{3,32}$/', $nickname)) {
+        return ['ok' => false, 'error' => 'Nickname 3-32 karakter olmalı; yalnızca İngilizce harf, rakam ve alt çizgi kullanılabilir.'];
     }
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         return ['ok' => false, 'error' => 'Geçerli bir e-posta adresi girin.'];
@@ -128,11 +132,15 @@ function register_user(array $input): array
         return ['ok' => false, 'error' => 'Şifreniz en az 6 karakter olmalıdır.'];
     }
 
-    // E-posta kontrolü
-    $chk = $pdo->prepare("SELECT id FROM users WHERE email = :email LIMIT 1");
-    $chk->execute([':email' => $email]);
-    if ($chk->fetchColumn()) {
+    $emailChk = $pdo->prepare("SELECT id FROM users WHERE email = :email LIMIT 1");
+    $emailChk->execute([':email' => $email]);
+    if ($emailChk->fetchColumn()) {
         return ['ok' => false, 'error' => 'Bu e-posta adresi ile daha önce kayıt olunmuş.'];
+    }
+    $nicknameChk = $pdo->prepare("SELECT id FROM users WHERE nickname = :nickname LIMIT 1");
+    $nicknameChk->execute([':nickname' => $nickname]);
+    if ($nicknameChk->fetchColumn()) {
+        return ['ok' => false, 'error' => 'Bu nickname zaten kullanılıyor. Lütfen başka bir tane seçin.'];
     }
 
     $palette = ['#0284c7', '#15803d', '#0f766e', '#3b5968', '#1e40af', '#8a5a36'];
@@ -284,14 +292,15 @@ function register_user(array $input): array
 
         // Kullanıcı (user) oluştur
         $userStmt = $pdo->prepare("
-            INSERT INTO users (household_id, neighborhood_id, apartment_id, full_name, email, password_hash, role, avatar_color)
-            VALUES (:hid, :nid, :aid, :name, :email, :pass, :role, :color)
+            INSERT INTO users (household_id, neighborhood_id, apartment_id, full_name, nickname, email, password_hash, role, avatar_color)
+            VALUES (:hid, :nid, :aid, :name, :nickname, :email, :pass, :role, :color)
         ");
         $userStmt->execute([
             ':hid'   => $householdId,
             ':nid'   => $neighborhoodId,
             ':aid'   => $apartmentId,
             ':name'  => $fullName,
+            ':nickname' => $nickname,
             ':email' => $email,
             ':pass'  => password_hash($password, PASSWORD_DEFAULT),
             ':role'  => $role,
@@ -327,19 +336,19 @@ function register_user(array $input): array
 /**
  * Kullanıcı Giriş İşlemi
  */
-function login_user(string $email, string $password): array
+function login_user(string $identifier, string $password): array
 {
-    $email = mb_strtolower(trim($email), 'UTF-8');
-    if ($email === '' || $password === '') {
-        return ['ok' => false, 'error' => 'E-posta ve şifre alanları boş bırakılamaz.'];
+    $identifier = mb_strtolower(trim($identifier), 'UTF-8');
+    if ($identifier === '' || $password === '') {
+        return ['ok' => false, 'error' => 'Nickname/e-posta ve şifre alanları boş bırakılamaz.'];
     }
 
-    $stmt = db()->prepare("SELECT id, password_hash FROM users WHERE email = :email LIMIT 1");
-    $stmt->execute([':email' => $email]);
+    $stmt = db()->prepare("SELECT id, password_hash FROM users WHERE email = :email OR nickname = :nickname LIMIT 1");
+    $stmt->execute([':email' => $identifier, ':nickname' => $identifier]);
     $user = $stmt->fetch();
 
     if (!$user || !password_verify($password, $user['password_hash'])) {
-        return ['ok' => false, 'error' => 'E-posta adresi veya şifre hatalı.'];
+        return ['ok' => false, 'error' => 'Nickname/e-posta veya şifre hatalı.'];
     }
 
     return ['ok' => true, 'user_id' => (int) $user['id']];
