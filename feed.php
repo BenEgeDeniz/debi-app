@@ -12,7 +12,7 @@ $isDetachedHome = ($currentUser['housing_type'] ?? '') === 'detached_house' && e
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf()) {
         set_flash('error', 'Güvenlik doğrulaması başarısız oldu.');
-        redirect('index.php');
+        redirect('feed.php');
     }
 
     $action    = $_POST['action'] ?? '';
@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             set_flash('error', $res['error']);
         }
-        redirect('index.php?scope=' . urlencode($returnTab));
+        redirect('feed.php?scope=' . urlencode($returnTab));
     }
 
     if ($action === 'toggle_reaction') {
@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
         }
-        redirect('index.php?scope=' . urlencode($returnTab) . '#post-' . $postId);
+        redirect('feed.php?scope=' . urlencode($returnTab) . '#post-' . $postId);
     }
 
     if ($action === 'add_comment') {
@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 set_flash('error', $res['error']);
             }
         }
-        redirect('index.php?scope=' . urlencode($returnTab) . '#post-' . $postId);
+        redirect('feed.php?scope=' . urlencode($returnTab) . '#post-' . $postId);
     }
 
     if ($action === 'delete_post') {
@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($postId > 0 && delete_post($postId, $currentUser)) {
             set_flash('success', 'Paylaşım silindi.');
         }
-        redirect('index.php?scope=' . urlencode($returnTab));
+        redirect('feed.php?scope=' . urlencode($returnTab));
     }
 }
 
@@ -115,7 +115,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </div>
 
-            <form method="post" action="index.php" class="composer-form" enctype="multipart/form-data">
+            <form method="post" action="feed.php" class="composer-form" enctype="multipart/form-data">
                 <?= csrf_field() ?>
                 <input type="hidden" name="action" value="create_post">
                 <input type="hidden" name="return_scope" value="<?= e($scope) ?>">
@@ -157,15 +157,15 @@ require_once __DIR__ . '/includes/header.php';
         <!-- Akış Sekmeleri (Arkadaşlar / Apartmanım / Genel Debi) -->
         <div class="feed-tabs-bar">
             <div class="feed-tabs <?= $isDetachedHome ? 'feed-tabs-2' : '' ?>">
-                <a href="index.php?scope=friends" class="feed-tab <?= $scope === 'friends' ? 'active' : '' ?>">
+                <a href="feed.php?scope=friends" class="feed-tab <?= $scope === 'friends' ? 'active' : '' ?>">
                     <span>Arkadaşlar</span>
                 </a>
                 <?php if (!$isDetachedHome): ?>
-                    <a href="index.php?scope=apartment" class="feed-tab <?= $scope === 'apartment' ? 'active' : '' ?>">
+                    <a href="feed.php?scope=apartment" class="feed-tab <?= $scope === 'apartment' ? 'active' : '' ?>">
                         <span><?= !empty($currentUser['apartment_name']) ? e($currentUser['apartment_name']) : 'Apartman' ?></span>
                     </a>
                 <?php endif; ?>
-                <a href="index.php?scope=public" class="feed-tab <?= $scope === 'public' ? 'active' : '' ?>">
+                <a href="feed.php?scope=public" class="feed-tab <?= $scope === 'public' ? 'active' : '' ?>">
                     <span>Genel</span>
                 </a>
             </div>
@@ -185,7 +185,7 @@ require_once __DIR__ . '/includes/header.php';
                         <h3>Henüz paylaşım yok</h3>
                         <div class="action-row" style="margin-top: 10px;">
                             <a href="friends.php" class="btn btn-primary btn-sm">+ Arkadaş Ekle</a>
-                            <a href="index.php?scope=public" class="btn btn-outline btn-sm">Genel Akış</a>
+                            <a href="feed.php?scope=public" class="btn btn-outline btn-sm">Genel Akış</a>
                         </div>
                     <?php else: ?>
                         <h3>Henüz paylaşım yok</h3>
@@ -230,7 +230,7 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
 
                             <div class="post-footer">
-                                <form method="post" action="index.php" class="reaction-form" data-post-id="<?= (int) $post['id'] ?>">
+                                <form method="post" action="feed.php" class="reaction-form" data-post-id="<?= (int) $post['id'] ?>">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="action" value="toggle_reaction">
                                     <input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>">
@@ -246,7 +246,7 @@ require_once __DIR__ . '/includes/header.php';
                                 </a>
 
                                 <?php if ((int) $post['user_id'] === (int) $currentUser['id'] || ($currentUser['role'] === 'manager' && !empty($currentUser['apartment_id']) && (int) $post['apartment_id'] === (int) $currentUser['apartment_id'])): ?>
-                                    <form method="post" action="index.php" class="delete-post-form" onsubmit="return confirm('Bu paylaşımı silmek istediğinize emin misiniz?');">
+                                    <form method="post" action="feed.php" class="delete-post-form" onsubmit="return confirm('Bu paylaşımı silmek istediğinize emin misiniz?');">
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="action" value="delete_post">
                                         <input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>">
