@@ -1785,7 +1785,7 @@ a.timeline-meta-item:hover {
 }
 
 .comment-thread-arrow {
-    font-size: .95rem;
+    font-size: .8rem;
     line-height: 1;
     transition: transform .2s ease;
 }
