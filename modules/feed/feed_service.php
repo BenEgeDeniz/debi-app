@@ -292,28 +292,29 @@ function fetch_posts_with_comments(PDO $pdo, string $whereSql, array $params): a
         $post['comments'] = add_comment_depths($commentsByPost[(int) $post['id']] ?? []);
     }
 
-    function add_comment_depths(array $comments): array
-    {
-        $byParent = [];
-        foreach ($comments as $comment) {
-            $parentId = (int) ($comment['parent_comment_id'] ?? 0);
-            $byParent[$parentId][] = $comment;
-        }
-
-        $result = [];
-        $visit = function (int $parentId, int $depth) use (&$visit, &$result, $byParent): void {
-            foreach ($byParent[$parentId] ?? [] as $comment) {
-                $comment['depth'] = min($depth, 8);
-                $result[] = $comment;
-                $visit((int) $comment['id'], $depth + 1);
-            }
-        };
-        $visit(0, 0);
-        return $result;
-    }
     unset($post);
 
     return $posts;
+}
+
+function add_comment_depths(array $comments): array
+{
+    $byParent = [];
+    foreach ($comments as $comment) {
+        $parentId = (int) ($comment['parent_comment_id'] ?? 0);
+        $byParent[$parentId][] = $comment;
+    }
+
+    $result = [];
+    $visit = function (int $parentId, int $depth) use (&$visit, &$result, $byParent): void {
+        foreach ($byParent[$parentId] ?? [] as $comment) {
+            $comment['depth'] = min($depth, 8);
+            $result[] = $comment;
+            $visit((int) $comment['id'], $depth + 1);
+        }
+    };
+    $visit(0, 0);
+    return $result;
 }
 
 /**
