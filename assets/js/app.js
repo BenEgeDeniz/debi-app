@@ -303,7 +303,9 @@ document.addEventListener('DOMContentLoaded', function () {
             toggle.innerHTML = '<span class="comment-thread-label"></span><span class="comment-thread-arrow" aria-hidden="true"></span>';
             toggle.querySelector('.comment-thread-label').textContent = toggle.dataset.replyLabel;
             toggle.setAttribute('aria-expanded', 'false');
-            toggle.addEventListener('click', function () {
+            toggle.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
                 const shouldOpen = descendants.some(function (item) {
                     return item.classList.contains('comment-thread-collapsed');
                 });
@@ -323,7 +325,13 @@ document.addEventListener('DOMContentLoaded', function () {
             } else if (content) {
                 content.appendChild(toggle);
             }
-            setRootOpen(root, root.dataset.commentId === savedRootId);
+        });
+
+        const savedRoot = roots.find(function (root) {
+            return root.dataset.commentId === savedRootId;
+        }) || null;
+        roots.forEach(function (root) {
+            setRootOpen(root, root === savedRoot);
         });
 
         items.forEach(function (item) {
@@ -368,6 +376,14 @@ document.addEventListener('DOMContentLoaded', function () {
                         unitInput.disabled = !isMatch;
                     }
                 });
+            });
+        });
+
+        document.querySelectorAll('.comment-form [name="comment_content"]').forEach(function (input) {
+            input.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter' && !event.isComposing) {
+                    event.stopPropagation();
+                }
             });
         });
     }
