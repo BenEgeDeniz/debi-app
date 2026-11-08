@@ -68,7 +68,7 @@ $defaultStorePhotos = [
     'ekoakis-perlator'     => 'assets/store/ekoakis-perlator.jpg',
 ];
 
-$pageTitle = 'Mağaza — Debi';
+$pageTitle = 'Mağazalar ve Kampanyalar — Debi';
 $activeNav = 'store';
 require_once __DIR__ . '/includes/header.php';
 ?>
@@ -89,9 +89,13 @@ require_once __DIR__ . '/includes/header.php';
             </div>
         <?php endif; ?>
 
-        <!-- Üst Seçim Kartı: Yan Yana 2 Seçenek (Alt Başlıksız, Özel İkonlu) -->
+        <!-- Üst Seçim Kartı: Başlık ve Yan Yana 2 Seçenek -->
         <section class="panel-card store-hero-card">
-            <div class="store-choice-grid" role="tablist" aria-label="Mağaza Seçenekleri">
+            <div class="panel-card-header" style="margin-bottom: 12px;">
+                <h1 class="section-title">Mağazalar ve Kampanyalar</h1>
+            </div>
+
+            <div class="store-choice-grid" role="tablist" aria-label="Mağazalar ve Kampanyalar Seçenekleri">
                 <button type="button"
                         class="store-choice-btn js-store-tab-btn <?= $activeTab === 'brands' ? 'active' : '' ?>"
                         data-store-tab="brands"

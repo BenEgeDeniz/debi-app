@@ -47,9 +47,9 @@ if (!empty($currentUser)) {
 
             <?php if (!empty($currentUser)): ?>
                 <div class="topbar-user">
-                    <a href="store.php" class="topbar-drop-pill" title="Puan Kullanım &amp; Mağaza sayfasına git">
+                    <a href="store.php" class="topbar-drop-pill" title="Mağazalar ve Kampanyalar sayfasına git">
                         <span class="topbar-drop-icon">💧</span>
-                        <span class="topbar-drop-count"><?= number_format($headerPondDrops, 0, ',', '.') ?> Puan · Mağaza</span>
+                        <span class="topbar-drop-count"><?= number_format($headerPondDrops, 0, ',', '.') ?> DP</span>
                     </a>
 
                     <?php if ($pendingFriendCnt > 0): ?>
