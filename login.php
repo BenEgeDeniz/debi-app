@@ -6,7 +6,7 @@ require_once __DIR__ . '/includes/init.php';
 require_once __DIR__ . '/modules/auth/auth_service.php';
 
 if ($currentUser) {
-    redirect('index.php');
+    redirect('feed.php');
 }
 
 $error = null;
@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($result['ok']) {
             session_regenerate_id(true);
             $_SESSION['user_id'] = $result['user_id'];
-            redirect('index.php');
+            redirect('feed.php');
         } else {
             $error = $result['error'];
         }

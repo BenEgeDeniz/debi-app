@@ -1,0 +1,559 @@
+<?php
+/**
+ * DEBI - Mahalle ve Topluluk Etkinlikleri
+ * Tasarım Odaklı, Modern Arayüz & İmece Dayanışması
+ */
+require_once __DIR__ . '/includes/init.php';
+require_once __DIR__ . '/modules/events/event_ai_service.php';
+require_once __DIR__ . '/modules/events/event_service.php';
+
+$currentUser = require_login();
+$error = null;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verify_csrf()) {
+        $error = 'Güvenlik doğrulaması başarısız oldu.';
+    } else {
+        $action = $_POST['action'] ?? '';
+        $eventId = (int) ($_POST['event_id'] ?? 0);
+        if ($action === 'join_event') {
+            $result = join_event($currentUser, $eventId);
+        } elseif ($action === 'leave_event') {
+            $result = leave_event($currentUser, $eventId);
+        } elseif ($action === 'mark_attendance') {
+            $result = mark_event_attendance($currentUser, $eventId, (array) ($_POST['attendee_ids'] ?? []));
+        } elseif ($action === 'finish_event') {
+            $result = finish_event($currentUser, $eventId);
+        } elseif ($action === 'upload_event_photo') {
+            $result = upload_event_photo($currentUser, $eventId, $_FILES['event_photo'] ?? []);
+        } else {
+            $result = ['ok' => false, 'error' => 'Geçersiz etkinlik işlemi.'];
+        }
+
+        if ($result['ok']) {
+            set_flash('success', $result['message']);
+            redirect('events.php');
+        }
+        $error = $result['error'];
+    }
+}
+
+$events = [];
+try {
+    $events = get_events_for_user($currentUser);
+} catch (RuntimeException $e) {
+    $error = $e->getMessage();
+}
+$sections = categorize_events_for_user($events);
+
+// Yönetilen etkinliklerin yoklama katılımcıları
+$managedAttendees = [];
+foreach ($events as $event) {
+    if ((int) $event['creator_id'] === (int) $currentUser['id']) {
+        $managedAttendees[(int) $event['id']] = get_event_attendees($currentUser, (int) $event['id']);
+    }
+}
+
+// İstatistik sayaçları
+$countActive = count($sections['active']);
+$countAttending = count($sections['attending']);
+$countAvailable = count($sections['available']);
+$countPast = count($sections['past']);
+$totalUserPoints = 0;
+foreach ($events as $ev) {
+    if (!empty($ev['attendee_status']) && $ev['attendee_status'] === 'attended' && ($ev['photo_status'] ?? '') === 'approved') {
+        $totalUserPoints += (int) $ev['points'];
+    }
+}
+
+function render_event_card(array $event, array $currentUser, array $managedAttendees): void
+{
+    $isCreator = (int) $event['creator_id'] === (int) $currentUser['id'];
+    $isAttendee = !empty($event['attendee_status']);
+    $needsPhoto = $event['ended'] && !$event['cancelled'] && $event['attendee_status'] === 'attended' && $event['photo_status'] !== 'approved';
+    $isOngoing = $event['started'] && !$event['ended'] && !$event['cancelled'];
+
+    $cardClasses = ['event-card-modern'];
+    if ($isCreator) $cardClasses[] = 'is-creator';
+    if ($isOngoing) $cardClasses[] = 'is-active-ongoing';
+    if ($event['ended']) $cardClasses[] = 'is-ended';
+
+    $categoryScope = $event['scope'] === 'public' ? 'public' : 'neighborhood';
+    ?>
+    <article class="<?= implode(' ', $cardClasses) ?>"
+             data-event-id="<?= (int) $event['id'] ?>"
+             data-scope="<?= e($categoryScope) ?>"
+             data-title="<?= e(mb_strtolower($event['title'], 'UTF-8')) ?>"
+             data-location="<?= e(mb_strtolower($event['location'], 'UTF-8')) ?>">
+
+        <!-- Üst Bilgi Satırı (Etiketler ve Puan Rozeti) -->
+        <div class="event-card-top-row">
+            <div>
+                <div class="event-pills-row">
+                    <!-- Kapsam Rozeti -->
+                    <span class="event-scope-pill <?= $event['scope'] === 'public' ? 'scope-public' : 'scope-neighborhood' ?>">
+                        <?= $event['scope'] === 'public' ? '🌐 Genel Debi' : '🏘️ Mahallem' ?>
+                    </span>
+
+                    <!-- Durum Rozeti -->
+                    <?php if ($event['cancelled']): ?>
+                        <span class="event-status-pill status-cancelled">❌ İptal Edildi</span>
+                    <?php elseif ($isOngoing): ?>
+                        <span class="event-status-pill status-ongoing">
+                            <span class="pulse-dot"></span>
+                            <span>Canlı Devam Ediyor</span>
+                        </span>
+                    <?php elseif ($event['ended']): ?>
+                        <span class="event-status-pill status-past">Sona Erdi</span>
+                    <?php else: ?>
+                        <span class="event-status-pill status-upcoming">⏳ Yaklaşıyor</span>
+                    <?php endif; ?>
+
+                    <?php if ($isCreator): ?>
+                        <span class="tag tag-manager" style="font-size:0.72rem;">👑 Sizin Etkinliğiniz</span>
+                    <?php elseif ($isAttendee): ?>
+                        <span class="tag" style="background:var(--brand-green-bg); color:var(--brand-green-dark); border-color:#86efac; font-size:0.72rem;">✓ Kayıtlısınız</span>
+                    <?php endif; ?>
+                </div>
+
+                <h3 class="event-card-title"><?= e($event['title']) ?></h3>
+            </div>
+
+            <!-- Debi Puan Rozeti -->
+            <div class="event-points-badge" title="Etkinlik Katılım Puanı">
+                <strong>+<?= (int) $event['points'] ?></strong>
+                <span>💧 DP</span>
+            </div>
+        </div>
+
+        <!-- Oluşturan Kullanıcı Satırı -->
+        <div class="event-creator-row">
+            <a href="profile.php?id=<?= (int) $event['creator_id'] ?>" style="display:flex; align-items:center; gap:8px;">
+                <?= render_avatar([
+                    'full_name'    => $event['creator_name'],
+                    'avatar_color' => $event['creator_avatar_color'] ?? '#0284c7',
+                    'avatar_photo' => $event['creator_avatar_photo'] ?? null,
+                ], 'avatar-xs') ?>
+                <span><?= e($event['creator_name']) ?></span>
+            </a>
+            <?php if (!empty($event['creator_nickname'])): ?>
+                <span class="event-creator-tag">@<?= e($event['creator_nickname']) ?></span>
+            <?php endif; ?>
+        </div>
+
+        <!-- Etkinlik Ayrıntı Çipleri (Tarih, Saat, Konum, Katılımcı) -->
+        <div class="event-details-chips">
+            <div class="event-chip-item" title="Etkinlik Tarihi">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span><?= e(format_date_tr($event['event_date'], false)) ?></span>
+            </div>
+
+            <div class="event-chip-item" title="Başlama Saati">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span><?= e(substr($event['start_time'], 0, 5)) ?></span>
+            </div>
+
+            <div class="event-chip-item" title="Buluşma Yeri">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                <span><?= e($event['location']) ?></span>
+            </div>
+
+            <div class="event-chip-item" title="Toplam Katılımcı">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span><?= (int) $event['attendee_count'] ?> Katılımcı</span>
+            </div>
+        </div>
+
+        <!-- Etkinlik Açıklaması -->
+        <div class="event-card-desc">
+            <?= nl2br(e($event['description'])) ?>
+        </div>
+
+        <!-- Yapay Zeka (Gemini) Değerlendirme Kutusu -->
+        <div class="event-ai-reason-box">
+            <div class="event-ai-reason-header">
+                <span>✨</span>
+                <strong>Gemini Yapay Zeka Puan Gerekçesi</strong>
+            </div>
+            <p><?= e($event['points_reason']) ?></p>
+            <?php if (!empty($event['criteria_sources'])): ?>
+                <small style="display:block; margin-top:5px; color:var(--text-muted);">
+                    Kaynak: <?= e(str_replace('criteria.json', 'Bilimsel çevre kriterleri', (string) $event['criteria_sources'])) ?>
+                </small>
+            <?php endif; ?>
+        </div>
+
+        <!-- Katılım ve Eylem Alanı -->
+        <div class="event-action-bar-modern">
+            <div class="event-attendee-preview-row">
+                <span><?= (int) $event['attendee_count'] ?> komşu katılıyor</span>
+            </div>
+
+            <div class="event-action-buttons">
+                <?php if (!$isCreator && !$isAttendee && !$event['started'] && !$event['ended']): ?>
+                    <form method="post" style="display:inline-block;">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="join_event">
+                        <input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>">
+                        <button type="submit" class="btn btn-primary btn-sm">🙋‍♂️ Etkinliğe Katıl</button>
+                    </form>
+                <?php elseif (!$isCreator && !$isAttendee && $event['ended']): ?>
+                    <span class="muted-text" style="font-size:0.84rem;">Etkinlik sona erdi</span>
+                <?php elseif ($isAttendee): ?>
+                    <?php if (!$isCreator && !$event['started'] && !$event['ended'] && !$event['cancelled']): ?>
+                        <form method="post" style="display:inline-block;" onsubmit="return confirm('Katılımınızı geri çekmek istediğinize emin misiniz?');">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="action" value="leave_event">
+                            <input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>">
+                            <button type="submit" class="btn btn-outline btn-sm">Katılımı Geri Çek</button>
+                        </form>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <!-- Katılımcı Durumu & Fotoğraf Yükleme / Onaylama Bölümü -->
+        <?php if ($isAttendee): ?>
+            <div class="event-participation" style="margin-top:14px; background:#f8fafc; border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:14px;">
+                <div style="font-size:0.88rem; font-weight:700; color:var(--text-secondary); margin-bottom:8px;">
+                    <?php if ($event['cancelled']): ?>
+                        <span style="color:var(--brand-danger-dark);">⚠️ Etkinlik başlama süresinde yoklama alınmadığı için iptal edildi.</span>
+                    <?php elseif ($isCreator): ?>
+                        <span>👑 Etkinliği siz oluşturdunuz; katılımınız otomatik olarak onaylandı.</span>
+                    <?php elseif ($event['attendee_status'] === 'attended'): ?>
+                        <span style="color:var(--brand-green-dark);">✅ Yoklamada katıldığınız onaylandı!</span>
+                    <?php elseif ($event['ended']): ?>
+                        <span style="color:var(--brand-danger-dark);">Etkinlik sona erdi; yoklamada bulunmadığınız kaydedildi.</span>
+                    <?php else: ?>
+                        <span>⏳ Katılımınız kayıtlı; etkinlik saatinde yoklama bekleniyor.</span>
+                    <?php endif; ?>
+                </div>
+
+                <?php if ($needsPhoto): ?>
+                    <div style="background:#ffffff; border:1px solid #bae6fd; border-radius:var(--radius-sm); padding:14px; margin-top:8px;">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                            <span style="font-size:1.1rem;">📸</span>
+                            <strong style="color:var(--brand-primary-dark); font-size:0.92rem;">Katılım Fotoğrafını Yükleyin</strong>
+                        </div>
+                        <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">
+                            Etkinlik tamamlandı! Debi Puanınızı (+<?= (int) $event['points'] ?> DP) kazanmak için etkinlik anından bir fotoğraf yükleyin. Gemini AI fotoğrafı doğruladığında puanınız otomatik yüklenecektir.
+                        </p>
+                        <form method="post" enctype="multipart/form-data" class="event-photo-form event-photo-drop-form">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="action" value="upload_event_photo">
+                            <input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>">
+                            <label class="event-photo-dropzone" style="display:block; cursor:pointer;">
+                                <input type="file" name="event_photo" accept="image/jpeg,image/png,image/webp" required style="display:none;" onchange="this.closest('form').querySelector('.event-photo-file-name').textContent = this.files[0] ? this.files[0].name : 'Fotoğraf seçildi';">
+                                <div style="display:flex; align-items:center; gap:12px; padding:12px; background:var(--bg-subtle); border:2px dashed #bae6fd; border-radius:var(--radius-sm);">
+                                    <span style="font-size:1.4rem;">📷</span>
+                                    <div>
+                                        <strong style="display:block; font-size:0.86rem; color:var(--text-main);">Fotoğraf Seçin veya Sürükleyin</strong>
+                                        <span class="event-photo-file-name" style="font-size:0.75rem; color:var(--text-muted);">JPG, PNG veya WebP (Maksimum 8 MB)</span>
+                                    </div>
+                                </div>
+                            </label>
+                            <button type="submit" class="btn btn-primary btn-sm" style="margin-top:10px;">Fotoğrafı Yükle ve Doğrula</button>
+                        </form>
+                    </div>
+                <?php elseif ($event['photo_status'] === 'approved'): ?>
+                    <div style="display:inline-flex; align-items:center; gap:8px; padding:6px 12px; background:var(--brand-green-bg); color:var(--brand-green-dark); border-radius:var(--radius-pill); font-size:0.82rem; font-weight:800; border:1px solid #86efac; margin-top:6px;">
+                        <span>🎉</span>
+                        <span>Fotoğraf doğrulandı, +<?= (int) $event['points'] ?> DP hanenize eklendi!</span>
+                    </div>
+                <?php elseif ($event['attendee_status'] === 'attended' && !$event['ended']): ?>
+                    <span class="form-help" style="font-size:0.8rem; color:var(--text-muted);">Etkinlik bitirildiğinde fotoğraf yükleme alanı açılacaktır.</span>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+
+        <!-- Oluşturucu Yönetim Paneli (Yoklama & Bitirme) -->
+        <?php if ($isCreator && $event['started'] && !$event['ended']): ?>
+            <div class="event-attendance" style="margin-top:18px; border:1px solid #bae6fd; background:#f0f9ff; border-radius:var(--radius-sm); padding:16px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+                    <div>
+                        <h4 style="margin:0; font-size:1.05rem; font-weight:800; color:var(--brand-primary-dark);">📋 Katılımcı Yoklaması</h4>
+                        <small style="color:var(--text-muted);">Yalnızca etkinliğe gerçekten katılan kişileri işaretleyin.</small>
+                    </div>
+
+                    <form method="post" onsubmit="return confirm('Etkinliği bitirmek istediğinize emin misiniz? Yoklama kilitlenecek ve katılımcılar fotoğraf yükleyebilecektir.');">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="finish_event">
+                        <input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>">
+                        <button type="submit" class="btn btn-primary btn-sm">🏁 Etkinliği Bitir</button>
+                    </form>
+                </div>
+
+                <form method="post">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="mark_attendance">
+                    <input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>">
+
+                    <div class="event-attendee-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+                        <?php foreach ($managedAttendees[(int) $event['id']] ?? [] as $attendee): ?>
+                            <label class="event-attendee-option" style="display:flex; align-items:center; gap:10px; background:#ffffff; border:1px solid var(--border-color); padding:8px 12px; border-radius:var(--radius-sm); cursor:pointer;">
+                                <input type="checkbox" name="attendee_ids[]" value="<?= (int) $attendee['user_id'] ?>"
+                                       <?= $attendee['user_id'] == $currentUser['id'] || $attendee['status'] === 'attended' ? 'checked' : '' ?>
+                                       <?= $attendee['user_id'] == $currentUser['id'] ? 'disabled' : '' ?>>
+                                <?= render_avatar([
+                                    'full_name'    => $attendee['full_name'],
+                                    'avatar_color' => $attendee['avatar_color'] ?? '#0284c7',
+                                    'avatar_photo' => $attendee['avatar_photo'] ?? null,
+                                ], 'avatar-xs') ?>
+                                <span style="font-weight:700; font-size:0.88rem;">
+                                    <?= e($attendee['full_name']) ?>
+                                    <?= $attendee['user_id'] == $currentUser['id'] ? ' (Oluşturan)' : '' ?>
+                                </span>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <button type="submit" class="btn btn-outline btn-sm">Yoklamayı Kaydet</button>
+                </form>
+            </div>
+        <?php endif; ?>
+
+    </article>
+    <?php
+}
+
+$pageTitle = 'Etkinlikler & İmece — Debi';
+$activeNav = 'events';
+require_once __DIR__ . '/includes/header.php';
+?>
+
+<div class="app-shell app-shell-2col">
+    <?php require_once __DIR__ . '/includes/sidebar_left.php'; ?>
+
+    <main class="main-column">
+
+        <!-- ETKİNLİKLER HERO KARTI -->
+        <section class="events-hero-card">
+            <div class="events-hero-top">
+                <div>
+                    <div class="events-hero-kicker">
+                        <span>💧</span>
+                        <span>MAHALLE &amp; İMECE DAYANIŞMASI</span>
+                    </div>
+                    <h1 class="events-hero-title">Etkinlikler ve Topluluk Çalışmaları</h1>
+                    <p class="events-hero-sub">
+                        Mahallenizdeki fiziksel çevre ve tasarruf imecelerine katılın, komşularınızla buluşun, AI onaylı fotoğrafınızla <strong>Debi Puanı (DP)</strong> kazanın.
+                    </p>
+                </div>
+                <div style="flex-shrink:0;">
+                    <a href="create_event.php" class="btn btn-primary" style="white-space:nowrap;">
+                        <span>➕ Yeni Etkinlik Başlat</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- İstatistik Rozetleri -->
+            <div class="events-hero-stats">
+                <div class="events-stat-pill">
+                    <div class="events-stat-icon">⚡</div>
+                    <div class="events-stat-meta">
+                        <strong><?= $countActive ?></strong>
+                        <span>Devam Eden / Öncelikli</span>
+                    </div>
+                </div>
+
+                <div class="events-stat-pill">
+                    <div class="events-stat-icon">🙋‍♂️</div>
+                    <div class="events-stat-meta">
+                        <strong><?= $countAttending ?></strong>
+                        <span>Katılacağım</span>
+                    </div>
+                </div>
+
+                <div class="events-stat-pill">
+                    <div class="events-stat-icon">🧭</div>
+                    <div class="events-stat-meta">
+                        <strong><?= $countAvailable ?></strong>
+                        <span>Keşfedilecek</span>
+                    </div>
+                </div>
+
+                <div class="events-stat-pill">
+                    <div class="events-stat-icon">💧</div>
+                    <div class="events-stat-meta">
+                        <strong><?= $totalUserPoints ?> DP</strong>
+                        <span>Kazanılan Puan</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <?php if ($error): ?>
+            <div class="alert alert-error" style="margin-bottom:16px;">
+                <span><?= e($error) ?></span>
+            </div>
+        <?php endif; ?>
+
+        <!-- FİLTRELEME & ARAMA ÇUBUĞU -->
+        <div class="events-filter-bar">
+            <!-- Durum Sekmeleri -->
+            <div class="events-filter-tabs" role="tablist">
+                <button type="button" class="events-tab-link active" data-tab-filter="all">
+                    <span>Tümü</span>
+                    <span class="badge-count"><?= count($events) ?></span>
+                </button>
+                <button type="button" class="events-tab-link" data-tab-filter="active">
+                    <span>Devam Eden &amp; Öncelikli</span>
+                    <span class="badge-count"><?= $countActive ?></span>
+                </button>
+                <button type="button" class="events-tab-link" data-tab-filter="attending">
+                    <span>Katılacaklarım</span>
+                    <span class="badge-count"><?= $countAttending ?></span>
+                </button>
+                <button type="button" class="events-tab-link" data-tab-filter="available">
+                    <span>Keşfet</span>
+                    <span class="badge-count"><?= $countAvailable ?></span>
+                </button>
+                <button type="button" class="events-tab-link" data-tab-filter="past">
+                    <span>Geçmiş</span>
+                    <span class="badge-count"><?= $countPast ?></span>
+                </button>
+            </div>
+
+            <!-- Kapsam & Canlı Arama -->
+            <div class="events-search-wrap">
+                <select id="eventsScopeSelect" class="composer-scope-select" style="padding:6px 12px; font-size:0.82rem; font-weight:700;">
+                    <option value="all">Tüm Kapsamlar</option>
+                    <option value="neighborhood">Sadece Mahallem</option>
+                    <option value="public">Genel Debi</option>
+                </select>
+
+                <input type="text" id="eventsSearchInput" class="events-search-input" placeholder="Etkinlik veya yer ara...">
+            </div>
+        </div>
+
+        <!-- ETKİNLİK LİSTESİ KONTEYNERİ -->
+        <div id="eventsContainer" class="event-list">
+            <?php if (empty($events)): ?>
+                <div class="panel-card empty-state-card">
+                    <h3>Henüz etkinlik bulunmuyor</h3>
+                    <p>Mahallenizde veya Genel Debi'de ilk fiziksel çevre imecesini siz başlatabilirsiniz.</p>
+                    <div style="margin-top:14px;">
+                        <a href="create_event.php" class="btn btn-primary btn-sm">➕ İlk Etkinliği Oluştur</a>
+                    </div>
+                </div>
+            <?php else: ?>
+                <!-- Tüm Etkinlik Kartları Kategorize Veri Öznitelikleri ile Basılır -->
+                <?php
+                // Öncelik sıralaması: Aktif -> Katılacaklarım -> Katılabileceklerim -> Geçmiş
+                $orderedList = array_merge(
+                    $sections['active'],
+                    $sections['attending'],
+                    $sections['available'],
+                    $sections['past']
+                );
+                // Tekilleştirme
+                $seenIds = [];
+                $uniqueEvents = [];
+                foreach ($orderedList as $ev) {
+                    if (!isset($seenIds[$ev['id']])) {
+                        $seenIds[$ev['id']] = true;
+                        $uniqueEvents[] = $ev;
+                    }
+                }
+
+                foreach ($uniqueEvents as $event):
+                    // Hangi sekme grubunda yer aldığını belirle
+                    $sectionType = 'available';
+                    if (in_array($event, $sections['active'], true)) {
+                        $sectionType = 'active';
+                    } elseif (in_array($event, $sections['attending'], true)) {
+                        $sectionType = 'attending';
+                    } elseif (in_array($event, $sections['past'], true)) {
+                        $sectionType = 'past';
+                    }
+                ?>
+                    <div class="event-item-wrapper" data-section-type="<?= e($sectionType) ?>">
+                        <?php render_event_card($event, $currentUser, $managedAttendees); ?>
+                    </div>
+                <?php endforeach; ?>
+
+                <div id="noEventsMatchNotice" class="panel-card empty-state-card" style="display:none;">
+                    <h3>Eşleşen etkinlik bulunamadı</h3>
+                    <p>Arama veya filtre kriterlerinize uyan bir etkinlik yok. Filtreleri temizleyebilirsiniz.</p>
+                </div>
+            <?php endif; ?>
+        </div>
+
+    </main>
+</div>
+
+<script>
+(() => {
+    const tabs = document.querySelectorAll('[data-tab-filter]');
+    const scopeSelect = document.getElementById('eventsScopeSelect');
+    const searchInput = document.getElementById('eventsSearchInput');
+    const wrappers = document.querySelectorAll('.event-item-wrapper');
+    const emptyNotice = document.getElementById('noEventsMatchNotice');
+
+    let currentTab = 'all';
+    let currentScope = 'all';
+    let searchQuery = '';
+
+    function filterEvents() {
+        let visibleCount = 0;
+
+        wrappers.forEach(wrapper => {
+            const card = wrapper.querySelector('.event-card-modern');
+            if (!card) return;
+
+            const sectionType = wrapper.dataset.sectionType;
+            const scope = card.dataset.scope;
+            const title = card.dataset.title || '';
+            const location = card.dataset.location || '';
+
+            // Sekme Filtresi
+            let matchTab = (currentTab === 'all') || (sectionType === currentTab);
+
+            // Kapsam Filtresi
+            let matchScope = (currentScope === 'all') || (scope === currentScope);
+
+            // Arama Filtresi
+            let matchSearch = true;
+            if (searchQuery !== '') {
+                matchSearch = title.includes(searchQuery) || location.includes(searchQuery);
+            }
+
+            if (matchTab && matchScope && matchSearch) {
+                wrapper.style.display = 'block';
+                visibleCount++;
+            } else {
+                wrapper.style.display = 'none';
+            }
+        });
+
+        if (emptyNotice) {
+            emptyNotice.style.display = (visibleCount === 0 && wrappers.length > 0) ? 'block' : 'none';
+        }
+    }
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentTab = tab.dataset.tabFilter;
+            filterEvents();
+        });
+    });
+
+    if (scopeSelect) {
+        scopeSelect.addEventListener('change', (e) => {
+            currentScope = e.target.value;
+            filterEvents();
+        });
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            searchQuery = e.target.value.trim().toLowerCase();
+            filterEvents();
+        });
+    }
+})();
+</script>
+
+<?php require_once __DIR__ . '/includes/footer.php'; ?>

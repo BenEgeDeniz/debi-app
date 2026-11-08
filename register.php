@@ -9,7 +9,7 @@ require_once __DIR__ . '/includes/init.php';
 require_once __DIR__ . '/modules/auth/auth_service.php';
 
 if ($currentUser) {
-    redirect('index.php');
+    redirect('feed.php');
 }
 
 $inviteLookup = null;
@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             session_regenerate_id(true);
             $_SESSION['user_id'] = $res['user_id'];
             set_flash('success', 'Debi ağına hoş geldiniz! Hane ve mahalle bağlantınız oluşturuldu.');
-            redirect('index.php');
+            redirect('feed.php');
         } else {
             $error = $res['error'];
         }

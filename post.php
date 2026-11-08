@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $post = get_single_feed_post($postId, $currentUser);
 if (!$post) {
     set_flash('error', 'Bu paylaşım bulunamadı veya görüntüleme yetkiniz yok.');
-    redirect('index.php');
+    redirect('feed.php');
 }
 
 if (!empty($_GET['notification'])) {

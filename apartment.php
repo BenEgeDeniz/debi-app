@@ -14,7 +14,7 @@ $isUnitManager = is_unit_manager($currentUser);
 
 // Müstakil ev kullanıcıları apartmana katılamaz veya apartman oluşturamaz
 if (empty($currentUser['apartment_id']) && ($currentUser['housing_type'] ?? '') === 'detached_house') {
-    redirect('index.php');
+    redirect('feed.php');
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

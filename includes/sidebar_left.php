@@ -25,7 +25,7 @@ if (!empty($currentUser)) {
 ?>
 <aside class="sidebar-left">
     <nav class="side-nav" aria-label="Ana Menü">
-        <a href="index.php" class="side-nav-link <?= $activeNav === 'feed' ? 'active' : '' ?>">
+        <a href="feed.php" class="side-nav-link <?= $activeNav === 'feed' ? 'active' : '' ?>">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             <span>Akış</span>
         </a>
@@ -81,7 +81,7 @@ if (!empty($currentUser)) {
 
 <!-- Mobil Alt Sabit Menü -->
 <nav class="mobile-bottom-nav <?= $isDetachedHome ? 'mobile-nav-4' : '' ?>" aria-label="Mobil Menü">
-    <a href="index.php" class="mobile-nav-item <?= $activeNav === 'feed' ? 'active' : '' ?>">
+    <a href="feed.php" class="mobile-nav-item <?= $activeNav === 'feed' ? 'active' : '' ?>">
         <span>Akış</span>
     </a>
     <a href="friends.php" class="mobile-nav-item <?= $activeNav === 'friends' ? 'active' : '' ?>">

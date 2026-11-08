@@ -18,7 +18,7 @@ if ($requestedId <= 0) {
 $profileUser = get_user_public_profile($requestedId);
 if (!$profileUser) {
     set_flash('error', 'Aradığınız kullanıcı profili bulunamadı.');
-    redirect('index.php');
+    redirect('feed.php');
 }
 
 $isOwnProfile = ((int) $profileUser['id'] === (int) $currentUser['id']);

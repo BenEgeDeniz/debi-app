@@ -79,7 +79,7 @@ if (!empty($currentUser)) {
     <header class="topbar">
         <div class="topbar-inner">
             <div class="brand-group">
-                <a href="index.php" class="brand-logo">
+                <a href="<?= !empty($currentUser) ? 'feed.php' : 'index.php' ?>" class="brand-logo">
                     <?= render_brand_logo('brand-mascot') ?>
                     <div class="brand-text">
                         <span class="brand-mark">debi</span>

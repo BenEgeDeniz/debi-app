@@ -58,6 +58,7 @@ function get_events_for_user(array $user): array
     try {
         $stmt = db()->prepare("
         SELECT e.*, u.full_name AS creator_name, u.nickname AS creator_nickname,
+               u.avatar_color AS creator_avatar_color, u.avatar_photo AS creator_avatar_photo,
                ea.status AS attendee_status, ep.ai_status AS photo_status,
                EXISTS (
                    SELECT 1
@@ -281,7 +282,7 @@ function mark_event_attendance(array $user, int $eventId, array $attendeeIds): a
 
 function get_event_attendees(array $user, int $eventId): array
 {
-    $stmt = db()->prepare("SELECT ea.*, u.full_name FROM event_attendees ea INNER JOIN users u ON u.id = ea.user_id INNER JOIN events e ON e.id = ea.event_id WHERE ea.event_id = :eid AND e.creator_id = :uid ORDER BY u.full_name");
+    $stmt = db()->prepare("SELECT ea.*, u.full_name, u.avatar_color, u.avatar_photo, u.nickname FROM event_attendees ea INNER JOIN users u ON u.id = ea.user_id INNER JOIN events e ON e.id = ea.event_id WHERE ea.event_id = :eid AND e.creator_id = :uid ORDER BY u.full_name");
     $stmt->execute([':eid' => $eventId, ':uid' => (int) $user['id']]);
     return $stmt->fetchAll();
 }
