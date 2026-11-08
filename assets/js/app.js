@@ -31,7 +31,8 @@ document.addEventListener('DOMContentLoaded', function () {
         let usersByScope = null;
         try {
             usersByScope = JSON.parse(field.getAttribute('data-mention-users-by-scope') || 'null');
-            users = JSON.parse(field.getAttribute('data-mention-users') || '[]');
+            const parsedUsers = JSON.parse(field.getAttribute('data-mention-users') || '[]');
+            users = Array.isArray(parsedUsers) ? parsedUsers : Object.values(parsedUsers || {});
         } catch (error) {
             users = [];
         }
@@ -70,7 +71,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = 'mention-suggestion' + (index === 0 ? ' is-active' : '');
-                button.innerHTML = '<strong>' + user.full_name.replace(/[&<>"']/g, '') + '</strong> · @' + user.nickname;
+                button.dataset.nickname = user.nickname;
+                const name = document.createElement('strong');
+                name.textContent = user.full_name || user.nickname;
+                button.appendChild(name);
+                button.appendChild(document.createTextNode(' · @' + user.nickname));
                 button.addEventListener('mousedown', function (event) {
                     event.preventDefault();
                     choose(user);
@@ -95,8 +100,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 options.forEach(function (option, index) { option.classList.toggle('is-active', index === activeIndex); });
             } else if (event.key === 'Enter' || event.key === 'Tab') {
                 event.preventDefault();
+                const selectedNickname = options[activeIndex]?.dataset.nickname;
                 const usersByNickname = users.find(function (user) {
-                    return '@' + user.nickname === options[activeIndex].textContent.split(' · ')[1];
+                    return user.nickname === selectedNickname;
                 });
                 if (usersByNickname) choose(usersByNickname);
             } else if (event.key === 'Escape') {

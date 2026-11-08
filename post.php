@@ -47,7 +47,7 @@ if (!empty($_GET['notification'])) {
 
 $pageTitle = 'Paylaşım — Debi';
 $activeNav = 'feed';
-$taggableUsers = get_taggable_users($currentUser, $post['visibility']);
+$taggableUsers = array_values(get_taggable_users($currentUser, $post['visibility']));
 require_once __DIR__ . '/includes/header.php';
 ?>
 <div class="app-shell">
@@ -106,8 +106,8 @@ require_once __DIR__ . '/includes/header.php';
                 <form method="post" action="post.php?id=<?= (int) $post['id'] ?>" class="comment-form">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="add_comment">
-                    <div class="mention-field" data-mention-users="<?= e(json_encode($taggableUsers, JSON_UNESCAPED_UNICODE)) ?>">
-                        <input type="text" name="comment_content" required placeholder="Yorum yazın...">
+                    <div class="mention-field" data-mention-users="<?= e(json_encode($taggableUsers, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)) ?>">
+                        <input type="text" name="comment_content" autocomplete="off" required placeholder="Yorum yazın...">
                         <div class="mention-suggestions" hidden></div>
                     </div>
                     <button type="submit" class="btn btn-outline btn-sm">Gönder</button>
