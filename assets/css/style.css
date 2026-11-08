@@ -3263,6 +3263,13 @@ a.timeline-meta-item:hover {
     gap: 8px;
 }
 
+.leaderboard-scroll {
+    max-height: 312px;
+    overflow-y: auto;
+    padding-right: 4px;
+    scrollbar-width: thin;
+}
+
 .leaderboard-page-list .leaderboard-item {
     min-height: 52px;
     padding: 10px 12px;
@@ -3288,6 +3295,33 @@ a.timeline-meta-item:hover {
 
 .leaderboard-empty {
     padding: 16px 0 4px;
+}
+
+.leaderboard-search {
+    position: relative;
+    margin: -4px 0 20px;
+}
+
+.leaderboard-search label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+
+.leaderboard-search input {
+    width: 100%;
+    max-width: 560px;
+}
+
+.leaderboard-search-status {
+    display: block;
+    min-height: 18px;
+    margin-top: 5px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
 }
 
 @media (max-width: 700px) {

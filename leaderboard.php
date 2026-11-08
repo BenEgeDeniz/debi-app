@@ -23,7 +23,7 @@ function render_leaderboard_rows(array $rows, string $type, array $currentUser):
         return;
     }
     ?>
-    <ol class="leaderboard-list leaderboard-page-list">
+    <ol class="leaderboard-list leaderboard-page-list leaderboard-scroll">
         <?php foreach ($rows as $idx => $row): ?>
             <?php
             $isMe = $type === 'friends' && (int) $row['user_id'] === (int) $currentUser['id'];
@@ -31,7 +31,7 @@ function render_leaderboard_rows(array $rows, string $type, array $currentUser):
             $isMyApt = $type === 'general' && !empty($currentUser['apartment_id'])
                 && (int) $row['apartment_id'] === (int) $currentUser['apartment_id'];
             ?>
-            <li class="leaderboard-item <?= ($isMe || $isMyUnit || $isMyApt) ? 'leaderboard-me' : '' ?>">
+            <li class="leaderboard-item <?= ($isMe || $isMyUnit || $isMyApt) ? 'leaderboard-me' : '' ?>" data-leaderboard-row>
                 <span class="rank-num"><?= $idx + 1 ?></span>
                 <div class="rank-info">
                     <div class="rank-name">
@@ -69,20 +69,15 @@ require_once __DIR__ . '/includes/header.php';
     <main class="main-column leaderboard-page">
         <div class="page-heading-row">
             <div>
-                <span class="eyebrow">Debi Göleti</span>
                 <h1 class="page-title">Puan Sıralaması</h1>
                 <p class="page-subtitle">Hanelerin biriktirdiği damlaları arkadaş, apartman ve genel ölçekte karşılaştır.</p>
             </div>
         </div>
-
-        <section class="leaderboard-hero panel-card">
-            <div>
-                <span class="leaderboard-hero-kicker">Ortak hane puanı</span>
-                <h2>Her damla aynı gölete akar.</h2>
-                <p>Bir hanedeki sakinlerin ve yöneticinin katkıları ortak bakiyede birleşir. Sıralamalar kişi değil, hane ve apartman katkısını gösterir.</p>
-            </div>
-            <a href="water.php" class="btn btn-primary">Damla kazanmaya git</a>
-        </section>
+        <div class="leaderboard-search">
+            <label for="leaderboardSearch">Sıralamalarda ara</label>
+            <input type="search" id="leaderboardSearch" class="form-control" placeholder="İsim, daire veya apartman ara..." autocomplete="off">
+            <span class="leaderboard-search-status" aria-live="polite"></span>
+        </div>
 
         <section class="leaderboard-page-grid">
             <article class="panel-card leaderboard-board">

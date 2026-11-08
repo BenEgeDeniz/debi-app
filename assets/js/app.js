@@ -1088,6 +1088,29 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // 12b. Ayrı sıralama sayfasında istemci tarafı arama
+    const leaderboardSearch = document.getElementById('leaderboardSearch');
+    if (leaderboardSearch) {
+        const leaderboardRows = document.querySelectorAll('[data-leaderboard-row]');
+        const searchStatus = document.querySelector('.leaderboard-search-status');
+        leaderboardSearch.addEventListener('input', function () {
+            const query = leaderboardSearch.value.trim().toLocaleLowerCase('tr-TR');
+            let visibleCount = 0;
+            leaderboardRows.forEach(function (row) {
+                const matches = !query || row.textContent.toLocaleLowerCase('tr-TR').includes(query);
+                row.hidden = !matches;
+                if (matches) {
+                    visibleCount += 1;
+                }
+            });
+            if (searchStatus) {
+                searchStatus.textContent = query
+                    ? (visibleCount + ' sonuç gösteriliyor.')
+                    : 'Her kategoride ilk 5 kayıt görünür; devamını kaydırarak inceleyebilirsin.';
+            }
+        });
+    }
+
     // 13. Mağazalar ve Kampanyalar: Navbar DP Kıyaslaması, Yetersiz Puan Pop-up'ı, Satın Alım Onay Pop-up'ı ve Kupon Kopyalama
     let pendingStoreForm = null;
 
