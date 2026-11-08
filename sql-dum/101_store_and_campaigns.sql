@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS `store_redemptions` (
   `spent_points` int(10) UNSIGNED NOT NULL DEFAULT 30,
   `discount_pct` tinyint(3) UNSIGNED NOT NULL DEFAULT 30,
   `coupon_code` varchar(40) NOT NULL,
+  `is_used` tinyint(1) NOT NULL DEFAULT 0,
+  `used_at` datetime DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_store_redemptions_user` (`user_id`),
@@ -37,6 +39,7 @@ CREATE TABLE IF NOT EXISTS `support_campaigns` (
   `partner_name` varchar(140) NOT NULL,
   `title` varchar(180) NOT NULL,
   `description` text NOT NULL,
+  `image_path` varchar(255) DEFAULT NULL,
   `min_points` int(10) UNSIGNED NOT NULL DEFAULT 50,
   `target_dp` int(10) UNSIGNED NOT NULL DEFAULT 5000,
   `current_dp` int(10) UNSIGNED NOT NULL DEFAULT 1250,
@@ -74,13 +77,14 @@ ON DUPLICATE KEY UPDATE
   `cost_points` = VALUES(`cost_points`),
   `sort_order` = VALUES(`sort_order`);
 
-INSERT INTO `support_campaigns` (`slug`, `partner_name`, `title`, `description`, `min_points`, `target_dp`, `current_dp`, `supporter_count`, `sort_order`) VALUES
-('okul-cesmeleri-tasarruf-donusumu', 'Yeşil Okullar & Belediye Su İşbirliği', 'Mahalle Okullarında Tasarruflu Musluk & Gri Su Dönüşüm Kampanyası', 'Okullardaki muslukların tasarruflu başlıklarla dönüştürülmesi ve gri su geri kazanım altyapısının kurulması için puanlarınızla destek olabilirsiniz.', 50, 3500, 950, 19, 1),
-('kuruyan-gollere-can-suyu', 'Debi & Doğa Su Vakfı İşbirliği', 'Anlaşmalı Kuruyan Göllere ve Havzalara Can Suyu Kampanyası', 'Kuruma tehdidi altındaki yerel göl ve su havzalarının korunması ve ekosistem restorasyonu için puanlarınızla destek gönderebilirsiniz.', 50, 5000, 1450, 29, 2)
+INSERT INTO `support_campaigns` (`slug`, `partner_name`, `title`, `description`, `image_path`, `min_points`, `target_dp`, `current_dp`, `supporter_count`, `sort_order`) VALUES
+('okul-cesmeleri-tasarruf-donusumu', 'Yeşil Okullar & İlçe Milli Eğitim Su İşbirliği', 'Mahallemizdeki Okullarda Tasarruflu Musluk & Gri Su Dönüşüm Kampanyası', 'Mahallemizde bulunan ilkokul, ortaokul ve liselerdeki okul lavabolarının perlatörlü musluklarla dönüştürülmesi ve yağmur/gri su geri kazanım ünitesi kurulması saha uygulamasıdır.', 'assets/store/campaign-school.jpg', 50, 3500, 950, 19, 1),
+('kuruyan-gollere-can-suyu', 'Debi & Burdur Gölü Havza Koruma Vakfı', 'Burdur Gölü ve Havzasına Can Suyu Kampanyası', 'Kuruma tehlikesi yaşayan Burdur Gölü havzasındaki tarım arazilerinde damla sulamaya geçiş sağlanarak göl suyunun yerinde korunması ve göle doğrudan can suyu aktarılması saha projesidir.', 'assets/store/campaign-lake.jpg', 50, 5000, 1450, 29, 2)
 ON DUPLICATE KEY UPDATE
   `partner_name` = VALUES(`partner_name`),
   `title` = VALUES(`title`),
   `description` = VALUES(`description`),
+  `image_path` = VALUES(`image_path`),
   `min_points` = VALUES(`min_points`),
   `target_dp` = VALUES(`target_dp`),
   `sort_order` = VALUES(`sort_order`);

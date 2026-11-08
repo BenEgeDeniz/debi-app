@@ -47,6 +47,18 @@ function ensure_store_schema(): void
         } catch (Throwable $e) {
         }
         try {
+            $pdo->exec("ALTER TABLE store_redemptions ADD COLUMN is_used TINYINT(1) NOT NULL DEFAULT 0 AFTER coupon_code");
+        } catch (Throwable $e) {
+        }
+        try {
+            $pdo->exec("ALTER TABLE store_redemptions ADD COLUMN used_at DATETIME DEFAULT NULL AFTER is_used");
+        } catch (Throwable $e) {
+        }
+        try {
+            $pdo->exec("ALTER TABLE support_campaigns ADD COLUMN image_path VARCHAR(255) DEFAULT NULL AFTER description");
+        } catch (Throwable $e) {
+        }
+        try {
             $pdo->exec("ALTER TABLE support_campaigns ADD COLUMN min_points INT UNSIGNED NOT NULL DEFAULT 50");
         } catch (Throwable $e) {
         }
@@ -59,7 +71,7 @@ function ensure_store_schema(): void
         } catch (Throwable $e) {
         }
 
-        // İndirim oranı = Harcanacak DP kuralını ve görsel yollarını tüm mağaza ürünlerinde senkronize et
+        // İndirim oranı = Harcanacak DP kuralını ve görsel yollarını senkronize et
         try {
             $pdo->exec("DELETE FROM store_items WHERE slug IN ('biodamla-eko-deterjan', 'cam-fincan-ekokafe', 'yesil-damla-roastery', 'aquapure-konsantre-deterjan', 'ekoakis-perlator-magaza')");
             $pdo->exec("UPDATE store_items SET cost_points = discount_pct");
@@ -68,6 +80,8 @@ function ensure_store_schema(): void
             $pdo->exec("UPDATE store_items SET image_path = 'assets/store/aquapure-deterjan.jpg' WHERE slug = 'aquapure-deterjan'");
             $pdo->exec("UPDATE store_items SET image_path = 'assets/store/ekoakis-perlator.jpg' WHERE slug = 'ekoakis-perlator'");
             $pdo->exec("DELETE FROM support_campaigns WHERE slug NOT IN ('okul-cesmeleri-tasarruf-donusumu', 'kuruyan-gollere-can-suyu')");
+            $pdo->exec("UPDATE support_campaigns SET image_path = 'assets/store/campaign-school.jpg', title = 'Mahallemizdeki Okullarda Tasarruflu Musluk & Gri Su Dönüşüm Kampanyası', partner_name = 'Yeşil Okullar & İlçe Milli Eğitim Su İşbirliği' WHERE slug = 'okul-cesmeleri-tasarruf-donusumu'");
+            $pdo->exec("UPDATE support_campaigns SET image_path = 'assets/store/campaign-lake.jpg', title = 'Burdur Gölü ve Havzasına Can Suyu Kampanyası', partner_name = 'Debi & Burdur Gölü Havza Koruma Vakfı', description = 'Kuruma tehlikesi yaşayan Burdur Gölü havzasındaki tarım arazilerinde damla sulamaya geçiş sağlanarak göl suyunun yerinde korunması ve göle doğrudan can suyu aktarılması saha projesidir.' WHERE slug = 'kuruyan-gollere-can-suyu'");
         } catch (Throwable $e) {
         }
     } catch (Throwable $e) {
@@ -98,7 +112,6 @@ function get_store_wallet_balance(array $user): int
 
 /**
  * Yeşil Markalarla Harcama Yapma — Alt Alta Mağaza Kartlarını Listeler
- * Kural: %X İndirim için X DP harcanır (%30 -> 30 DP, %50 -> 50 DP, %10 -> 10 DP, %15 -> 15 DP)
  */
 function get_active_store_items(): array
 {
@@ -173,9 +186,9 @@ function get_active_store_items(): array
 }
 
 /**
- * Anlaşmalı Kampanyaya Destek Olma — 2 Kampanyayı Listeler
+ * Anlaşmalı Kampanyaya Destek Olma — 2 Spesifik Kampanyayı Listeler
  */
-function get_active_support_campaigns(): array
+function get_active_support_campaigns(?array $user = null): array
 {
     ensure_store_schema();
 
@@ -198,9 +211,10 @@ function get_active_support_campaigns(): array
             [
                 'id'              => 1,
                 'slug'            => 'okul-cesmeleri-tasarruf-donusumu',
-                'partner_name'    => 'Yeşil Okullar & Belediye Su İşbirliği',
-                'title'           => 'Mahalle Okullarında Tasarruflu Musluk & Gri Su Dönüşüm Kampanyası',
-                'description'     => 'Okullardaki muslukların tasarruflu başlıklarla dönüştürülmesi ve gri su geri kazanım altyapısının kurulması için puanlarınızla destek olabilirsiniz.',
+                'partner_name'    => 'Yeşil Okullar & İlçe Milli Eğitim Su İşbirliği',
+                'title'           => 'Mahallemizdeki Okullarda Tasarruflu Musluk & Gri Su Dönüşüm Kampanyası',
+                'description'     => 'Mahallemizde bulunan ilkokul, ortaokul ve liselerdeki okul lavabolarının perlatörlü musluklarla dönüştürülmesi ve yağmur/gri su geri kazanım ünitesi kurulması saha uygulamasıdır.',
+                'image_path'      => 'assets/store/campaign-school.jpg',
                 'min_points'      => 50,
                 'target_dp'       => 3500,
                 'current_dp'      => 950,
@@ -209,9 +223,10 @@ function get_active_support_campaigns(): array
             [
                 'id'              => 2,
                 'slug'            => 'kuruyan-gollere-can-suyu',
-                'partner_name'    => 'Debi & Doğa Su Vakfı İşbirliği',
-                'title'           => 'Anlaşmalı Kuruyan Göllere ve Havzalara Can Suyu Kampanyası',
-                'description'     => 'Kuruma tehdidi altındaki yerel göl ve su havzalarının korunması ve ekosistem restorasyonu için puanlarınızla destek gönderebilirsiniz.',
+                'partner_name'    => 'Debi & Burdur Gölü Havza Koruma Vakfı',
+                'title'           => 'Burdur Gölü ve Havzasına Can Suyu Kampanyası',
+                'description'     => 'Kuruma tehlikesi yaşayan Burdur Gölü havzasındaki tarım arazilerinde damla sulamaya geçiş sağlanarak göl suyunun yerinde korunması ve göle doğrudan can suyu aktarılması saha projesidir.',
+                'image_path'      => 'assets/store/campaign-lake.jpg',
                 'min_points'      => 50,
                 'target_dp'       => 5000,
                 'current_dp'      => 1450,
@@ -220,13 +235,38 @@ function get_active_support_campaigns(): array
         ];
     }
 
+    $districtName     = trim((string) ($user['neighborhood_district'] ?? 'Kadıköy'));
+    $neighborhoodName = trim((string) ($user['neighborhood_name'] ?? 'Moda Mah.'));
+    $localAreaLabel   = $districtName !== '' ? "{$districtName} · {$neighborhoodName}" : $neighborhoodName;
+
     foreach ($rows as &$row) {
+        $slug    = (string) ($row['slug'] ?? '');
         $target  = max(1, (int) ($row['target_dp'] ?? $row['target_contrib_amount'] ?? 5000));
         $current = max(0, (int) ($row['current_dp'] ?? $row['current_contrib_amount'] ?? 0));
         $row['target_dp']    = $target;
         $row['current_dp']   = $current;
         $row['min_points']   = max(50, (int) ($row['min_points'] ?? $row['cost_points'] ?? 50));
         $row['progress_pct'] = min(100, round(($current / $target) * 100, 1));
+
+        if ($slug === 'okul-cesmeleri-tasarruf-donusumu') {
+            $row['image_path']  = $row['image_path'] ?: 'assets/store/campaign-school.jpg';
+            $row['title']       = "{$neighborhoodName} Okullarında Tasarruflu Musluk & Gri Su Dönüşüm Kampanyası";
+            $row['scope_title'] = "Saha Uygulama Kapsamı: {$localAreaLabel} Devlet Okulları";
+            $row['scope_items'] = [
+                "{$neighborhoodName} İlkokulu & Ortaokulu: 42 lavabo musluğuna %50 tasarruflu perlatör montajı",
+                "{$districtName} Anadolu Lisesi: Bahçe sulaması için 5 tonluk yağmur ve gri su hasadı deposu kurulumu",
+                "Saha Ziyareti & Uygulama Takvimi: Hedef puana ulaşıldığında mahalle gönüllüleri ve teknik ekip ile yerinde montaj uygulaması gerçekleştirilir.",
+            ];
+        } else {
+            $row['image_path']  = $row['image_path'] ?: 'assets/store/campaign-lake.jpg';
+            $row['title']       = 'Burdur Gölü ve Havzasına Can Suyu Kampanyası';
+            $row['scope_title'] = 'Saha Uygulama Kapsamı: Burdur Gölü Kapalı Havzası';
+            $row['scope_items'] = [
+                'Burdur Gölü Kıyı Köyleri (Karakent & İlyas): Yem bitkisi tarlalarında vahşi sulamadan kapalı damla sulama hattına dönüşüm',
+                'Göl Besleme Dereleri: Buharlaşma kaybını azaltan su iletim hatları ile göle doğrudan can suyu salımı',
+                'Saha Ziyareti & Uygulama Takvimi: Dönemsel saha gezileriyle kurulan damla sulama parselleri ve göl su seviyesi yerinde incelenir.',
+            ];
+        }
     }
     unset($row);
 
@@ -235,7 +275,6 @@ function get_active_support_campaigns(): array
 
 /**
  * Yeşil Mağaza Ürününde %X İndirim İçin X DP Harcama İşlemi
- * (%30 İndirim -> 30 DP, %50 İndirim -> 50 DP, %10 İndirim -> 10 DP, %15 İndirim -> 15 DP)
  */
 function redeem_store_item(array $user, int $itemId): array
 {
@@ -287,8 +326,8 @@ function redeem_store_item(array $user, int $itemId): array
         }
 
         $insRedeem = $pdo->prepare("
-            INSERT INTO store_redemptions (user_id, household_id, store_item_id, spent_points, discount_pct, coupon_code)
-            VALUES (:uid, :hid, :iid, :pts, :disc, :code)
+            INSERT INTO store_redemptions (user_id, household_id, store_item_id, spent_points, discount_pct, coupon_code, is_used)
+            VALUES (:uid, :hid, :iid, :pts, :disc, :code, 0)
         ");
         $insRedeem->execute([
             ':uid'  => $userId,
@@ -299,7 +338,7 @@ function redeem_store_item(array $user, int $itemId): array
             ':code' => $couponCode,
         ]);
 
-        $desc = "🌿 {$item['brand_name']}: %{$discountPct} indirim kuponu alındı (-{$costPoints} DP · {$couponCode})";
+        $desc = "🌿 {$item['brand_name']}: %{$discountPct} indirim kuponu oluşturuldu (-{$costPoints} DP · {$couponCode})";
         $insLog = $pdo->prepare("
             INSERT INTO point_logs (user_id, household_id, action_code, points, description, ref_key)
             VALUES (:uid, :hid, 'store_redeem', :pts, :desc, :rkey)
@@ -317,13 +356,40 @@ function redeem_store_item(array $user, int $itemId): array
         return [
             'ok'          => true,
             'coupon_code' => $couponCode,
-            'message'     => "Tebrikler! {$costPoints} DP harcayarak \"{$item['brand_name']}\" mağazasında %{$discountPct} indirim kullandınız. Kupon Kodunuz: {$couponCode}",
+            'message'     => "Tebrikler! {$costPoints} DP harcayarak \"{$item['brand_name']}\" mağazasında %{$discountPct} aktif indirim kuponu aldınız. Kupon Kodunuz: {$couponCode}",
         ];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
         return ['ok' => false, 'error' => 'Mağaza puan harcama işlemi sırasında bir hata oluştu.'];
+    }
+}
+
+/**
+ * Aktif Kuponu "Kullanıldı" Olarak İşaretleme
+ */
+function mark_store_coupon_used(array $user, int $redemptionId): array
+{
+    ensure_store_schema();
+    $householdId = (int) ($user['household_id'] ?? 0);
+    if ($householdId <= 0 || $redemptionId <= 0) {
+        return ['ok' => false, 'error' => 'Geçersiz kupon seçimi.'];
+    }
+
+    try {
+        $stmt = db()->prepare("
+            UPDATE store_redemptions
+            SET is_used = 1, used_at = NOW()
+            WHERE id = :id AND household_id = :hid AND is_used = 0
+        ");
+        $stmt->execute([':id' => $redemptionId, ':hid' => $householdId]);
+        if ($stmt->rowCount() < 1) {
+            return ['ok' => false, 'error' => 'Kupon bulunamadı veya daha önce kullanılmış.'];
+        }
+        return ['ok' => true, 'message' => 'Kupon kullanıldı olarak işaretlendi ve geçmişe taşındı.'];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Kupon durumu güncellenemedi.'];
     }
 }
 
@@ -433,9 +499,9 @@ function support_campaign_with_points(array $user, int $campaignId, int $request
 }
 
 /**
- * Hanenin Yeşil Mağaza Kullanım / Harcama Geçmişi
+ * Hanenin Yeşil Mağaza Kuponları ve Harcama Geçmişi
  */
-function get_household_store_redemptions(int $householdId, int $limit = 12): array
+function get_household_store_redemptions(int $householdId, int $limit = 20): array
 {
     ensure_store_schema();
     if ($householdId <= 0) {
@@ -462,9 +528,9 @@ function get_household_store_redemptions(int $householdId, int $limit = 12): arr
 }
 
 /**
- * Hanenin Gönderdiği Anlaşmalı Kampanya Destekleri Geçmişi
+ * Hanenin Katkıda Bulunduğu Anlaşmalı Kampanyalar Listesi
  */
-function get_household_campaign_supports(int $householdId, int $limit = 12): array
+function get_household_campaign_supports(int $householdId, int $limit = 20): array
 {
     ensure_store_schema();
     if ($householdId <= 0) {
@@ -473,7 +539,7 @@ function get_household_campaign_supports(int $householdId, int $limit = 12): arr
 
     try {
         $stmt = db()->prepare("
-            SELECT cs.*, sc.title AS campaign_title, sc.partner_name, u.full_name
+            SELECT cs.*, sc.title AS campaign_title, sc.partner_name, sc.slug AS campaign_slug, u.full_name
             FROM campaign_supports cs
             INNER JOIN support_campaigns sc ON sc.id = cs.campaign_id
             INNER JOIN users u ON u.id = cs.user_id
