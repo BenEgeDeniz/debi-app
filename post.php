@@ -28,6 +28,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             (int) ($_POST['parent_comment_id'] ?? 0)
         );
         if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+            $result['avatar_html'] = render_avatar($currentUser, 'avatar-xs');
+            $result['created_label'] = time_ago(date('Y-m-d H:i:s'));
+            $result['content_html'] = render_mention_content($result['content']);
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode($result, JSON_UNESCAPED_UNICODE);
             exit;
@@ -59,7 +62,7 @@ require_once __DIR__ . '/includes/header.php';
 <div class="app-shell">
     <?php require_once __DIR__ . '/includes/sidebar_left.php'; ?>
     <main class="main-column">
-        <div class="page-back-row"><a href="index.php" class="btn btn-outline btn-sm">← Akışa dön</a></div>
+        <div class="page-back-row"><a href="feed.php" class="btn btn-outline btn-sm">← Akışa dön</a></div>
         <article class="panel-card post-card post-single" id="post-<?= (int) $post['id'] ?>">
             <div class="post-header">
                 <div class="post-author-group">

@@ -442,6 +442,9 @@ function add_post_comment(array $user, int $postId, string $content, array $tagg
         'comment_id' => $commentId,
         'parent_comment_id' => $parentCommentId,
         'content' => $content,
+        'user_id' => (int) $user['id'],
+        'full_name' => (string) ($user['full_name'] ?? ''),
+        'nickname' => (string) ($user['nickname'] ?? ''),
         'points_awarded' => $pts,
     ];
 }
