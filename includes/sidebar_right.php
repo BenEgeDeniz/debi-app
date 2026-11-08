@@ -4,10 +4,19 @@
  */
 require_once __DIR__ . '/../modules/water/water_service.php';
 require_once __DIR__ . '/../modules/community/community_service.php';
+require_once __DIR__ . '/../modules/gamification/gamification_service.php';
 
 $quickWater    = $currentUser ? get_quick_water_summary($currentUser) : null;
 $pondAnalytics = $currentUser ? get_household_water_analytics($currentUser) : null;
 $incomingReqs  = $currentUser ? get_incoming_friend_requests((int) $currentUser['id']) : [];
+$pointBreakdown = $currentUser ? get_household_point_breakdown(
+    (int) ($currentUser['household_id'] ?? 0),
+    (int) ($currentUser['id'] ?? 0)
+) : [
+    'total' => 0,
+    'user' => 0,
+    'household' => 0,
+];
 
 ?>
 <aside class="sidebar-right">
@@ -60,6 +69,14 @@ $incomingReqs  = $currentUser ? get_incoming_friend_requests((int) $currentUser[
                     </div>
                     <div class="progress-track" style="height: 9px;">
                         <div class="progress-fill fill-green" style="width: <?= min(100, max(3, $sidePct)) ?>%;"></div>
+                    </div>
+                    <div class="pond-points-summary">
+                        <strong>Şimdiye kadar kazanılan toplam DP</strong>
+                        <strong><?= number_format($pointBreakdown['total'], 0, ',', '.') ?> DP</strong>
+                        <div class="pond-points-breakdown">
+                            <span>Siz: <?= number_format($pointBreakdown['user'], 0, ',', '.') ?> DP</span>
+                            <span>Hane katkısı: <?= number_format($pointBreakdown['household'], 0, ',', '.') ?> DP</span>
+                        </div>
                     </div>
                 </div>
             </div>

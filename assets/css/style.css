@@ -3095,6 +3095,30 @@ a.timeline-meta-item:hover {
     background-color: var(--brand-green);
 }
 
+.pond-points-summary {
+    display: grid;
+    gap: 5px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 0.74rem;
+}
+
+.pond-points-summary > strong:last-of-type {
+    color: var(--brand-green-dark);
+    font-size: 1rem;
+}
+
+.pond-points-breakdown {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
 .lb-switch-tabs {
     display: flex;
     background-color: var(--bg-subtle);
