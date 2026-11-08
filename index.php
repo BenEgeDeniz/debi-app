@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $postId  = (int) ($_POST['post_id'] ?? 0);
         $content = $_POST['comment_content'] ?? '';
         if ($postId > 0) {
-            $res = add_post_comment($postId, (int) $currentUser['id'], $content);
+            $res = add_post_comment($currentUser, $postId, $content, (array) ($_POST['tagged_user_ids'] ?? []));
             if (!$res['ok']) {
                 set_flash('error', $res['error']);
             }
@@ -73,6 +73,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $scope = $_GET['scope'] ?? 'friends';
 if (!in_array($scope, ['friends', 'apartment', 'public'], true)) {
     $scope = 'friends';
+}
+$taggableUsers = get_taggable_users($currentUser, $scope);
+$taggableByVisibility = [];
+foreach (['friends', 'apartment', 'public'] as $tagScope) {
+    $taggableByVisibility[$tagScope] = get_taggable_users($currentUser, $tagScope);
 }
 // Müstakil ev kullanıcılarının apartman akışı yoktur; yalnızca Arkadaşlar ve Genel Debi vardır
 if ($isDetachedHome && $scope === 'apartment') {
@@ -118,6 +123,13 @@ require_once __DIR__ . '/includes/header.php';
 
                 <textarea name="content" rows="2" required
                           placeholder="Neler oluyor? Tasarruf ipucunu veya faturanı paylaş..."></textarea>
+                <select name="tagged_user_ids[]" multiple class="mention-picker" aria-label="Kişileri etiketle" data-mention-scope>
+                    <?php foreach ($taggableByVisibility as $mentionScope => $mentionUsers): ?>
+                        <?php foreach ($mentionUsers as $tagUser): ?>
+                            <option value="<?= (int) $tagUser['id'] ?>" data-mention-visibility="<?= e($mentionScope) ?>" <?= $mentionScope !== $scope ? 'hidden' : '' ?>>@<?= e($tagUser['nickname']) ?> — <?= e($tagUser['full_name']) ?></option>
+                        <?php endforeach; ?>
+                    <?php endforeach; ?>
+                </select>
 
                 <div class="composer-bar-clean">
                     <div class="composer-bar-left">
@@ -282,6 +294,11 @@ require_once __DIR__ . '/includes/header.php';
                                     <input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>">
                                     <input type="hidden" name="return_scope" value="<?= e($scope) ?>">
                                     <input type="text" name="comment_content" required placeholder="Yorum yazın...">
+                                    <select name="tagged_user_ids[]" multiple class="mention-picker" aria-label="Yorumda kişileri etiketle">
+                                        <?php foreach ($taggableByVisibility[$post['visibility']] ?? [] as $tagUser): ?>
+                                            <option value="<?= (int) $tagUser['id'] ?>">@<?= e($tagUser['nickname']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
                                     <button type="submit" class="btn btn-outline btn-sm">Gönder</button>
                                 </form>
                             </div>

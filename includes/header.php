@@ -6,9 +6,25 @@
 $pageTitle        = $pageTitle ?? 'Debi — Su Tasarrufu Sosyal Ağı';
 $activeNav        = $activeNav ?? 'feed';
 $flash            = get_flash();
+if (!function_exists('count_unread_notifications')) {
+    $feedServicePath = __DIR__ . '/../modules/feed/feed_service.php';
+    if (is_file($feedServicePath)) {
+        require_once $feedServicePath;
+    }
+}
 $pendingFriendCnt = !empty($currentUser) && function_exists('count_incoming_friend_requests')
     ? count_incoming_friend_requests((int) $currentUser['id'])
     : 0;
+$unreadNotificationCnt = 0;
+if (!empty($currentUser)) {
+    try {
+        if (function_exists('count_unread_notifications')) {
+            $unreadNotificationCnt = count_unread_notifications((int) $currentUser['id']);
+        }
+    } catch (Throwable $e) {
+        $unreadNotificationCnt = 0;
+    }
+}
 $headerPondDrops  = 0;
 $headerPondPct    = 0.0;
 if (!empty($currentUser)) {
@@ -56,6 +72,9 @@ if (!empty($currentUser)) {
                         <a href="friends.php" class="topbar-notif-pill" title="Gelen Arkadaşlık İstekleri">
                             <span><?= $pendingFriendCnt ?> yeni istek</span>
                         </a>
+                    <?php endif; ?>
+                    <?php if ($unreadNotificationCnt > 0): ?>
+                        <a href="notifications.php" class="topbar-notif-pill" title="Bildirimler"><?= $unreadNotificationCnt ?> bildirim</a>
                     <?php endif; ?>
 
                     <a href="profile.php" class="user-chip" title="Zaman Tünelim">

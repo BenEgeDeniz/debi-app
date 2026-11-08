@@ -5,6 +5,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 1. Kayıt Sayfası Mod Seçimi (Bireysel / Davetli Daire / Apartman Yöneticisi)
     const modeTabs = document.querySelectorAll('.mode-tab[data-mode-target]');
+    document.querySelectorAll('[data-mention-scope]').forEach(function (picker) {
+        const form = picker.closest('form');
+        const visibility = form ? form.querySelector('[name="visibility"]') : null;
+        const updateMentionOptions = function () {
+            const scope = visibility ? visibility.value : 'public';
+            picker.querySelectorAll('[data-mention-visibility]').forEach(function (option) {
+                const visible = option.getAttribute('data-mention-visibility') === scope;
+                option.hidden = !visible;
+                if (!visible) option.selected = false;
+            });
+        };
+        if (visibility) visibility.addEventListener('change', updateMentionOptions);
+        updateMentionOptions();
+    });
     const modeInput = document.getElementById('registerModeInput');
     const locationSection = document.getElementById('locationSection');
     const modeBoxes = document.querySelectorAll('.mode-specific[data-mode-box]');

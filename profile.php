@@ -23,6 +23,14 @@ if (!$profileUser) {
 
 $isOwnProfile = ((int) $profileUser['id'] === (int) $currentUser['id']);
 $showEditForm = $isOwnProfile && !empty($_GET['edit']);
+$profileTaggableUsers = [];
+$profileTaggableByVisibility = [];
+foreach (['friends', 'apartment', 'public'] as $tagScope) {
+    foreach (get_taggable_users($currentUser, $tagScope) as $tagUser) {
+        $profileTaggableUsers[(int) $tagUser['id']] = $tagUser;
+        $profileTaggableByVisibility[$tagScope][(int) $tagUser['id']] = $tagUser;
+    }
+}
 
 // POST İşlemleri (Profil/Kapak fotoğrafı güncelleme, Zaman Tüneli paylaşımı, Damla Tepkisi, Yorum)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -71,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $postId  = (int) ($_POST['post_id'] ?? 0);
         $content = $_POST['comment_content'] ?? '';
         if ($postId > 0) {
-            $res = add_post_comment($postId, (int) $currentUser['id'], $content);
+            $res = add_post_comment($currentUser, $postId, $content, (array) ($_POST['tagged_user_ids'] ?? []));
             if (!$res['ok']) {
                 set_flash('error', $res['error']);
             }
@@ -124,7 +132,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <span class="role-badge role-badge-resident">👤 <?= e($profileUnitName) ?></span>
                             <?php endif; ?>
                         </div>
-                        <div class="page-subtitle">@<?= e($profileUser['nickname'] ?? '') ?></div>
+                        <div class="profile-nickname">@<?= e($profileUser['nickname'] ?? '') ?></div>
 
                         <p class="page-subtitle">
                             <?= e($profileUser['neighborhood_district'] . ' / ' . $profileUser['neighborhood_city']) ?>
@@ -308,6 +316,13 @@ require_once __DIR__ . '/includes/header.php';
 
                     <textarea name="content" rows="2" required
                               placeholder="Bir şeyler paylaş..."></textarea>
+                    <select name="tagged_user_ids[]" multiple class="mention-picker" aria-label="Kişileri etiketle" data-mention-scope>
+                        <?php foreach ($profileTaggableByVisibility as $mentionScope => $mentionUsers): ?>
+                            <?php foreach ($mentionUsers as $tagUser): ?>
+                                <option value="<?= (int) $tagUser['id'] ?>" data-mention-visibility="<?= e($mentionScope) ?>" <?= $mentionScope !== 'public' ? 'hidden' : '' ?>>@<?= e($tagUser['nickname']) ?> — <?= e($tagUser['full_name']) ?></option>
+                            <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    </select>
 
                     <div class="composer-bar-clean">
                         <div class="composer-bar-left">
@@ -428,6 +443,11 @@ require_once __DIR__ . '/includes/header.php';
                                 <input type="hidden" name="action" value="add_comment">
                                 <input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>">
                                 <input type="text" name="comment_content" required placeholder="Yorum yazın...">
+                                <select name="tagged_user_ids[]" multiple class="mention-picker" aria-label="Yorumda kişileri etiketle">
+                                    <?php foreach ($profileTaggableByVisibility[$post['visibility']] ?? [] as $tagUser): ?>
+                                        <option value="<?= (int) $tagUser['id'] ?>">@<?= e($tagUser['nickname']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
                                 <button type="submit" class="btn btn-outline btn-sm">Gönder</button>
                             </form>
                         </div>

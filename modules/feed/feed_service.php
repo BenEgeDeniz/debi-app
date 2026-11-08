@@ -88,6 +88,7 @@ function create_post(array $user, array $input, ?array $file = null): array
     ]);
 
     $postId = (int) db()->lastInsertId();
+    create_mention_notifications($user, $postId, null, (array) ($input['tagged_user_ids'] ?? []), $visibility);
     $pts = 0;
     if (function_exists('award_points')) {
         $pts = award_points(
@@ -310,7 +311,7 @@ function toggle_post_reaction(int $postId, int $userId): array
 /**
  * Gönderiye Yorum Ekleme
  */
-function add_post_comment(int $postId, int $userId, string $content): array
+function add_post_comment(array $user, int $postId, string $content, array $taggedUserIds = []): array
 {
     $content = trim($content);
     if (mb_strlen($content, 'UTF-8') < 2) {
@@ -324,22 +325,73 @@ function add_post_comment(int $postId, int $userId, string $content): array
     ");
     $stmt->execute([
         ':pid'     => $postId,
-        ':uid'     => $userId,
+        ':uid'     => (int) $user['id'],
         ':content' => $content,
     ]);
     $commentId = (int) $pdo->lastInsertId();
+    $postStmt = $pdo->prepare("SELECT visibility FROM posts WHERE id = :id LIMIT 1");
+    $postStmt->execute([':id' => $postId]);
+    create_mention_notifications($user, $postId, $commentId, $taggedUserIds, (string) $postStmt->fetchColumn());
 
     $pts = 0;
     if (function_exists('award_points')) {
         $uSt = $pdo->prepare("SELECT household_id FROM users WHERE id = :uid LIMIT 1");
-        $uSt->execute([':uid' => $userId]);
+        $uSt->execute([':uid' => (int) $user['id']]);
         $hid = (int) $uSt->fetchColumn();
         if ($hid > 0) {
-            $pts = award_points($userId, $hid, 'comment_create', 10, '💬 Komşunun paylaşımına yorum yaptın!', 'comment_' . $commentId);
+            $pts = award_points((int) $user['id'], $hid, 'comment_create', 10, '💬 Komşunun paylaşımına yorum yaptın!', 'comment_' . $commentId);
         }
+
     }
 
     return ['ok' => true, 'points_awarded' => $pts];
+}
+
+function get_taggable_users(array $user, string $visibility): array
+{
+    $params = [':uid' => (int) $user['id']];
+    if ($visibility === 'apartment' && !empty($user['apartment_id'])) {
+        $where = 'u.apartment_id = :aid';
+        $params[':aid'] = (int) $user['apartment_id'];
+    } elseif ($visibility === 'friends') {
+        $ids = function_exists('get_user_friend_ids') ? get_user_friend_ids((int) $user['id']) : [];
+        if (!$ids) return [];
+        $keys = [];
+        foreach (array_values($ids) as $i => $id) {
+            $key = ':friend_' . $i;
+            $keys[] = $key;
+            $params[$key] = (int) $id;
+        }
+        $where = 'u.id IN (' . implode(',', $keys) . ')';
+    } else {
+        $where = 'u.neighborhood_id = :nid';
+        $params[':nid'] = (int) $user['neighborhood_id'];
+    }
+    $stmt = db()->prepare("SELECT u.id, u.full_name, u.nickname FROM users u WHERE u.id != :uid AND {$where} ORDER BY u.full_name LIMIT 100");
+    $stmt->execute($params);
+    return $stmt->fetchAll();
+}
+
+function create_mention_notifications(array $actor, int $postId, ?int $commentId, array $taggedUserIds, string $visibility): void
+{
+    if (!$taggedUserIds) return;
+    $allowed = get_taggable_users($actor, $visibility);
+    $allowedIds = array_fill_keys(array_map(static fn ($row) => (int) $row['id'], $allowed), true);
+    $insert = db()->prepare("INSERT INTO notifications (user_id, actor_user_id, type, post_id, comment_id, message) VALUES (:uid, :actor, 'mention', :post, :comment, :message)");
+    foreach (array_unique(array_map('intval', $taggedUserIds)) as $userId) {
+        if ($userId <= 0 || empty($allowedIds[$userId])) continue;
+        $insert->execute([
+            ':uid' => $userId, ':actor' => (int) $actor['id'], ':post' => $postId ?: null,
+            ':comment' => $commentId, ':message' => $commentId ? 'Bir yorumda etiketlendin.' : 'Bir paylaşımda etiketlendin.',
+        ]);
+    }
+}
+
+function count_unread_notifications(int $userId): int
+{
+    $stmt = db()->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = :uid AND is_read = 0");
+    $stmt->execute([':uid' => $userId]);
+    return (int) $stmt->fetchColumn();
 }
 
 /**
