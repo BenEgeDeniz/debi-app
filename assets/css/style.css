@@ -1308,6 +1308,34 @@ form[aria-busy="true"] {
     animation: nav-alert-pulse 2.2s ease-in-out infinite;
 }
 
+.registration-consents {
+    display: grid;
+    gap: 10px;
+}
+
+.registration-consents .form-section-title {
+    margin-bottom: 2px;
+}
+
+.form-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+    line-height: 1.45;
+}
+
+.form-check input {
+    flex: 0 0 auto;
+    margin-top: 3px;
+}
+
+.form-check a {
+    color: var(--brand-primary-dark);
+    font-weight: 700;
+}
+
 .campaign-dp-stepper {
     display: inline-flex;
     align-items: center;

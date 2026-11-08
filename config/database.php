@@ -22,6 +22,9 @@ if (!defined('GEMINI_API_KEY')) {
 if (!defined('DEBBIE_GEMINI_MODEL')) {
     define('DEBBIE_GEMINI_MODEL', getenv('DEBBIE_GEMINI_MODEL') ?: 'gemini-3.5-flash-lite');
 }
+if (!defined('DEBI_INVOICE_ENCRYPTION_KEY')) {
+    define('DEBI_INVOICE_ENCRYPTION_KEY', getenv('DEBI_INVOICE_ENCRYPTION_KEY') ?: '');
+}
 
 /**
  * Tekil (Singleton) PDO bağlantısı döndürür.

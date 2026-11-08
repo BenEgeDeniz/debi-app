@@ -117,6 +117,11 @@ function register_user(array $input): array
     $nickname      = mb_strtolower(trim($input['nickname'] ?? ''), 'UTF-8');
     $email         = mb_strtolower(trim($input['email'] ?? ''), 'UTF-8');
     $password      = $input['password'] ?? '';
+    $consents      = [
+        'kvkk' => !empty($input['consent_kvkk']),
+        'terms' => !empty($input['consent_terms']),
+        'privacy' => !empty($input['consent_privacy']),
+    ];
     $residentCount = max(1, min(20, (int) ($input['resident_count'] ?? 1)));
 
     if (mb_strlen($fullName, 'UTF-8') < 3) {
@@ -133,6 +138,9 @@ function register_user(array $input): array
     }
     if (strlen($password) < 6) {
         return ['ok' => false, 'error' => 'Şifreniz en az 6 karakter olmalıdır.'];
+    }
+    if (in_array(false, $consents, true)) {
+        return ['ok' => false, 'error' => 'Kayıt olmak için KVKK aydınlatma metnini, kullanım sözleşmesini ve gizlilik politikasını kabul etmelisiniz.'];
     }
 
     $emailChk = $pdo->prepare("SELECT id FROM users WHERE email = :email LIMIT 1");
@@ -295,8 +303,11 @@ function register_user(array $input): array
 
         // Kullanıcı (user) oluştur
         $userStmt = $pdo->prepare("
-            INSERT INTO users (household_id, neighborhood_id, apartment_id, full_name, nickname, email, password_hash, role, avatar_color)
-            VALUES (:hid, :nid, :aid, :name, :nickname, :email, :pass, :role, :color)
+            INSERT INTO users (household_id, neighborhood_id, apartment_id, full_name, nickname, email, password_hash, role, avatar_color,
+                               kvkk_consent_at, kvkk_consent_version, terms_accepted_at, terms_accepted_version,
+                               privacy_accepted_at, privacy_accepted_version)
+            VALUES (:hid, :nid, :aid, :name, :nickname, :email, :pass, :role, :color,
+                    NOW(), :kvkk_version, NOW(), :terms_version, NOW(), :privacy_version)
         ");
         $userStmt->execute([
             ':hid'   => $householdId,
@@ -308,6 +319,9 @@ function register_user(array $input): array
             ':pass'  => password_hash($password, PASSWORD_DEFAULT),
             ':role'  => $role,
             ':color' => $avatarColor,
+            ':kvkk_version' => '2026-11-08',
+            ':terms_version' => '2026-11-08',
+            ':privacy_version' => '2026-11-08',
         ]);
         $userId = (int) $pdo->lastInsertId();
 

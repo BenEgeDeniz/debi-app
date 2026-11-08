@@ -324,6 +324,21 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </div>
 
+            <div class="form-section registration-consents">
+                <h3 class="form-section-title">Yasal metinler</h3>
+                <label class="form-check">
+                    <input type="checkbox" name="consent_kvkk" value="1" required <?= !empty($_POST['consent_kvkk']) ? 'checked' : '' ?>>
+                    <span><a href="legal.php?doc=kvkk" target="_blank" rel="noopener">KVKK Aydınlatma Metni</a>'ni okudum.</span>
+                </label>
+                <label class="form-check">
+                    <input type="checkbox" name="consent_terms" value="1" required <?= !empty($_POST['consent_terms']) ? 'checked' : '' ?>>
+                    <span><a href="legal.php?doc=terms" target="_blank" rel="noopener">Kullanım Sözleşmesi</a>'ni kabul ediyorum.</span>
+                </label>
+                <label class="form-check">
+                    <input type="checkbox" name="consent_privacy" value="1" required <?= !empty($_POST['consent_privacy']) ? 'checked' : '' ?>>
+                    <span><a href="legal.php?doc=privacy" target="_blank" rel="noopener">Gizlilik Politikası</a>'nı kabul ediyorum.</span>
+                </label>
+            </div>
             <button type="submit" class="btn btn-primary btn-block">Kayıt Ol</button>
         </form>
         <?php endif; ?>

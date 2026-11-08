@@ -5,6 +5,7 @@
 require_once __DIR__ . '/includes/init.php';
 require_once __DIR__ . '/modules/water/water_service.php';
 require_once __DIR__ . '/modules/water/bill_ai_service.php';
+require_once __DIR__ . '/modules/water/invoice_storage.php';
 
 $currentUser     = require_login();
 $demoMode        = isset($_GET['demo']) || isset($_POST['demo']);
@@ -40,6 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect($waterRedirect);
         }
         $scanResult = $res;
+        $_SESSION['pending_invoice_reference'] = $res['bill_image_path'] ?? '';
         set_flash('success', 'Fatura okundu. Bilgileri kontrol edip onaylayın.');
         if (!empty($res['ai_used'])) {
             $scanResult['ai_approved_notice'] = 'Fatura doğrulandı. Görsel ve bilgiler uygun bulundu; şimdi değerleri kontrol edip onaylayın.';
