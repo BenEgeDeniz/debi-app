@@ -377,15 +377,19 @@ function get_taggable_users(array $user, string $visibility): array
 function create_mention_notifications(array $actor, int $postId, ?int $commentId, array $taggedUserIds, string $visibility): void
 {
     if (!$taggedUserIds) return;
-    $allowed = get_taggable_users($actor, $visibility);
-    $allowedIds = array_fill_keys(array_map(static fn ($row) => (int) $row['id'], $allowed), true);
-    $insert = db()->prepare("INSERT INTO notifications (user_id, actor_user_id, type, post_id, comment_id, message) VALUES (:uid, :actor, 'mention', :post, :comment, :message)");
-    foreach (array_unique(array_map('intval', $taggedUserIds)) as $userId) {
-        if ($userId <= 0 || empty($allowedIds[$userId])) continue;
-        $insert->execute([
-            ':uid' => $userId, ':actor' => (int) $actor['id'], ':post' => $postId ?: null,
-            ':comment' => $commentId, ':message' => $commentId ? 'Bir yorumda etiketlendin.' : 'Bir paylaşımda etiketlendin.',
-        ]);
+    try {
+        $allowed = get_taggable_users($actor, $visibility);
+        $allowedIds = array_fill_keys(array_map(static fn ($row) => (int) $row['id'], $allowed), true);
+        $insert = db()->prepare("INSERT INTO notifications (user_id, actor_user_id, type, post_id, comment_id, message) VALUES (:uid, :actor, 'mention', :post, :comment, :message)");
+        foreach (array_unique(array_map('intval', $taggedUserIds)) as $userId) {
+            if ($userId <= 0 || empty($allowedIds[$userId])) continue;
+            $insert->execute([
+                ':uid' => $userId, ':actor' => (int) $actor['id'], ':post' => $postId ?: null,
+                ':comment' => $commentId, ':message' => $commentId ? 'Bir yorumda etiketlendin.' : 'Bir paylaşımda etiketlendin.',
+            ]);
+        }
+    } catch (PDOException $exception) {
+        error_log('Mention notification creation failed: ' . $exception->getMessage());
     }
 }
 
@@ -401,9 +405,14 @@ function mentioned_user_ids_from_content(string $content): array
         $placeholders[] = $key;
         $params[$key] = $nickname;
     }
-    $stmt = db()->prepare('SELECT id FROM users WHERE nickname IN (' . implode(',', $placeholders) . ')');
-    $stmt->execute($params);
-    return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    try {
+        $stmt = db()->prepare('SELECT id FROM users WHERE nickname IN (' . implode(',', $placeholders) . ')');
+        $stmt->execute($params);
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    } catch (PDOException $exception) {
+        error_log('Mention lookup failed: ' . $exception->getMessage());
+        return [];
+    }
 }
 
 function render_mention_content(?string $content): string
