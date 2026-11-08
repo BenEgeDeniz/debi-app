@@ -180,6 +180,44 @@ function get_user_timeline_posts(array $profileUser, array $viewerUser): array
     return fetch_posts_with_comments($pdo, $whereSql, $params);
 }
 
+function get_single_feed_post(int $postId, array $user): ?array
+{
+    if ($postId <= 0) {
+        return null;
+    }
+
+    $pdo = db();
+    $params = [
+        ':current_uid' => (int) $user['id'],
+        ':post_id' => $postId,
+    ];
+    $allowed = ["'public'", "'neighborhood'"];
+    if (!empty($user['apartment_id'])) {
+        $allowed[] = "'apartment'";
+    }
+    if (function_exists('get_user_friend_ids')) {
+        $friendIds = get_user_friend_ids((int) $user['id']);
+        if ($friendIds) {
+            $friendKeys = [];
+            foreach (array_values($friendIds) as $index => $friendId) {
+                $key = ':single_friend_' . $index;
+                $friendKeys[] = $key;
+                $params[$key] = (int) $friendId;
+            }
+            $friendSql = implode(',', $friendKeys);
+        }
+    }
+
+    $where = "p.id = :post_id AND (p.user_id = :current_uid OR p.visibility IN (" . implode(',', $allowed) . ")";
+    if (!empty($friendSql)) {
+        $where .= " OR (p.user_id IN ({$friendSql}) AND p.visibility = 'friends')";
+    }
+    $where .= ')';
+
+    $posts = fetch_posts_with_comments($pdo, $where, $params);
+    return $posts[0] ?? null;
+}
+
 /**
  * Ortak Gönderi ve Yorum Sorgulayıcı
  */

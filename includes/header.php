@@ -16,13 +16,26 @@ $pendingFriendCnt = !empty($currentUser) && function_exists('count_incoming_frie
     ? count_incoming_friend_requests((int) $currentUser['id'])
     : 0;
 $unreadNotificationCnt = 0;
+$headerNotifications = [];
 if (!empty($currentUser)) {
     try {
         if (function_exists('count_unread_notifications')) {
             $unreadNotificationCnt = count_unread_notifications((int) $currentUser['id']);
         }
+        $notificationStmt = db()->prepare("
+            SELECT n.id, n.post_id, n.comment_id, n.message, n.created_at,
+                   u.full_name AS actor_name, u.nickname AS actor_nickname
+            FROM notifications n
+            INNER JOIN users u ON u.id = n.actor_user_id
+            WHERE n.user_id = :uid
+            ORDER BY n.created_at DESC
+            LIMIT 8
+        ");
+        $notificationStmt->execute([':uid' => (int) $currentUser['id']]);
+        $headerNotifications = $notificationStmt->fetchAll();
     } catch (Throwable $e) {
         $unreadNotificationCnt = 0;
+        $headerNotifications = [];
     }
 }
 $headerPondDrops  = 0;
@@ -73,9 +86,33 @@ if (!empty($currentUser)) {
                             <span><?= $pendingFriendCnt ?> yeni istek</span>
                         </a>
                     <?php endif; ?>
-                    <?php if ($unreadNotificationCnt > 0): ?>
-                        <a href="notifications.php" class="topbar-notif-pill" title="Bildirimler"><?= $unreadNotificationCnt ?> bildirim</a>
-                    <?php endif; ?>
+                    <div class="notification-menu">
+                        <button type="button" class="topbar-notif-pill notification-toggle" aria-expanded="false">
+                            <span>🔔</span>
+                            <?php if ($unreadNotificationCnt > 0): ?><b><?= $unreadNotificationCnt ?></b><?php endif; ?>
+                        </button>
+                        <div class="notification-dropdown" hidden>
+                            <div class="notification-dropdown-header">
+                                <strong>Bildirimler</strong>
+                                <a href="notifications.php">Tümü</a>
+                            </div>
+                            <?php if (!$headerNotifications): ?>
+                                <div class="notification-empty">Henüz bildirimin yok.</div>
+                            <?php else: ?>
+                                <?php foreach ($headerNotifications as $notification): ?>
+                                    <?php $notificationTarget = !empty($notification['post_id'])
+                                        ? 'post.php?id=' . (int) $notification['post_id'] . '&notification=' . (int) $notification['id']
+                                        : 'notifications.php'; ?>
+                                    <a class="notification-dropdown-item <?= $notification['post_id'] ? '' : 'is-static' ?>"
+                                       href="<?= e($notificationTarget) ?>">
+                                        <strong>@<?= e($notification['actor_nickname']) ?></strong>
+                                        <span><?= e($notification['message']) ?></span>
+                                        <time><?= e(time_ago($notification['created_at'])) ?></time>
+                                    </a>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
 
                     <a href="profile.php" class="user-chip" title="Zaman Tünelim">
                         <?= render_avatar($currentUser, 'avatar-sm') ?>

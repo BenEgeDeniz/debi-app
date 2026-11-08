@@ -2,6 +2,24 @@
  * DEBI - İstemci Tarafı Etkileşimleri (Vanilla JS)
  */
 document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.notification-toggle').forEach(function (toggle) {
+        const menu = toggle.closest('.notification-menu');
+        const dropdown = menu ? menu.querySelector('.notification-dropdown') : null;
+        if (!dropdown) return;
+        toggle.addEventListener('click', function (event) {
+            event.stopPropagation();
+            const open = dropdown.hidden;
+            document.querySelectorAll('.notification-dropdown').forEach(function (item) { item.hidden = true; });
+            dropdown.hidden = !open;
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        document.addEventListener('click', function (event) {
+            if (!menu.contains(event.target)) {
+                dropdown.hidden = true;
+                toggle.setAttribute('aria-expanded', 'false');
+            }
+        });
+    });
 
     // 1. Kayıt Sayfası Mod Seçimi (Bireysel / Davetli Daire / Apartman Yöneticisi)
     const modeTabs = document.querySelectorAll('.mode-tab[data-mode-target]');

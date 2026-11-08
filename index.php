@@ -222,6 +222,7 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
 
                             <div class="post-body">
+                                <a class="post-permalink" href="post.php?id=<?= (int) $post['id'] ?>">Paylaşımı aç</a>
                                 <p><?= render_mention_content($post['content']) ?></p>
 
                                 <?php if (!empty($post['image_path'])): ?>
