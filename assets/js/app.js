@@ -177,7 +177,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         let openRoot = null;
         const setRootOpen = function (root, open) {
-            descendantsOf(root).forEach(function (item) { item.hidden = !open; });
+            descendantsOf(root).forEach(function (item) {
+                item.classList.toggle('comment-thread-collapsed', !open);
+            });
             const toggle = root.querySelector('.comment-thread-toggle');
             if (toggle) {
                 toggle.textContent = open ? 'Yanıt zincirini kapat' : 'Yanıtları göster';
@@ -195,7 +197,9 @@ document.addEventListener('DOMContentLoaded', function () {
             toggle.textContent = 'Yanıtları göster';
             toggle.setAttribute('aria-expanded', 'false');
             toggle.addEventListener('click', function () {
-                const shouldOpen = descendants.some(function (item) { return item.hidden; });
+                const shouldOpen = descendants.some(function (item) {
+                    return item.classList.contains('comment-thread-collapsed');
+                });
                 if (openRoot && openRoot !== root) setRootOpen(openRoot, false);
                 setRootOpen(root, shouldOpen);
             });

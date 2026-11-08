@@ -1661,6 +1661,10 @@ a.timeline-meta-item:hover {
     padding: 8px 4px;
 }
 
+.comment-item.comment-thread-collapsed {
+    display: none !important;
+}
+
 .comment-depth-1,
 .comment-depth-2,
 .comment-depth-3,
@@ -1740,15 +1744,19 @@ a.timeline-meta-item:hover {
 .comment-thread-toggle,
 .comment-text-toggle {
     display: block;
-    margin-top: 6px;
+    margin-top: 7px;
     padding: 0;
     border: 0;
     background: transparent;
-    color: var(--color-primary, #2563eb);
+    color: var(--brand-primary-dark);
     cursor: pointer;
     font: inherit;
-    font-size: .85rem;
-    font-weight: 600;
+    font-size: .75rem;
+    font-weight: 800;
+}
+
+.comment-thread-toggle {
+    margin-left: 0;
 }
 
 .comment-text-collapsed {
