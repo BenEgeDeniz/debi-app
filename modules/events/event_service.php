@@ -169,7 +169,7 @@ function categorize_events_for_user(array $events): array
             && $status === 'attended'
             && ($event['photo_status'] ?? null) !== 'approved';
 
-        if ($event['started'] && !$event['ended']) {
+        if ($event['started'] && !$event['ended'] && $status) {
             $sections['active'][] = $event;
         } elseif ($needsPhoto) {
             $sections['active'][] = $event;
