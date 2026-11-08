@@ -62,41 +62,6 @@ function award_points(
         return 0;
     }
 
-    function get_household_point_breakdown(int $householdId, int $userId): array
-    {
-        $breakdown = [
-            'total' => 0,
-            'user' => 0,
-            'household' => 0,
-        ];
-        if ($householdId <= 0 || $userId <= 0) {
-            return $breakdown;
-        }
-
-        try {
-            $stmt = db()->prepare("
-                SELECT user_id, COALESCE(SUM(points), 0) AS total_points
-                FROM point_logs
-                WHERE household_id = :hid
-                  AND action_code IN ('bill_drops_earned', 'event_participation')
-                GROUP BY user_id
-            ");
-            $stmt->execute([':hid' => $householdId]);
-            foreach ($stmt->fetchAll() as $row) {
-                $points = (int) $row['total_points'];
-                if ((int) $row['user_id'] === $userId) {
-                    $breakdown['user'] += $points;
-                } else {
-                    $breakdown['household'] += $points;
-                }
-            }
-            $breakdown['total'] = $breakdown['user'] + $breakdown['household'];
-        } catch (Throwable $exception) {
-            error_log('Household point breakdown failed: ' . $exception->getMessage());
-        }
-
-        return $breakdown;
-    }
     if (!in_array($actionCode, ['bill_drops_earned', 'event_participation'], true)) {
         return 0;
     }
@@ -138,6 +103,42 @@ function award_points(
     } catch (Throwable $e) {
         return 0;
     }
+}
+
+function get_household_point_breakdown(int $householdId, int $userId): array
+{
+    $breakdown = [
+        'total' => 0,
+        'user' => 0,
+        'household' => 0,
+    ];
+    if ($householdId <= 0 || $userId <= 0) {
+        return $breakdown;
+    }
+
+    try {
+        $stmt = db()->prepare("
+            SELECT user_id, COALESCE(SUM(points), 0) AS total_points
+            FROM point_logs
+            WHERE household_id = :hid
+              AND action_code IN ('bill_drops_earned', 'event_participation')
+            GROUP BY user_id
+        ");
+        $stmt->execute([':hid' => $householdId]);
+        foreach ($stmt->fetchAll() as $row) {
+            $points = (int) $row['total_points'];
+            if ((int) $row['user_id'] === $userId) {
+                $breakdown['user'] += $points;
+            } else {
+                $breakdown['household'] += $points;
+            }
+        }
+        $breakdown['total'] = $breakdown['user'] + $breakdown['household'];
+    } catch (Throwable $exception) {
+        error_log('Household point breakdown failed: ' . $exception->getMessage());
+    }
+
+    return $breakdown;
 }
 
 /**
