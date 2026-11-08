@@ -1297,13 +1297,39 @@ form[aria-busy="true"] {
 }
 
 .nav-alert-dot {
-    width: 8px;
-    height: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 62px;
+    height: 22px;
+    padding: 0 8px;
+    color: #ffffff;
+    font-size: 0.66rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: .01em;
     margin-left: auto;
     flex-shrink: 0;
     background: var(--brand-danger);
     border: 2px solid var(--bg-surface);
-    border-radius: 50%;
+    border-radius: var(--radius-pill);
+    box-shadow: 0 3px 8px rgba(220, 38, 38, .22);
+    animation: nav-alert-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes nav-alert-pulse {
+    0%, 100% {
+        box-shadow: 0 3px 8px rgba(220, 38, 38, .22);
+    }
+    50% {
+        box-shadow: 0 4px 12px rgba(220, 38, 38, .42);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nav-alert-dot {
+        animation: none;
+    }
 }
 
 .event-creator-link {
