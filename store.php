@@ -1,7 +1,7 @@
 <?php
 /**
  * DEBI - Mağaza Sayfası
- * 1) Yeşil Markalarla Harcama Yapma (Alt alta anlaşmalı kafe, restoran, deterjan ve su ekipmanı mağazaları)
+ * 1) Yeşil Markalarla Harcama Yapma (%30 İndirim -> 30 DP, %50 İndirim -> 50 DP, %10 İndirim -> 10 DP, %15 İndirim -> 15 DP)
  * 2) Kampanyaya Destek Olma (Anlaşmalı su koruma kampanyalarına min 50 DP destek gönderimi)
  */
 require_once __DIR__ . '/includes/init.php';
@@ -48,6 +48,13 @@ $supportCampaigns = get_active_support_campaigns();
 $myRedemptions    = get_household_store_redemptions((int) ($currentUser['household_id'] ?? 0));
 $mySupports       = get_household_campaign_supports((int) ($currentUser['household_id'] ?? 0));
 
+$defaultStorePhotos = [
+    'damla-kafe'           => 'assets/store/damla-kafe.jpg',
+    'yesil-sofra-restoran' => 'assets/store/yesil-sofra-restoran.jpg',
+    'aquapure-deterjan'    => 'assets/store/aquapure-deterjan.jpg',
+    'ekoakis-perlator'     => 'assets/store/ekoakis-perlator.jpg',
+];
+
 $pageTitle = 'Mağaza — Debi';
 $activeNav = 'store';
 require_once __DIR__ . '/includes/header.php';
@@ -57,24 +64,29 @@ require_once __DIR__ . '/includes/header.php';
     <?php require_once __DIR__ . '/includes/sidebar_left.php'; ?>
 
     <main class="main-column">
-        <!-- Üst Başlık ve Yan Yana 2 Seçenek -->
+        <?php if ($error): ?>
+            <!-- Uyarı Mesajı Pop-up Modalı -->
+            <div class="store-popup-overlay" id="storeErrorPopupModal" role="alertdialog" aria-modal="true" aria-labelledby="storePopupTitle">
+                <div class="store-popup-card">
+                    <div class="store-popup-icon" aria-hidden="true">⚠️</div>
+                    <h3 class="store-popup-title" id="storePopupTitle">Yetersiz Puan Bakiyesi</h3>
+                    <p class="store-popup-message"><?= e($error) ?></p>
+                    <button type="button" class="btn btn-primary btn-block js-close-store-popup">Tamam</button>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <!-- Üst Seçim Kartı: Yan Yana 2 Seçenek -->
         <section class="panel-card store-hero-card">
             <div class="panel-card-header">
                 <div>
                     <div class="section-kicker">MAĞAZA</div>
-                    <h1 class="section-title">Yeşil Markalarla Harcama Yap ya da Kampanyaya Destek Ol</h1>
                 </div>
             </div>
 
             <p class="panel-desc" style="margin-bottom: 14px;">
                 Su faturalarınızdaki tasarruflardan ve etkinlik katılımlarınızdan biriktirdiğiniz puanları aşağıda <strong>yan yana yer alan iki seçenekten</strong> birini seçerek değerlendirebilirsiniz.
             </p>
-
-            <?php if ($error): ?>
-                <div class="alert alert-error" style="margin-bottom: 14px;">
-                    <span><?= e($error) ?></span>
-                </div>
-            <?php endif; ?>
 
             <!-- YAN YANA 2 FARKLI SEÇENEK BUTONU -->
             <div class="store-choice-grid" role="tablist" aria-label="Mağaza Seçenekleri">
@@ -121,10 +133,13 @@ require_once __DIR__ . '/includes/header.php';
                     <?php foreach ($storeItems as $item): ?>
                         <?php
                         $itemId      = (int) $item['id'];
-                        $costPts     = (int) ($item['cost_points'] ?? 50);
-                        $discountPct = (int) ($item['discount_pct'] ?? 30);
+                        $discountPct = max(1, (int) ($item['discount_pct'] ?? 30));
+                        $costPts     = $discountPct; // %30 indirim için 30 DP, %50 indirim için 50 DP
+                        $slugKey     = (string) ($item['slug'] ?? '');
                         $imgPath     = trim((string) ($item['image_path'] ?? ''));
-                        $canAfford   = $walletBalance >= $costPts;
+                        if ($imgPath === '' && isset($defaultStorePhotos[$slugKey])) {
+                            $imgPath = $defaultStorePhotos[$slugKey];
+                        }
                         ?>
                         <article class="store-vertical-card">
                             <div class="store-card-left">
@@ -144,19 +159,15 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
 
                             <div class="store-card-action">
-                                <div class="store-discount-badge">
-                                    <strong>%<?= $discountPct ?> İNDİRİM</strong>
-                                    <span><?= $costPts ?> DP</span>
-                                </div>
-
                                 <form method="post" action="store.php?tab=brands" class="store-action-form">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="action" value="redeem_store_item">
                                     <input type="hidden" name="item_id" value="<?= $itemId ?>">
                                     <button type="submit"
-                                            class="btn <?= $canAfford ? 'btn-primary' : 'btn-outline' ?> btn-block"
-                                            <?= $canAfford ? '' : 'title="Bu indirim için 50 DP puana ihtiyacınız var"' ?>>
-                                        %<?= $discountPct ?> İndirim İçin <?= $costPts ?> Puan Harca
+                                            class="store-discount-btn"
+                                            title="%<?= $discountPct ?> indirim almak için <?= $costPts ?> DP kullan">
+                                        <strong>%<?= $discountPct ?> İNDİRİM</strong>
+                                        <span><?= $costPts ?> DP</span>
                                     </button>
                                 </form>
                             </div>
@@ -165,29 +176,33 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </section>
 
-            <!-- Kullanıcının Aldığı İndirim Kuponları -->
-            <section class="panel-card">
+            <!-- Mağaza Kullanım & Harcama Geçmişi Barı -->
+            <section class="panel-card store-history-bar">
                 <div class="panel-card-header">
-                    <h2 class="section-title">Aldığım Mağaza İndirim Kuponları</h2>
-                    <span class="metric-pill pill-neutral"><?= count($myRedemptions) ?> Kupon</span>
+                    <div>
+                        <div class="section-kicker">MAĞAZA HAREKETLERİ</div>
+                        <h2 class="section-title">Mağaza Kullanım Geçmişi</h2>
+                    </div>
+                    <span class="metric-pill pill-neutral"><?= count($myRedemptions) ?> İşlem</span>
                 </div>
 
                 <?php if (empty($myRedemptions)): ?>
                     <div class="empty-inline">
-                        Henüz anlaşmalı yeşil mağazalardan indirim kuponu almadınız.
+                        Henüz mağazada puan kullanımı yapılmadı. Yukarıdaki mağazalardan birinin <strong>% İndirim / DP</strong> butonuna bastığınızda kullanılan puanınız düşer ve işleminiz burada listelenir.
                     </div>
                 <?php else: ?>
                     <div class="store-redemption-list">
                         <?php foreach ($myRedemptions as $red): ?>
                             <div class="store-redemption-row">
                                 <div class="store-redemption-info">
-                                    <strong><?= e($red['brand_name']) ?> — %<?= (int) $red['discount_pct'] ?> İndirim</strong>
-                                    <span><?= e(format_date_tr($red['created_at'])) ?> (-<?= (int) $red['spent_points'] ?> DP)</span>
+                                    <strong>🌿 <?= e($red['brand_name']) ?> — %<?= (int) $red['discount_pct'] ?> İndirim Kullanıldı</strong>
+                                    <span><?= e($red['full_name'] ?? '') ?> · <?= e(format_date_tr($red['created_at'])) ?></span>
                                 </div>
                                 <div class="code-share-box">
+                                    <span class="metric-pill pill-good">-<?= (int) $red['spent_points'] ?> DP</span>
                                     <code><?= e($red['coupon_code']) ?></code>
                                     <button type="button" class="btn btn-outline btn-sm btn-copy" data-copy="<?= e($red['coupon_code']) ?>">
-                                        Kodu Kopyala
+                                        Kopyala
                                     </button>
                                 </div>
                             </div>
@@ -218,7 +233,6 @@ require_once __DIR__ . '/includes/header.php';
                         $targetDp    = (int) ($camp['target_dp'] ?? 5000);
                         $supporters  = (int) ($camp['supporter_count'] ?? 0);
                         $progressPct = (float) ($camp['progress_pct'] ?? 0);
-                        $canAfford   = $walletBalance >= $minPts;
                         ?>
                         <article class="store-vertical-card campaign-support-card">
                             <div class="store-card-left">
@@ -254,17 +268,12 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
 
                             <div class="store-card-action">
-                                <div class="store-discount-badge campaign-badge">
-                                    <strong><?= $minPts ?> DP</strong>
-                                    <span>Min. <?= $minPts ?> DP Gönderim</span>
-                                </div>
-
                                 <form method="post" action="store.php?tab=campaigns" class="store-action-form campaign-send-form">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="action" value="support_campaign">
                                     <input type="hidden" name="campaign_id" value="<?= $campId ?>">
                                     <label class="campaign-dp-input-wrap">
-                                        <span>Gönderilecek Puan (Min. <?= $minPts ?> DP)</span>
+                                        <span>Gönderilecek DP (Min. <?= $minPts ?> DP)</span>
                                         <input type="number"
                                                name="support_points"
                                                min="<?= $minPts ?>"
@@ -273,9 +282,10 @@ require_once __DIR__ . '/includes/header.php';
                                                required>
                                     </label>
                                     <button type="submit"
-                                            class="btn <?= $canAfford ? 'btn-primary' : 'btn-outline' ?> btn-block"
-                                            <?= $canAfford ? '' : 'title="Kampanyaya destek göndermek için en az 50 DP puana ihtiyacınız var"' ?>>
-                                        50 DP Gönder
+                                            class="store-discount-btn campaign-badge"
+                                            title="Kampanyaya DP desteği gönder">
+                                        <strong><?= $minPts ?> DP</strong>
+                                        <span>Destek Gönder</span>
                                     </button>
                                 </form>
                             </div>
@@ -284,27 +294,30 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </section>
 
-            <!-- Kullanıcının Gönderdiği Kampanya Destekleri -->
-            <section class="panel-card">
+            <!-- Kampanya Destek Geçmişi Barı -->
+            <section class="panel-card store-history-bar">
                 <div class="panel-card-header">
-                    <h2 class="section-title">Kampanya Destek Geçmişim</h2>
+                    <div>
+                        <div class="section-kicker">KAMPANYA HAREKETLERİ</div>
+                        <h2 class="section-title">Kampanya Destek Geçmişi</h2>
+                    </div>
                     <span class="metric-pill pill-neutral"><?= count($mySupports) ?> Destek</span>
                 </div>
 
                 <?php if (empty($mySupports)): ?>
                     <div class="empty-inline">
-                        Henüz anlaşmalı bir kampanyaya destek göndermediniz.
+                        Henüz anlaşmalı bir kampanyaya destek gönderilmedi. Kampanya kartındaki <strong>DP</strong> butonuna bastığınızda gönderdiğiniz puanlar düşer ve burada geçmiş olarak listelenir.
                     </div>
                 <?php else: ?>
                     <div class="store-redemption-list">
                         <?php foreach ($mySupports as $sup): ?>
                             <div class="store-redemption-row">
                                 <div class="store-redemption-info">
-                                    <strong><?= e($sup['campaign_title']) ?></strong>
-                                    <span><?= e($sup['partner_name']) ?> · <?= e(format_date_tr($sup['created_at'])) ?></span>
+                                    <strong>💧 <?= e($sup['campaign_title']) ?></strong>
+                                    <span><?= e($sup['partner_name']) ?> · <?= e($sup['full_name'] ?? '') ?> · <?= e(format_date_tr($sup['created_at'])) ?></span>
                                 </div>
                                 <span class="metric-pill pill-good">
-                                    <?= (int) $sup['spent_points'] ?> DP Gönderildi
+                                    -<?= (int) $sup['spent_points'] ?> DP Gönderildi
                                 </span>
                             </div>
                         <?php endforeach; ?>

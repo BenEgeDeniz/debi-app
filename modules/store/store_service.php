@@ -59,9 +59,14 @@ function ensure_store_schema(): void
         } catch (Throwable $e) {
         }
 
-        // Eski katalog kayıtlarını kaldır (biodamla, eski yeşil damla kafe, 3. kampanya vb.)
+        // İndirim oranı = Harcanacak DP kuralını ve görsel yollarını tüm mağaza ürünlerinde senkronize et
         try {
             $pdo->exec("DELETE FROM store_items WHERE slug IN ('biodamla-eko-deterjan', 'cam-fincan-ekokafe', 'yesil-damla-roastery', 'aquapure-konsantre-deterjan', 'ekoakis-perlator-magaza')");
+            $pdo->exec("UPDATE store_items SET cost_points = discount_pct");
+            $pdo->exec("UPDATE store_items SET image_path = 'assets/store/damla-kafe.jpg' WHERE slug = 'damla-kafe'");
+            $pdo->exec("UPDATE store_items SET image_path = 'assets/store/yesil-sofra-restoran.jpg' WHERE slug = 'yesil-sofra-restoran'");
+            $pdo->exec("UPDATE store_items SET image_path = 'assets/store/aquapure-deterjan.jpg' WHERE slug = 'aquapure-deterjan'");
+            $pdo->exec("UPDATE store_items SET image_path = 'assets/store/ekoakis-perlator.jpg' WHERE slug = 'ekoakis-perlator'");
             $pdo->exec("DELETE FROM support_campaigns WHERE slug NOT IN ('okul-cesmeleri-tasarruf-donusumu', 'kuruyan-gollere-can-suyu')");
         } catch (Throwable $e) {
         }
@@ -93,6 +98,7 @@ function get_store_wallet_balance(array $user): int
 
 /**
  * Yeşil Markalarla Harcama Yapma — Alt Alta Mağaza Kartlarını Listeler
+ * Kural: %X İndirim için X DP harcanır (%30 -> 30 DP, %50 -> 50 DP, %10 -> 10 DP, %15 -> 15 DP)
  */
 function get_active_store_items(): array
 {
@@ -107,6 +113,11 @@ function get_active_store_items(): array
         ");
         $rows = $stmt ? $stmt->fetchAll() : [];
         if (!empty($rows)) {
+            foreach ($rows as &$r) {
+                $r['discount_pct'] = max(1, (int) ($r['discount_pct'] ?? 30));
+                $r['cost_points']  = $r['discount_pct'];
+            }
+            unset($r);
             return $rows;
         }
     } catch (Throwable $e) {
@@ -121,9 +132,9 @@ function get_active_store_items(): array
             'brand_name'   => 'Damla Kafe',
             'title'        => '',
             'description'  => 'Porselen fincan ile servis yaparak gizli su tüketimini azaltmaktadır.',
-            'image_path'   => null,
+            'image_path'   => 'assets/store/damla-kafe.jpg',
             'discount_pct' => 30,
-            'cost_points'  => 50,
+            'cost_points'  => 30,
         ],
         [
             'id'           => 2,
@@ -132,7 +143,7 @@ function get_active_store_items(): array
             'brand_name'   => 'Yeşil Sofra Restoran',
             'title'        => '',
             'description'  => 'Menüdeki yemek tercihlerini düşük su ayak izli ve mevsimsel içeriklere göre ayarlayarak mutfakta su tüketimini azaltmaktadır.',
-            'image_path'   => null,
+            'image_path'   => 'assets/store/yesil-sofra-restoran.jpg',
             'discount_pct' => 50,
             'cost_points'  => 50,
         ],
@@ -143,9 +154,9 @@ function get_active_store_items(): array
             'brand_name'   => 'AquaPure Su Dostu Deterjan',
             'title'        => '',
             'description'  => 'Su tasarrufuna katkı sağlayan ve su ayak izini azaltmayı amaçlamış konsantre çamaşır ve bulaşık deterjanı.',
-            'image_path'   => null,
+            'image_path'   => 'assets/store/aquapure-deterjan.jpg',
             'discount_pct' => 10,
-            'cost_points'  => 50,
+            'cost_points'  => 10,
         ],
         [
             'id'           => 4,
@@ -154,9 +165,9 @@ function get_active_store_items(): array
             'brand_name'   => 'EkoAkış',
             'title'        => '',
             'description'  => 'Havalandırmalı Musluk Perlatörü',
-            'image_path'   => null,
+            'image_path'   => 'assets/store/ekoakis-perlator.jpg',
             'discount_pct' => 15,
-            'cost_points'  => 50,
+            'cost_points'  => 15,
         ],
     ];
 }
@@ -223,7 +234,8 @@ function get_active_support_campaigns(): array
 }
 
 /**
- * Yeşil Mağaza Ürününde İndirim İçin 50 DP Harcama İşlemi
+ * Yeşil Mağaza Ürününde %X İndirim İçin X DP Harcama İşlemi
+ * (%30 İndirim -> 30 DP, %50 İndirim -> 50 DP, %10 İndirim -> 10 DP, %15 İndirim -> 15 DP)
  */
 function redeem_store_item(array $user, int $itemId): array
 {
@@ -243,14 +255,14 @@ function redeem_store_item(array $user, int $itemId): array
         return ['ok' => false, 'error' => 'Seçilen anlaşmalı mağaza bulunamadı.'];
     }
 
-    $costPoints  = max(1, (int) ($item['cost_points'] ?? 50));
     $discountPct = max(1, (int) ($item['discount_pct'] ?? 30));
+    $costPoints  = $discountPct; // %30 indirim için 30 DP, %50 indirim için 50 DP
     $balance     = get_store_wallet_balance($user);
 
     if ($balance < $costPoints) {
         return [
             'ok'    => false,
-            'error' => "Yetersiz puan bakiyesi! Bu indirim için {$costPoints} DP gerekiyor (Mevcut bakiyeniz: {$balance} DP).",
+            'error' => "Yetersiz puan bakiyesi! %{$discountPct} indirim için {$costPoints} DP gerekiyor (Mevcut bakiyeniz: {$balance} DP).",
         ];
     }
 
@@ -287,7 +299,7 @@ function redeem_store_item(array $user, int $itemId): array
             ':code' => $couponCode,
         ]);
 
-        $desc = "🌿 {$item['brand_name']}: %{$discountPct} indirim kuponu alındı ({$couponCode})";
+        $desc = "🌿 {$item['brand_name']}: %{$discountPct} indirim kuponu alındı (-{$costPoints} DP · {$couponCode})";
         $insLog = $pdo->prepare("
             INSERT INTO point_logs (user_id, household_id, action_code, points, description, ref_key)
             VALUES (:uid, :hid, 'store_redeem', :pts, :desc, :rkey)
@@ -305,7 +317,7 @@ function redeem_store_item(array $user, int $itemId): array
         return [
             'ok'          => true,
             'coupon_code' => $couponCode,
-            'message'     => "Tebrikler! {$costPoints} DP harcayarak \"{$item['brand_name']}\" mağazasında %{$discountPct} indirim kazandınız. Kupon Kodunuz: {$couponCode}",
+            'message'     => "Tebrikler! {$costPoints} DP harcayarak \"{$item['brand_name']}\" mağazasında %{$discountPct} indirim kullandınız. Kupon Kodunuz: {$couponCode}",
         ];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -421,9 +433,9 @@ function support_campaign_with_points(array $user, int $campaignId, int $request
 }
 
 /**
- * Hanenin Aldığı Yeşil Mağaza İndirim Kuponları Geçmişi
+ * Hanenin Yeşil Mağaza Kullanım / Harcama Geçmişi
  */
-function get_household_store_redemptions(int $householdId, int $limit = 8): array
+function get_household_store_redemptions(int $householdId, int $limit = 12): array
 {
     ensure_store_schema();
     if ($householdId <= 0) {
@@ -452,7 +464,7 @@ function get_household_store_redemptions(int $householdId, int $limit = 8): arra
 /**
  * Hanenin Gönderdiği Anlaşmalı Kampanya Destekleri Geçmişi
  */
-function get_household_campaign_supports(int $householdId, int $limit = 8): array
+function get_household_campaign_supports(int $householdId, int $limit = 12): array
 {
     ensure_store_schema();
     if ($householdId <= 0) {

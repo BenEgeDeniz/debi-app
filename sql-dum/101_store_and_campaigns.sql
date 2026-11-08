@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS `store_items` (
   `description` text NOT NULL,
   `image_path` varchar(255) DEFAULT NULL,
   `discount_pct` tinyint(3) UNSIGNED NOT NULL DEFAULT 30,
-  `cost_points` int(10) UNSIGNED NOT NULL DEFAULT 50,
+  `cost_points` int(10) UNSIGNED NOT NULL DEFAULT 30,
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `sort_order` int(10) UNSIGNED NOT NULL DEFAULT 1,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS `store_redemptions` (
   `user_id` int(10) UNSIGNED NOT NULL,
   `household_id` int(10) UNSIGNED NOT NULL,
   `store_item_id` int(10) UNSIGNED NOT NULL,
-  `spent_points` int(10) UNSIGNED NOT NULL DEFAULT 50,
+  `spent_points` int(10) UNSIGNED NOT NULL DEFAULT 30,
   `discount_pct` tinyint(3) UNSIGNED NOT NULL DEFAULT 30,
   `coupon_code` varchar(40) NOT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
@@ -61,14 +61,15 @@ CREATE TABLE IF NOT EXISTS `campaign_supports` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO `store_items` (`slug`, `category`, `brand_name`, `title`, `description`, `image_path`, `discount_pct`, `cost_points`, `sort_order`) VALUES
-('damla-kafe', 'cafe', 'Damla Kafe', '', 'Porselen fincan ile servis yaparak gizli su tüketimini azaltmaktadır.', NULL, 30, 50, 1),
-('yesil-sofra-restoran', 'restaurant', 'Yeşil Sofra Restoran', '', 'Menüdeki yemek tercihlerini düşük su ayak izli ve mevsimsel içeriklere göre ayarlayarak mutfakta su tüketimini azaltmaktadır.', NULL, 50, 50, 2),
-('aquapure-deterjan', 'detergent', 'AquaPure Su Dostu Deterjan', '', 'Su tasarrufuna katkı sağlayan ve su ayak izini azaltmayı amaçlamış konsantre çamaşır ve bulaşık deterjanı.', NULL, 10, 50, 3),
-('ekoakis-perlator', 'eco_product', 'EkoAkış', '', 'Havalandırmalı Musluk Perlatörü', NULL, 15, 50, 4)
+('damla-kafe', 'cafe', 'Damla Kafe', '', 'Porselen fincan ile servis yaparak gizli su tüketimini azaltmaktadır.', 'assets/store/damla-kafe.jpg', 30, 30, 1),
+('yesil-sofra-restoran', 'restaurant', 'Yeşil Sofra Restoran', '', 'Menüdeki yemek tercihlerini düşük su ayak izli ve mevsimsel içeriklere göre ayarlayarak mutfakta su tüketimini azaltmaktadır.', 'assets/store/yesil-sofra-restoran.jpg', 50, 50, 2),
+('aquapure-deterjan', 'detergent', 'AquaPure Su Dostu Deterjan', '', 'Su tasarrufuna katkı sağlayan ve su ayak izini azaltmayı amaçlamış konsantre çamaşır ve bulaşık deterjanı.', 'assets/store/aquapure-deterjan.jpg', 10, 10, 3),
+('ekoakis-perlator', 'eco_product', 'EkoAkış', '', 'Havalandırmalı Musluk Perlatörü', 'assets/store/ekoakis-perlator.jpg', 15, 15, 4)
 ON DUPLICATE KEY UPDATE
   `brand_name` = VALUES(`brand_name`),
   `title` = VALUES(`title`),
   `description` = VALUES(`description`),
+  `image_path` = VALUES(`image_path`),
   `discount_pct` = VALUES(`discount_pct`),
   `cost_points` = VALUES(`cost_points`),
   `sort_order` = VALUES(`sort_order`);

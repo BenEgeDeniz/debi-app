@@ -818,6 +818,15 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
+        const closePopupBtn = ev.target.closest('.js-close-store-popup');
+        if (closePopupBtn || ev.target.classList.contains('store-popup-overlay')) {
+            const modal = document.getElementById('storeErrorPopupModal');
+            if (modal && modal.parentNode) {
+                modal.parentNode.removeChild(modal);
+            }
+            return;
+        }
+
         const copyBtn = ev.target.closest('.btn-copy[data-copy]');
         if (copyBtn) {
             const text = copyBtn.getAttribute('data-copy');
@@ -834,15 +843,19 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape') {
+            const modal = document.getElementById('storeErrorPopupModal');
+            if (modal && modal.parentNode) {
+                modal.parentNode.removeChild(modal);
+            }
+        }
+    });
+
     document.addEventListener('input', function (ev) {
         if (ev.target && ev.target.name === 'support_points') {
-            const form = ev.target.closest('.campaign-send-form');
             const card = ev.target.closest('.campaign-support-card');
             const val = Math.max(50, parseInt(ev.target.value || '50', 10) || 50);
-            if (form) {
-                const btn = form.querySelector('button[type="submit"]');
-                if (btn) btn.textContent = val + ' DP Gönder';
-            }
             if (card) {
                 const badgeStrong = card.querySelector('.campaign-badge strong');
                 if (badgeStrong) badgeStrong.textContent = val + ' DP';
