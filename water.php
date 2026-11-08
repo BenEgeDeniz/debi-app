@@ -97,11 +97,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($res['ok']) {
             $pondAfter = get_household_pond_state($householdId);
 
-            if ($aiUnmodified) {
-                set_flash('success', 'Fatura kaydedildi · +' . (int) ($res['points_awarded'] ?? 0) . ' Damla');
+            $pointsAwarded = (int) ($res['points_awarded'] ?? 0);
+            if ($pointsAwarded > 0) {
+                set_flash('success', 'Fatura kaydedildi · +' . $pointsAwarded . ' Damla');
                 $_SESSION['pond_celebration'] = [
-                    'earned_drops'    => (int) ($res['points_awarded'] ?? 0),
-                    'drop_reasons'    => !empty($res['drop_reasons']) ? $res['drop_reasons'] : ['✨ Yapay Zeka Doğrulaması: +10 Damla'],
+                    'earned_drops'    => $pointsAwarded,
+                    'drop_reasons'    => !empty($res['drop_reasons']) ? $res['drop_reasons'] : ['💧 Fatura kaydı'],
                     'drops_before'    => (int) ($pondBefore['total_drops'] ?? 0),
                     'drops_after'     => (int) ($pondAfter['total_drops'] ?? 10),
                     'target_drops'    => (int) ($pondAfter['target_drops'] ?? 100),
