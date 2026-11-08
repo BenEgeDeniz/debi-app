@@ -111,6 +111,10 @@ function get_household_point_breakdown(int $householdId, int $userId): array
         'total' => 0,
         'user' => 0,
         'household' => 0,
+        'user_virtual_water' => 0,
+        'user_bills' => 0,
+        'household_virtual_water' => 0,
+        'household_bills' => 0,
     ];
     if ($householdId <= 0 || $userId <= 0) {
         return $breakdown;
@@ -118,19 +122,23 @@ function get_household_point_breakdown(int $householdId, int $userId): array
 
     try {
         $stmt = db()->prepare("
-            SELECT user_id, COALESCE(SUM(points), 0) AS total_points
+            SELECT user_id, action_code, COALESCE(SUM(points), 0) AS total_points
             FROM point_logs
             WHERE household_id = :hid
               AND action_code IN ('bill_drops_earned', 'event_participation')
-            GROUP BY user_id
+            GROUP BY user_id, action_code
         ");
         $stmt->execute([':hid' => $householdId]);
         foreach ($stmt->fetchAll() as $row) {
             $points = (int) $row['total_points'];
-            if ((int) $row['user_id'] === $userId) {
+            $isUser = (int) $row['user_id'] === $userId;
+            $isVirtualWater = $row['action_code'] === 'event_participation';
+            if ($isUser) {
                 $breakdown['user'] += $points;
+                $breakdown[$isVirtualWater ? 'user_virtual_water' : 'user_bills'] += $points;
             } else {
                 $breakdown['household'] += $points;
+                $breakdown[$isVirtualWater ? 'household_virtual_water' : 'household_bills'] += $points;
             }
         }
         $breakdown['total'] = $breakdown['user'] + $breakdown['household'];

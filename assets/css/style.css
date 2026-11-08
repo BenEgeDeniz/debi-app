@@ -3119,6 +3119,15 @@ a.timeline-meta-item:hover {
     font-weight: 700;
 }
 
+.pond-points-sources {
+    display: grid;
+    gap: 2px;
+    padding-top: 3px;
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+
 .lb-switch-tabs {
     display: flex;
     background-color: var(--bg-subtle);

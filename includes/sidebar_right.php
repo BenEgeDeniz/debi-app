@@ -16,6 +16,10 @@ $pointBreakdown = $currentUser ? get_household_point_breakdown(
     'total' => 0,
     'user' => 0,
     'household' => 0,
+    'user_virtual_water' => 0,
+    'user_bills' => 0,
+    'household_virtual_water' => 0,
+    'household_bills' => 0,
 ];
 
 ?>
@@ -76,6 +80,10 @@ $pointBreakdown = $currentUser ? get_household_point_breakdown(
                         <div class="pond-points-breakdown">
                             <span>Siz: <?= number_format($pointBreakdown['user'], 0, ',', '.') ?> DP</span>
                             <span>Hane katkısı: <?= number_format($pointBreakdown['household'], 0, ',', '.') ?> DP</span>
+                        </div>
+                        <div class="pond-points-sources">
+                            <span>Etkinlik / sanal su: Siz <?= number_format($pointBreakdown['user_virtual_water'], 0, ',', '.') ?> · Hane <?= number_format($pointBreakdown['household_virtual_water'], 0, ',', '.') ?> DP</span>
+                            <span>Fatura / gerçek tasarruf: Siz <?= number_format($pointBreakdown['user_bills'], 0, ',', '.') ?> · Hane <?= number_format($pointBreakdown['household_bills'], 0, ',', '.') ?> DP</span>
                         </div>
                     </div>
                 </div>
