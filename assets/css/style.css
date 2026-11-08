@@ -1297,22 +1297,13 @@ form[aria-busy="true"] {
 }
 
 .nav-alert-dot {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 62px;
-    height: 22px;
-    padding: 0 8px;
-    color: #ffffff;
-    font-size: 0.66rem;
-    font-weight: 800;
-    line-height: 1;
-    letter-spacing: .01em;
+    width: 13px;
+    height: 13px;
     margin-left: auto;
     flex-shrink: 0;
     background: var(--brand-danger);
     border: 2px solid var(--bg-surface);
-    border-radius: var(--radius-pill);
+    border-radius: 50%;
     box-shadow: 0 3px 8px rgba(220, 38, 38, .22);
     animation: nav-alert-pulse 2.2s ease-in-out infinite;
 }
