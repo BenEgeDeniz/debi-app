@@ -100,6 +100,16 @@ require_once __DIR__ . '/includes/header.php';
                                     </div>
                                     <p><?= render_mention_content($comment['content']) ?></p>
                                     <button type="button" class="comment-reply-btn" data-comment-id="<?= (int) $comment['id'] ?>">Yanıtla</button>
+                                    <form method="post" action="post.php?id=<?= (int) $post['id'] ?>" class="comment-form comment-reply-form" hidden>
+                                        <?= csrf_field() ?>
+                                        <input type="hidden" name="action" value="add_comment">
+                                        <input type="hidden" name="parent_comment_id" value="<?= (int) $comment['id'] ?>">
+                                        <div class="mention-field" data-mention-users="<?= e(json_encode($taggableUsers, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)) ?>">
+                                            <input type="text" name="comment_content" autocomplete="off" required placeholder="Yanıt yazın...">
+                                            <div class="mention-suggestions" hidden></div>
+                                        </div>
+                                        <button type="submit" class="btn btn-outline btn-sm">Yanıtla</button>
+                                    </form>
                                 </div>
                             </li>
                         <?php endforeach; ?>

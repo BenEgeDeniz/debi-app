@@ -1514,6 +1514,10 @@ a.timeline-meta-item:hover {
     padding: 18px 20px;
 }
 
+.post-clickable {
+    cursor: pointer;
+}
+
 .post-header {
     display: flex;
     align-items: flex-start;

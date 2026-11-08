@@ -116,16 +116,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.querySelectorAll('.comment-reply-btn').forEach(function (button) {
         button.addEventListener('click', function () {
-            const box = button.closest('.comments-box');
-            const form = box ? box.querySelector('.comment-form') : null;
+            const item = button.closest('.comment-item');
+            const form = item ? item.querySelector('.comment-reply-form') : null;
             if (!form) return;
-            const parent = form.querySelector('[name="parent_comment_id"]');
-            const input = form.querySelector('[name="comment_content"]');
-            if (parent) parent.value = button.dataset.commentId || '0';
-            if (input) {
-                input.placeholder = 'Yanıt yazın...';
-                input.focus();
+            const isHidden = form.hidden;
+            document.querySelectorAll('.comment-reply-form').forEach(function (replyForm) {
+                replyForm.hidden = true;
+            });
+            form.hidden = !isHidden;
+            if (!form.hidden) {
+                const input = form.querySelector('[name="comment_content"]');
+                if (input) input.focus();
             }
+        });
+    });
+
+    document.querySelectorAll('.post-clickable').forEach(function (post) {
+        post.addEventListener('click', function (event) {
+            if (event.target.closest('a, button, form, input, textarea, select, label')) return;
+            const url = post.dataset.postUrl;
+            if (url) window.location.href = url;
         });
     });
 

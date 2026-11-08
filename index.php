@@ -194,7 +194,7 @@ require_once __DIR__ . '/includes/header.php';
             <?php else: ?>
                 <div class="post-list">
                     <?php foreach ($posts as $post): ?>
-                        <article class="panel-card post-card <?= $post['is_pinned'] ? 'post-pinned' : '' ?>" id="post-<?= (int) $post['id'] ?>">
+                        <article class="panel-card post-card post-clickable <?= $post['is_pinned'] ? 'post-pinned' : '' ?>" data-post-url="post.php?id=<?= (int) $post['id'] ?>" id="post-<?= (int) $post['id'] ?>">
                             <div class="post-header">
                                 <div class="post-author-group">
                                     <a href="profile.php?id=<?= (int) $post['user_id'] ?>">
@@ -244,9 +244,9 @@ require_once __DIR__ . '/includes/header.php';
                                     </button>
                                 </form>
 
-                                <button type="button" class="btn-action js-toggle-comments" data-target="comments-<?= (int) $post['id'] ?>">
+                                <a class="btn-action" href="post.php?id=<?= (int) $post['id'] ?>">
                                     💬 <?= (int) $post['comment_count'] ?>
-                                </button>
+                                </a>
 
                                 <?php if ((int) $post['user_id'] === (int) $currentUser['id'] || ($currentUser['role'] === 'manager' && !empty($currentUser['apartment_id']) && (int) $post['apartment_id'] === (int) $currentUser['apartment_id'])): ?>
                                     <form method="post" action="index.php" class="delete-post-form" onsubmit="return confirm('Bu paylaşımı silmek istediğinize emin misiniz?');">
@@ -259,46 +259,6 @@ require_once __DIR__ . '/includes/header.php';
                                 <?php endif; ?>
                             </div>
 
-                            <!-- Yorumlar Bölümü -->
-                            <div class="comments-box" id="comments-<?= (int) $post['id'] ?>">
-                                <?php if (!empty($post['comments'])): ?>
-                                    <ul class="comment-list">
-                                        <?php foreach ($post['comments'] as $comment): ?>
-                                            <li class="comment-item comment-depth-<?= (int) ($comment['depth'] ?? 0) ?>">
-                                                <a href="profile.php?id=<?= (int) $comment['user_id'] ?>">
-                                                    <?= render_avatar($comment, 'avatar-xs') ?>
-                                                </a>
-                                                <div class="comment-content">
-                                                    <div class="comment-meta">
-                                                        <a href="profile.php?id=<?= (int) $comment['user_id'] ?>" class="author-link">
-                                                            <strong><?= e($comment['full_name']) ?> · @<?= e($comment['nickname'] ?? '') ?></strong>
-                                                        </a>
-                                                        <span>
-                                                            <?= !empty($comment['apartment_name']) ? e($comment['apartment_name'] . ' · ' . $comment['unit_label']) : e($comment['unit_label']) ?>
-                                                        </span>
-                                                        <time><?= e(time_ago($comment['created_at'])) ?></time>
-                                                    </div>
-                                                    <p><?= render_mention_content($comment['content']) ?></p>
-                                                    <button type="button" class="comment-reply-btn" data-comment-id="<?= (int) $comment['id'] ?>">Yanıtla</button>
-                                                </div>
-                                            </li>
-                                        <?php endforeach; ?>
-                                    </ul>
-                                <?php endif; ?>
-
-                                <form method="post" action="index.php" class="comment-form">
-                                    <?= csrf_field() ?>
-                                    <input type="hidden" name="action" value="add_comment">
-                                    <input type="hidden" name="post_id" value="<?= (int) $post['id'] ?>">
-                                    <input type="hidden" name="return_scope" value="<?= e($scope) ?>">
-                                    <input type="hidden" name="parent_comment_id" value="0">
-                                    <div class="mention-field" data-mention-users="<?= e(json_encode($taggableByVisibility[$post['visibility']] ?? [], JSON_UNESCAPED_UNICODE)) ?>">
-                                        <input type="text" name="comment_content" required placeholder="Yorum yazın...">
-                                        <div class="mention-suggestions" hidden></div>
-                                    </div>
-                                    <button type="submit" class="btn btn-outline btn-sm">Gönder</button>
-                                </form>
-                            </div>
                         </article>
                     <?php endforeach; ?>
                 </div>
