@@ -167,24 +167,12 @@ function get_user_timeline_posts(array $profileUser, array $viewerUser): array
     $profileId = (int) $profileUser['id'];
     $viewerId  = (int) $viewerUser['id'];
 
-    $params = [':author_uid' => $profileId];
+    $params = [
+        ':current_uid' => $viewerId,
+        ':author_uid' => $profileId,
+    ];
+    $whereSql = "p.user_id = :author_uid";
 
-    if ($profileId === $viewerId) {
-        $whereSql = "p.user_id = :author_uid";
-    } else {
-        $allowedVis = ["'public'", "'neighborhood'"];
-        if (function_exists('get_friendship_relation')) {
-            $rel = get_friendship_relation($viewerId, $profileId);
-            if (($rel['state'] ?? '') === 'accepted') {
-                $allowedVis[] = "'friends'";
-            }
-        }
-        if (!empty($viewerUser['apartment_id']) && (int) $viewerUser['apartment_id'] === (int) ($profileUser['apartment_id'] ?? 0)) {
-            $allowedVis[] = "'apartment'";
-        }
-        $visList  = implode(',', $allowedVis);
-        $whereSql = "p.user_id = :author_uid AND p.visibility IN ({$visList})";
-    }
     return fetch_posts_with_comments($pdo, $whereSql, $params);
 }
 
